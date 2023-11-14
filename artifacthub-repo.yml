@@ -1,0 +1,6 @@
+# Artifact Hub repository metadata file
+# Used to become verified publisher and more - https://artifacthub.io/docs/topics/repositories/#verified-publisher
+repositoryID: 574d3f44-9b78-4fa1-9e78-e70b37853b9f
+owners:
+  - name: Ankush Jain
+    email: ankush@akto.io
