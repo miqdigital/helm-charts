@@ -16,8 +16,8 @@ dashboard:
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
     image:
-      repository: aktosecurity/akto-api-security-dashboard
-      tag: debug_feature_rootless_2
+      repository: public.ecr.aws/aktosecurity/akto-api-security-dashboard
+      tag: latest
     imagePullPolicy: IfNotPresent
     resources:
       requests:
@@ -48,8 +48,8 @@ runtime:
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
     image:
-      repository: aktosecurity/akto-api-security-runtime
-      tag: debug_feature_rootless_2
+      repository: public.ecr.aws/aktosecurity/akto-api-security-runtime
+      tag: latest
     imagePullPolicy: IfNotPresent
     resources:
       requests:
@@ -123,8 +123,8 @@ testing:
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
     image:
-      repository: aktosecurity/akto-api-testing
-      tag: debug_feature_rootless_2
+      repository: public.ecr.aws/aktosecurity/akto-api-testing
+      tag: latest
     resources:
       requests:
         cpu: 1

@@ -5,7 +5,7 @@ metadata:
   annotations:
     keel.sh/policy: force
     keel.sh/trigger: poll
-    keel.sh/pollSchedule: "@every 10m"
+    keel.sh/pollSchedule: "@every 60m"
   labels:
   {{- include "akto.labels" . | nindent 4 }}
 spec:
@@ -25,6 +25,8 @@ spec:
         - name: AKTO_ACCOUNT_NAME
           value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoAccountName
             }}
+        - name: IS_KUBERNETES
+          value: "true"
         - name: AKTO_CONFIG_NAME
           value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoConfigName
             }}
@@ -76,7 +78,7 @@ metadata:
   annotations:
     keel.sh/policy: force
     keel.sh/trigger: poll
-    keel.sh/pollSchedule: "@every 10m"
+    keel.sh/pollSchedule: "@every 60m"
   labels:
   {{- include "akto.labels" . | nindent 4 }}
 spec:
@@ -95,6 +97,8 @@ spec:
       - env:
         - name: AKTO_ACCOUNT_NAME
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoAccountName }}
+        - name: IS_KUBERNETES
+          value: "true"
         - name: AKTO_CONFIG_NAME
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoConfigName }}
         - name: AKTO_INSTANCE_TYPE
@@ -140,7 +144,7 @@ metadata:
   annotations:
     keel.sh/policy: force
     keel.sh/trigger: poll
-    keel.sh/pollSchedule: "@every 10m"
+    keel.sh/pollSchedule: "@every 60m"
   labels:
   {{- include "akto.labels" . | nindent 4 }}
 spec:
@@ -159,6 +163,8 @@ spec:
       - env:
         - name: AKTO_ACCOUNT_NAME
           value: {{ quote .Values.runtime.aktoApiSecurityRuntime.env.aktoAccountName }}
+        - name: IS_KUBERNETES
+          value: "true"
         - name: AKTO_CONFIG_NAME
           value: {{ quote .Values.runtime.aktoApiSecurityRuntime.env.aktoConfigName }}
         - name: AKTO_INSTANCE_TYPE
@@ -221,7 +227,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: KAFKA_ADVERTISED_LISTENERS
-          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-runtime.{{.Release.Namespace}}.svc.cluster.local:9092"
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}-runtime.{{.Release.Namespace}}.svc.cluster.local:9092"
         - name: KAFKA_BROKER_ID
           value: {{ quote .Values.runtime.kafka1.env.kafkaBrokerId }}
         - name: KAFKA_CLEANUP_POLICY
