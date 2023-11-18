@@ -9,7 +9,7 @@ metadata:
 spec:
   type: {{ .Values.dashboard.type }}
   selector:
-    app: akto-api-security-dashboard
+    app: {{ include "akto.fullname" . }}-dashboard
   {{- include "akto.selectorLabels" . | nindent 4 }}
   ports:
 	{{- .Values.dashboard.ports | toYaml | nindent 2 -}}
