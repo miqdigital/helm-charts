@@ -12,12 +12,12 @@ spec:
   replicas: {{ .Values.dashboard.replicas }}
   selector:
     matchLabels:
-      app: akto-api-security-dashboard
+      app: {{ include "akto.fullname" . }}-dashboard
     {{- include "akto.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: akto-api-security-dashboard
+        app: {{ include "akto.fullname" . }}-dashboard
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
       containers:
@@ -85,12 +85,12 @@ spec:
   replicas: {{ .Values.testing.replicas }}
   selector:
     matchLabels:
-      app: akto-api-security-testing
+      app: {{ include "akto.fullname" . }}-testing
     {{- include "akto.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: akto-api-security-testing
+        app: {{ include "akto.fullname" . }}-testing
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
       containers:
@@ -151,12 +151,12 @@ spec:
   replicas: {{ .Values.runtime.replicas }}
   selector:
     matchLabels:
-      app: akto-api-security-runtime
+      app: {{ include "akto.fullname" . }}-runtime
     {{- include "akto.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: akto-api-security-runtime
+        app: {{ include "akto.fullname" . }}-runtime
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
       containers:
@@ -283,12 +283,12 @@ spec:
   replicas: {{ .Values.keel.replicas }}
   selector:
     matchLabels:
-      app: keel
+      app: {{ include "akto.fullname" . }}-keel
     {{- include "akto.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: keel
+        app: {{ include "akto.fullname" . }}-keel
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
       containers:

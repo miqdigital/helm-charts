@@ -8,7 +8,7 @@ metadata:
 spec:
   type: {{ .Values.keel.type }}
   selector:
-    app: keel
+    app: {{ include "akto.fullname" . }}-keel
   {{- include "akto.selectorLabels" . | nindent 4 }}
   ports:
 	{{- .Values.keel.ports | toYaml | nindent 2 -}}

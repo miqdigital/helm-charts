@@ -7,7 +7,7 @@ metadata:
 spec:
   type: {{ .Values.runtime.type }}
   selector:
-    app: akto-api-security-runtime
+    app: {{ include "akto.fullname" . }}-runtime
   {{- include "akto.selectorLabels" . | nindent 4 }}
   ports:
 	{{- .Values.runtime.ports | toYaml | nindent 2 -}}
