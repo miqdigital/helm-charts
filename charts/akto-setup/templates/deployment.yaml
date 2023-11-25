@@ -1,3 +1,4 @@
+{{ if .Values.dashboard.aktoApiSecurityDashboard.env.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -70,7 +71,9 @@ spec:
         ports:
         - containerPort: 8080
         resources: {{- toYaml .Values.dashboard.aktoApiSecurityDashboard.resources |  nindent 10 }}
+{{ end }}
 ---
+{{ if .Values.testing.aktoApiSecurityTesting.env.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -136,7 +139,9 @@ spec:
         name: akto-api-security-testing
         resources: {{- toYaml .Values.testing.aktoApiSecurityTesting.resources |  nindent 10 }}
       restartPolicy: Always
+{{ end }}
 ---
+{{ if .Values.runtime.aktoApiSecurityRuntime.env.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -270,7 +275,7 @@ spec:
         - containerPort: 9999
         resources: {{- toYaml .Values.runtime.kafka1.resources | nindent 10 }}
       restartPolicy: Always
-
+{{ end }}
 ---
 apiVersion: apps/v1
 kind: Deployment

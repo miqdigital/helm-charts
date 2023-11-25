@@ -15,6 +15,7 @@ dashboard:
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+      enabled: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-dashboard
       tag: latest
@@ -47,6 +48,7 @@ runtime:
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
+      enabled: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-runtime
       tag: latest
@@ -122,6 +124,7 @@ testing:
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+      enabled: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-testing
       tag: latest
