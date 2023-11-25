@@ -1,3 +1,4 @@
+{{ if .Values.runtime.aktoApiSecurityRuntime.env.enabled }}
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -12,3 +13,4 @@ spec:
     kind: Deployment
     name: {{ include "akto.fullname" . }}-runtime
   targetCPUUtilizationPercentage: 80
+{{ end }}

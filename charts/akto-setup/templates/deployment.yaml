@@ -277,6 +277,7 @@ spec:
       restartPolicy: Always
 {{ end }}
 ---
+{{ if .Values.keel.keel.env.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -346,3 +347,4 @@ spec:
         - containerPort: 9300
         resources: {{- toYaml .Values.keel.keel.resources | nindent 10 }}
       serviceAccountName: {{ include "akto.fullname" . }}-keel
+{{ end }}

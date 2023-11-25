@@ -154,6 +154,7 @@ keel:
       mattermostEndpoint: ""
       notificationLevel: info
       webhookEndpoint: ""
+      enabled: true
     image:
       repository: keelhq/keel
       tag: latest
