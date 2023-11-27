@@ -1,4 +1,3 @@
-{{ if .Values.dashboard.aktoApiSecurityDashboard.env.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,4 +13,3 @@ spec:
   {{- include "akto.selectorLabels" . | nindent 4 }}
   ports:
 	{{- .Values.dashboard.ports | toYaml | nindent 2 -}}
-{{ end }}
