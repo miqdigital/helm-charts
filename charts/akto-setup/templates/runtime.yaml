@@ -1,3 +1,4 @@
+{{ if .Values.runtime.aktoApiSecurityRuntime.env.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -11,3 +12,4 @@ spec:
   {{- include "akto.selectorLabels" . | nindent 4 }}
   ports:
 	{{- .Values.runtime.ports | toYaml | nindent 2 -}}
+{{ end }}
