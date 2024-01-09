@@ -38,7 +38,7 @@ runtime:
     env:
       aktoAccountName: Helios
       aktoConfigName: staging
-      aktoInstanceType: DASHBOARD
+      aktoInstanceType: RUNTIME
       aktoKafkaBrokerMal: localhost:29092
       aktoKafkaBrokerUrl: 127.0.0.1:29092
       aktoKafkaGroupIdConfig: asdf
