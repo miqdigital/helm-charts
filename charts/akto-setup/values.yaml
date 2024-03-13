@@ -123,7 +123,7 @@ testing:
       aktoKafkaTopicName: akto.api.logs
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
-      puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+      puppeteerReplayServiceUrl: http://localhost:3000
       enabled: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-testing
@@ -135,6 +135,18 @@ testing:
       limits:
         cpu: 2
         memory: "8Gi"
+  aktoApiSecurityPuppeteerReplay:
+    image:
+      repository: aktosecurity/akto-puppeteer-replay
+      tag: latest
+    imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 1
+        memory: "4Gi"
   replicas: 1
 
 

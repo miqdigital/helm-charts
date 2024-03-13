@@ -140,6 +140,12 @@ spec:
           | default .Chart.AppVersion }}
         name: akto-api-security-testing
         resources: {{- toYaml .Values.testing.aktoApiSecurityTesting.resources |  nindent 10 }}
+      - name: akto-api-security-puppeteer-replay
+        image: {{ .Values.testing.aktoApiSecurityPuppeteerReplay.image.repository }}:{{ .Values.testing.aktoApiSecurityPuppeteerReplay.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.testing.aktoApiSecurityPuppeteerReplay.imagePullPolicy }}
+        ports:
+          - containerPort: 3000
+        resources: {{- toYaml .Values.testing.aktoApiSecurityPuppeteerReplay.resources |  nindent 10 }}
       restartPolicy: Always
 {{ end }}
 ---
