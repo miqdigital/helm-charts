@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-config
+data:
+  master.conf: |
+    # PostgreSQL configuration for master
+    wal_level = replica
+    max_wal_senders = 10
+    hot_standby = on
+  slave.conf: |
+    # PostgreSQL configuration for slave
+    hot_standby = on
