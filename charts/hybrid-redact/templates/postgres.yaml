@@ -78,3 +78,5 @@ spec:
             items:
               - key: slave.conf
                 path: postgresql.conf
+
+# TODO: pvc, ecr images.
