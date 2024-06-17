@@ -3,7 +3,7 @@ tokens:
     databaseAbstractorToken: ""
     postgresUrl: ""
     postgresUser: "postgres"
-    postgresPassword: "mysecretpassword"
+    postgresPassword: "securePassword"
 
 mini_runtime: 
   aktoApiSecurityRuntime:
