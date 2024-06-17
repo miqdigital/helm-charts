@@ -1,7 +1,7 @@
 tokens:
   env:
     databaseAbstractorToken: ""
-    postgresUrl: jdbc:postgresql://postgresql-master.$(MY_POD_NAMESPACE).svc.cluster.local:5432/postgres
+    postgresUrl: ""
     postgresUser: "postgres"
     postgresPassword: "mysecretpassword"
 
@@ -23,7 +23,7 @@ mini_runtime:
       databaseAbstractorUrl: https://cyborg.akto.io
     image:
       repository: aktosecurity/mini-runtime
-      tag: a-feature-mini-testing-2
+      tag: a-feature-kafka-poll-db-abstractor-test
     imagePullPolicy: Always
     resources:
       requests:
@@ -92,7 +92,7 @@ testing:
       databaseAbstractorUrl: https://cyborg.akto.io
     image:
       repository: aktosecurity/mini-testing
-      tag: a-feature-mini-testing-2
+      tag: a-feature-kafka-poll-db-abstractor-test
     resources:
       requests:
         cpu: 1
@@ -152,25 +152,3 @@ keel:
     annotations: {}
   type: LoadBalancer
 kubernetesClusterDomain: cluster.local
-
-postgres:
-  replicaCount: 2
-
-  image:
-    repository: postgres
-    tag: "12.6"
-    pullPolicy: IfNotPresent
-
-  master:
-    name: postgresql-master
-    port: 5432
-
-  slave:
-    name: postgresql-slave
-    port: 5432
-
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-  postgresqlPassword: mysecretpassword
