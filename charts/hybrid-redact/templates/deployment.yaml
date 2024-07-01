@@ -2,10 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "akto.fullname" . }}-mini-runtime
+  {{ if .Values.keel.keel.enabled }}
   annotations:
     keel.sh/policy: force
     keel.sh/trigger: poll
     keel.sh/pollSchedule: "@every 60m"
+  {{ end }}
   labels:
   {{- include "akto.labels" . | nindent 4 }}
 spec:
@@ -21,7 +23,7 @@ spec:
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
       containers:
-        {{ if .Values.mini_runtime.aktoApiSecurityRuntime.env.enabled }}
+        {{ if .Values.mini_runtime.aktoApiSecurityRuntime.enabled }}
       - env:
         - name: MY_POD_NAMESPACE
           valueFrom:
@@ -152,6 +154,7 @@ spec:
         resources: {{- toYaml .Values.mini_runtime.kafka1.resources | nindent 10 }}
       restartPolicy: Always
 ---
+{{ if .Values.keel.keel.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -221,18 +224,20 @@ spec:
         - containerPort: 9300
         resources: {{- toYaml .Values.keel.keel.resources | nindent 10 }}
       serviceAccountName: {{ include "akto.fullname" . }}-keel
-
+{{ end }}
 ---
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "akto.fullname" . }}-testing
+  {{ if .Values.keel.keel.enabled }}
   annotations:
     keel.sh/policy: force
     keel.sh/trigger: poll
     keel.sh/match-tag: "true"
     keel.sh/pollSchedule: "@every 60m"
+  {{ end }}
   labels:
   {{- include "akto.labels" . | nindent 4 }}
 spec:

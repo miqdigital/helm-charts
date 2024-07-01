@@ -23,7 +23,7 @@ mini_runtime:
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://cyborg.akto.io
-      enabled: true
+    enabled: true
     image:
       repository: aktosecurity/mini-runtime
       tag: a-feature-kafka-poll-db-abstractor-test-4
@@ -144,6 +144,7 @@ keel:
       requests:
         cpu: 50m
         memory: 64Mi
+    enabled: true
   maxUnavailable: 1
   ports:
   - name: keel
