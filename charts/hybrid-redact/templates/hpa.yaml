@@ -5,7 +5,7 @@ metadata:
   labels:
   {{- include "akto.labels" . | nindent 4 }}
 spec:
-  maxReplicas: 2
+  maxReplicas: 5
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1

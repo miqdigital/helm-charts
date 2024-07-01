@@ -4,13 +4,15 @@ tokens:
     postgresUrl: ""
     postgresUser: "postgres"
     postgresPassword: "securePassword"
+    proxyUri: ""
+    noProxy: ""
 
 mini_runtime: 
   aktoApiSecurityRuntime:
     env:
       aktoAccountName: Helios
       aktoConfigName: staging
-      aktoInstanceType: DASHBOARD
+      aktoInstanceType: RUNTIME
       aktoKafkaBrokerMal: localhost:29092
       aktoKafkaBrokerUrl: 127.0.0.1:29092
       aktoKafkaGroupIdConfig: asdf
@@ -21,13 +23,14 @@ mini_runtime:
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://cyborg.akto.io
+      enabled: true
     image:
       repository: aktosecurity/mini-runtime
-      tag: a-feature-kafka-poll-db-abstractor-test
+      tag: a-feature-kafka-poll-db-abstractor-test-4
     imagePullPolicy: Always
     resources:
       requests:
-        cpu: 0.5
+        cpu: "180m"
         memory: "500Mi"
       limits:
         cpu: 3
@@ -56,7 +59,7 @@ mini_runtime:
       tag: 6.2.11-1-ubi8
     resources:
       requests:
-        cpu: 0.5
+        cpu: "50m"
         memory: "500Mi"
       limits:
         cpu: 2
@@ -77,7 +80,7 @@ mini_runtime:
       tag: 6.2.11-1-ubi8
     resources:
       requests:
-        cpu: 0.5
+        cpu: "5m"
         memory: "500Mi"
       limits:
         cpu: 2
