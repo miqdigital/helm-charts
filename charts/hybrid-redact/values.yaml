@@ -25,8 +25,8 @@ mini_runtime:
       databaseAbstractorUrl: https://cyborg.akto.io
     enabled: true
     image:
-      repository: aktosecurity/mini-runtime
-      tag: a-feature-kafka-poll-db-abstractor-test-4
+      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
+      tag: 1.41.9_local
     imagePullPolicy: Always
     resources:
       requests:
@@ -94,12 +94,12 @@ testing:
       puppeteerReplayServiceUrl: http://localhost:3000
       databaseAbstractorUrl: https://cyborg.akto.io
     image:
-      repository: aktosecurity/mini-testing
-      tag: a-feature-kafka-poll-db-abstractor-test
+      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
+      tag: 1.41.9_local
     resources:
       requests:
-        cpu: 1
-        memory: "2Gi"
+        cpu: "200m"
+        memory: "500Mi"
       limits:
         cpu: 2
         memory: "8Gi"
