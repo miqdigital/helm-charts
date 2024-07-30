@@ -26,7 +26,7 @@ mini_runtime:
     enabled: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: 1.41.12_local
+      tag: 1.41.13_local
     imagePullPolicy: Always
     resources:
       requests:
@@ -95,7 +95,7 @@ testing:
       databaseAbstractorUrl: https://cyborg.akto.io
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
-      tag: 1.41.12_local
+      tag: 1.41.13_local
     resources:
       requests:
         cpu: "200m"
