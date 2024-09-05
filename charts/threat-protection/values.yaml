@@ -16,8 +16,8 @@ threat_detection:
       requestProtectionEnabled: "true"
     enabled: true
     image:
-      repository: public.ecr.aws/aktosecurity/mirror-api-logging
-      tag: handle-requests
+      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
+      tag: latest
     imagePullPolicy: Always
     resources:
       requests:
