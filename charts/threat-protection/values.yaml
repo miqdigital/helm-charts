@@ -1,3 +1,5 @@
+mongo:
+  aktoMongoConn: ""
 threat_detection: 
   aktoApiSecurityRuntime:
     env:
@@ -12,8 +14,9 @@ threat_detection:
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
-      aktoKafkaProtectionUrl: localhost:29092
-      requestProtectionEnabled: "true"
+      useHostName: true
+      databaseAbstractorUrl: https://cyborg.akto.io
+      databaseAbstractorToken: ""
     enabled: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
