@@ -2,12 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "akto.fullname" . }}-threat-detection
-  {{ if .Values.keel.keel.enabled }}
   annotations:
     keel.sh/policy: force
     keel.sh/trigger: poll
     keel.sh/pollSchedule: "@every 60m"
-  {{ end }}
   labels:
   {{- include "akto.labels" . | nindent 4 }}
 spec:
@@ -23,12 +21,7 @@ spec:
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
       containers:
-        {{ if .Values.threat_detection.aktoApiSecurityRuntime.enabled }}
       - env:
-        - name: MY_POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: AKTO_ACCOUNT_NAME
           value: {{ quote .Values.threat_detection.aktoApiSecurityRuntime.env.aktoAccountName }}
         - name: IS_KUBERNETES
@@ -63,10 +56,14 @@ spec:
         - name: PUPPETEER_REPLAY_SERVICE_URL
           value: {{ quote .Values.threat_detection.aktoApiSecurityRuntime.env.puppeteerReplayServiceUrl
             }}
+        - name: AKTO_MONGO_CONN
+          value: {{ quote .Values.mongo.aktoMongoConn }}
         - name: USE_HOSTNAME
           value: {{ quote .Values.threat_detection.aktoApiSecurityRuntime.env.useHostName}}
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
           value: {{ quote .Values.threat_detection.aktoApiSecurityRuntime.env.databaseAbstractorUrl}}
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+          value: {{ quote .Values.threat_detection.aktoApiSecurityRuntime.env.databaseAbstractorToken}}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.threat_detection.aktoApiSecurityRuntime.image.repository }}:{{ .Values.threat_detection.aktoApiSecurityRuntime.image.tag
@@ -74,7 +71,6 @@ spec:
         imagePullPolicy: {{ .Values.threat_detection.aktoApiSecurityRuntime.imagePullPolicy }}
         name: akto-api-security-runtime
         resources: {{- toYaml .Values.threat_detection.aktoApiSecurityRuntime.resources |  nindent 10 }}
-      {{ end }}
       - env:
         - name: ZOOKEEPER_CLIENT_PORT
           value: {{ quote .Values.threat_detection.zoo1.env.zookeeperClientPort }}
@@ -141,8 +137,8 @@ spec:
         - containerPort: 9999
         resources: {{- toYaml .Values.threat_detection.kafka1.resources | nindent 10 }}
       restartPolicy: Always
+
 ---
-{{ if .Values.keel.keel.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -212,4 +208,3 @@ spec:
         - containerPort: 9300
         resources: {{- toYaml .Values.keel.keel.resources | nindent 10 }}
       serviceAccountName: {{ include "akto.fullname" . }}-keel
-{{ end }}
