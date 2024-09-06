@@ -1,5 +1,5 @@
 threat_detection: 
-  aktoApiSecurityDetection:
+  aktoApiSecurityRuntime:
     env:
       aktoAccountName: Helios
       aktoConfigName: staging
