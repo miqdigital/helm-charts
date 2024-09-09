@@ -1,7 +1,8 @@
 mongo:
   aktoMongoConn: ""
-threat_detection: 
-  aktoApiSecurityRuntime:
+
+runtime: 
+  aktoApiSecurityProtection:
     env:
       aktoAccountName: Helios
       aktoConfigName: staging
@@ -19,8 +20,8 @@ threat_detection:
       databaseAbstractorToken: ""
     enabled: true
     image:
-      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: latest
+      repository: aktosecurity/akto-api-protection
+      tag: local
     imagePullPolicy: Always
     resources:
       requests:
@@ -32,7 +33,7 @@ threat_detection:
   kafka1:
     env:
       kafkaAdvertisedListeners: LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,
-        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-threat-detection.$(MY_POD_NAMESPACE).svc.cluster.local:9092
+        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-protection.$(MY_POD_NAMESPACE).svc.cluster.local:9092
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
       kafkaCreateTopics: akto.api.logs:3:3
