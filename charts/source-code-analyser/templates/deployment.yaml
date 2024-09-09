@@ -42,5 +42,8 @@ spec:
           value: {{ quote .Values.source_code_analyser.codeAnalysisService.env.port }}
         image: {{ .Values.source_code_analyser.codeAnalysisService.image.repository }}:{{ .Values.source_code_analyser.codeAnalysisService.image.tag
           | default .Chart.AppVersion }}
+        args:
+          - cli
+          - extract
         name: codeAnalysisService
       restartPolicy: Always
