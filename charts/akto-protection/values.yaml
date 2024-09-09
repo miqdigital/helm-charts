@@ -32,11 +32,9 @@ runtime:
         memory: "8Gi"
   kafka1:
     env:
-      kafkaAdvertisedListeners: LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,
-        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-protection.$(MY_POD_NAMESPACE).svc.cluster.local:9092
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
-      kafkaCreateTopics: akto.api.logs:3:3
+      kafkaCreateTopics: akto.api.protection:3:3
       kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
       kafkaListenerSecurityProtocolMap: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,
         LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT

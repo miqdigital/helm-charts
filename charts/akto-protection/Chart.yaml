@@ -7,7 +7,7 @@ appVersion: "0.1.0"
 home: https://www.akto.io
 icon: https://akto-setup.s3.amazonaws.com/templates/128x128.png
 sources:
-  - https://github.com/akto-api-security/helm-charts/tree/master/charts/protection
+  - https://github.com/akto-api-security/helm-charts/tree/master/charts/akto-protection
 keywords:
   - akto
   - api

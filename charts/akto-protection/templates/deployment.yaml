@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "akto.fullname" . }}-protection
+  name: {{ include "akto.fullname" . }} 
   annotations:
     keel.sh/policy: force
     keel.sh/trigger: poll
@@ -12,12 +12,12 @@ spec:
   replicas: {{ .Values.runtime.replicas }}
   selector:
     matchLabels:
-      app: {{ include "akto.fullname" . }}-protection
+      app: {{ include "akto.fullname" . }} 
     {{- include "akto.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: {{ include "akto.fullname" . }}-protection
+        app: {{ include "akto.fullname" . }} 
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
       containers:
@@ -94,7 +94,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: KAFKA_ADVERTISED_LISTENERS
-          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}-protection.{{.Release.Namespace}}.svc.cluster.local:9092"
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}.{{.Release.Namespace}}.svc.cluster.local:9092"
         - name: KAFKA_BROKER_ID
           value: {{ quote .Values.runtime.kafka1.env.kafkaBrokerId }}
         - name: KAFKA_CLEANUP_POLICY

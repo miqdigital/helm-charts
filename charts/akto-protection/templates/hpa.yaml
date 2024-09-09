@@ -1,7 +1,7 @@
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "akto.fullname" . }}-protection
+  name: {{ include "akto.fullname" . }} 
   labels:
   {{- include "akto.labels" . | nindent 4 }}
 spec:
@@ -10,5 +10,5 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "akto.fullname" . }}-protection
+    name: {{ include "akto.fullname" . }} 
   targetCPUUtilizationPercentage: 80
