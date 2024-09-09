@@ -1,5 +1,5 @@
 mongo:
-  aktoMongoConn: "mongodb://10.0.33.254:27017/admini"
+  aktoMongoConn: ""
 
 database_abstractor:
   aktoApiSecurityDatabaseAbstractor:
