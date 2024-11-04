@@ -1,13 +1,13 @@
 apiVersion: v2
-name: akto-hybrid-redact
+name: akto-protection
 description: Helm chart for installing Akto
 type: application
-version: 1.42.1
-appVersion: "1.42.1"
+version: 0.1.0
+appVersion: "0.1.0"
 home: https://www.akto.io
 icon: https://akto-setup.s3.amazonaws.com/templates/128x128.png
 sources:
-  - https://github.com/akto-api-security/helm-charts/tree/master/charts/hybrid-redact
+  - https://github.com/akto-api-security/helm-charts/tree/master/charts/akto-protection
 keywords:
   - akto
   - api

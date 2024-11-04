@@ -259,6 +259,7 @@ keel:
       repository: keelhq/keel
       tag: latest
     imagePullPolicy: Always
+    enabled: true
     resources:
       limits:
         cpu: 100m
