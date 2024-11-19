@@ -2,6 +2,7 @@ mongo:
   aktoMongoConn: ""
 
 source_code_analyser:
+  replicas: 1
   aktoSourceCodeAnalyser:
     env:
       bitbucketHost: ""
@@ -22,9 +23,10 @@ source_code_analyser:
       useHostName: true
       databaseAbstractorUrl: https://doom.akto.io
       databaseAbstractorToken: ""
+      runtimeMode: ""
     image:
       repository: aktosecurity/source-code-analyser
-      tag: a-feature-source-code-analyser-02
+      tag: a-1703-merge
     imagePullPolicy: Always
     resources:
       requests:
@@ -36,7 +38,7 @@ source_code_analyser:
   codeAnalysisService:
     env:
       sourceCodeAnalyser: "true"
-      port: "3001"
+      port: 3001
       llmToken: ""
     image:
       repository: aktosecurity/akto-puppeteer-replay

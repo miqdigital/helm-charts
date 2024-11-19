@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: {{ include "akto.fullname" . }}-source-code-analyser
 spec:
-  replicas: {{ .Values.mini_runtime.replicas }}
+  replicas: {{ .Values.source_code_analyser.replicas }}
   selector:
     matchLabels:
       app: {{ include "akto.fullname" . }}-source-code-analyser
@@ -19,12 +19,14 @@ spec:
         image: {{ .Values.source_code_analyser.codeAnalysisService.image.repository }}:{{ .Values.source_code_analyser.codeAnalysisService.image.tag
                  | default .Chart.AppVersion }}
         volumeMounts:
-           - name: source-code
-             mountPath: /data
+          - name: source-code
+            mountPath: /data
         args:
           - cli
           - extract
-        name: codeAnalysisLspService
+          - --START_JAVA_LSP={{ .Values.source_code_analyser.codeAnalysisLspService.env.startJavaLsp | quote }}
+
+        name: code-analysis-lsp-service
 
       - name: eclipse-jdtls
         image: hotavneesh/eclipse-jdtls:latest
@@ -41,12 +43,15 @@ spec:
         image: {{ .Values.source_code_analyser.codeAnalysisService.image.repository }}:{{ .Values.source_code_analyser.codeAnalysisService.image.tag
                  | default .Chart.AppVersion }}
         volumeMounts:
-            - name: source-code
-              mountPath: /data
+          - name: source-code
+            mountPath: /data
         args:
           - cli
           - extract
-        name: codeAnalysisService
+          - --SOURCE_CODE_ANALYSER={{ .Values.source_code_analyser.codeAnalysisService.env.sourceCodeAnalyser | quote }}
+          - --PORT={{ .Values.source_code_analyser.codeAnalysisService.env.port | int }}
+
+        name: code-analysis-service
 
       - env:
         - name: BITBUCKET_HOST
@@ -56,11 +61,9 @@ spec:
         - name: GITHUB_ACCESS_TOKEN
           value: {{ quote .Values.source_code_analyser.aktoSourceCodeAnalyser.env.githubAccessToken }}
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
-          value: {{ quote .Values.source_code_analyser.aktoSourceCodeAnalyser.env.databaseAbstractorUrl}}
+          value: {{ quote .Values.source_code_analyser.aktoSourceCodeAnalyser.env.databaseAbstractorUrl }}
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
-          value: {{ quote .Values.source_code_analyser.aktoSourceCodeAnalyser.env.databaseAbstractorToken}}
-        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
-          value: {{ quote .Values.source_code_analyser.aktoSourceCodeAnalyser.env.databaseAbstractorToken}}
+          value: {{ quote .Values.source_code_analyser.aktoSourceCodeAnalyser.env.databaseAbstractorToken }}
         - name: SOURCE_CODE_HOST
           value: {{ quote .Values.source_code_analyser.aktoSourceCodeAnalyser.env.sourceCodeHost}}
         - name: AKTO_MONGO_CONN
@@ -68,7 +71,9 @@ spec:
         - name: IS_KUBERNETES
           value: "true"
         - name: RUNTIME_MODE
-          value: "hybrid"
+          value: {{ quote .Values.source_code_analyser.aktoSourceCodeAnalyser.env.runtimeMode}}
+        - name: DOCKER_VOLUME
+          value: "/data/"
         image: {{ .Values.source_code_analyser.aktoSourceCodeAnalyser.image.repository }}:{{ .Values.source_code_analyser.aktoSourceCodeAnalyser.image.tag
           | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.source_code_analyser.aktoSourceCodeAnalyser.imagePullPolicy }}
@@ -79,10 +84,10 @@ spec:
             mountPath: /data
       restartPolicy: Always
 
-    volumes:
-      - name: source-code
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-source-code-pvc
+      volumes:
+        - name: source-code
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-source-code-pvc
 
 ---
 
@@ -92,7 +97,7 @@ metadata:
   name: {{ .Release.Name }}-source-code-pvc
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi
