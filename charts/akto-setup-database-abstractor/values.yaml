@@ -9,7 +9,7 @@ database_abstractor:
       aktoInstanceType: DASHBOARD
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-database-abstractor
-      tag: test
+      tag: doom
     imagePullPolicy: IfNotPresent
     resources:
       requests:

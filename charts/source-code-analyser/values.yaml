@@ -1,0 +1,65 @@
+mongo:
+  aktoMongoConn: ""
+
+source_code_analyser:
+  replicas: 1
+  aktoSourceCodeAnalyser:
+    env:
+      bitbucketHost: ""
+      bitbucketToken: ""
+      githubAccessToken: ""
+      sourceCodeHost: http://localhost:3001
+      aktoAccountName: Helios
+      aktoConfigName: staging
+      aktoInstanceType: DASHBOARD
+      aktoKafkaBrokerMal: localhost:29092
+      aktoKafkaBrokerUrl: 127.0.0.1:29092
+      aktoKafkaGroupIdConfig: asdf
+      aktoKafkaMaxPollRecordsConfig: "100"
+      aktoKafkaTopicName: akto.api.logs
+      aktoTrafficBatchSize: "100"
+      aktoTrafficBatchTimeSecs: "10"
+      puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+      useHostName: true
+      databaseAbstractorUrl: https://doom.akto.io
+      databaseAbstractorToken: ""
+      runtimeMode: ""
+    image:
+      repository: aktosecurity/source-code-analyser
+      tag: a-1703-merge
+    imagePullPolicy: Always
+    resources:
+      requests:
+        cpu: 2
+        memory: "4Gi"
+      limits:
+        cpu: 3
+        memory: "8Gi"
+  codeAnalysisService:
+    env:
+      sourceCodeAnalyser: "true"
+      port: 3001
+      llmToken: ""
+    image:
+      repository: aktosecurity/akto-puppeteer-replay
+      tag: doom_latest
+    resources:
+      requests:
+        cpu: 1
+        memory: "4Gi"
+      limits:
+        cpu: 2
+        memory: "8Gi"
+  codeAnalysisLspService:
+    env:
+      startJavaLsp: "true"
+    image:
+      repository: aktosecurity/akto-puppeteer-replay
+      tag: doom_latest
+    resources:
+      requests:
+        cpu: 1
+        memory: "4Gi"
+      limits:
+        cpu: 2
+        memory: "8Gi"
