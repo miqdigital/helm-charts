@@ -1,12 +1,13 @@
 mongo:
   aktoMongoConn: ""
+
 source_code_analyser:
   aktoSourceCodeAnalyser:
     env:
       bitbucketHost: ""
       bitbucketToken: ""
       githubAccessToken: ""
-      sourceCodeHost: http://localhost:3000
+      sourceCodeHost: http://localhost:3001
       aktoAccountName: Helios
       aktoConfigName: staging
       aktoInstanceType: DASHBOARD
@@ -19,11 +20,11 @@ source_code_analyser:
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
-      databaseAbstractorUrl: https://cyborg.akto.io
+      databaseAbstractorUrl: https://doom.akto.io
       databaseAbstractorToken: ""
     image:
       repository: aktosecurity/source-code-analyser
-      tag: a-1463-merge
+      tag: a-feature-source-code-analyser-02
     imagePullPolicy: Always
     resources:
       requests:
@@ -35,10 +36,24 @@ source_code_analyser:
   codeAnalysisService:
     env:
       sourceCodeAnalyser: "true"
-      port: "3000"
+      port: "3001"
+      llmToken: ""
     image:
-      repository: shivamrawat10/code-analysis
-      tag: code-analysis-service
+      repository: aktosecurity/akto-puppeteer-replay
+      tag: doom_latest
+    resources:
+      requests:
+        cpu: 1
+        memory: "4Gi"
+      limits:
+        cpu: 2
+        memory: "8Gi"
+  codeAnalysisLspService:
+    env:
+      startJavaLsp: "true"
+    image:
+      repository: aktosecurity/akto-puppeteer-replay
+      tag: doom_latest
     resources:
       requests:
         cpu: 1
