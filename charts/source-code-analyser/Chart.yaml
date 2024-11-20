@@ -2,8 +2,8 @@ apiVersion: v2
 name: akto-source-code-analyser
 description: Helm chart for installing Akto-source-code-analyser
 type: application
-version: 0.1.4
-appVersion: "0.1.4"
+version: 0.1.5
+appVersion: "0.1.5"
 home: https://www.akto.io
 icon: https://akto-setup.s3.amazonaws.com/templates/128x128.png
 sources:
