@@ -25,7 +25,6 @@ spec:
           - cli
           - extract
           - --START_JAVA_LSP={{ .Values.source_code_analyser.codeAnalysisLspService.env.startJavaLsp | quote }}
-          - --START_JAVA_LSP={{ .Values.source_code_analyser.codeAnalysisLspService.env.startJavaLsp | quote }}
 
         name: code-analysis-lsp-service
 
