@@ -40,6 +40,7 @@ source_code_analyser:
       sourceCodeAnalyser: "true"
       port: 3001
       llmToken: ""
+      openAIKey: ""
     image:
       repository: aktosecurity/akto-puppeteer-replay
       tag: doom_latest
@@ -60,6 +61,19 @@ source_code_analyser:
       requests:
         cpu: 1
         memory: "4Gi"
+      limits:
+        cpu: 2
+        memory: "8Gi"
+  codePropertyGraphJoern:
+    env:
+      port: 8082
+    image:
+      repository: ghcr.io/joernio/joern
+      tag: master
+    resources:
+      requests:
+        cpu: 1
+        memory: "6Gi"
       limits:
         cpu: 2
         memory: "8Gi"

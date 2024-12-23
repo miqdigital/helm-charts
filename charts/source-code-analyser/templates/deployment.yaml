@@ -28,6 +28,25 @@ spec:
 
         name: code-analysis-lsp-service
 
+      - env:
+          - name: CPG_SERVER_PORT
+            value: {{ quote .Values.source_code_analyser.codePropertyGraphJoern.env.port }}
+        image: {{ .Values.source_code_analyser.codePropertyGraphJoern.image.repository }}:{{ .Values.source_code_analyser.codePropertyGraphJoern.image.tag
+                 | default .Chart.AppVersion }}
+        volumeMounts:
+            - name: source-code
+              mountPath: /data
+        args:
+          - joern
+          - --server
+          - --server-host
+          - 127.0.0.1
+          - --server-port
+          - {{ .Values.source_code_analyser.codePropertyGraphJoern.env.port | quote }}
+
+        name: code-property-graph-joern
+
+
       - name: eclipse-jdtls
         image: hotavneesh/eclipse-jdtls:latest
         volumeMounts:
@@ -50,6 +69,7 @@ spec:
           - extract
           - --SOURCE_CODE_ANALYSER={{ .Values.source_code_analyser.codeAnalysisService.env.sourceCodeAnalyser | quote }}
           - --PORT={{ .Values.source_code_analyser.codeAnalysisService.env.port | int }}
+          - --OPENAI_API_KEY={{ .Values.source_code_analyser.codeAnalysisService.env.openAIKey | quote }}
 
         name: code-analysis-service
 
