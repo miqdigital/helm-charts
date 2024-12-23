@@ -40,6 +40,7 @@ source_code_analyser:
       sourceCodeAnalyser: "true"
       port: 3001
       llmToken: ""
+      openAIKey: ""
     image:
       repository: aktosecurity/akto-puppeteer-replay
       tag: doom_latest

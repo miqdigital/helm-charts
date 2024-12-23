@@ -25,6 +25,7 @@ spec:
           - cli
           - extract
           - --START_JAVA_LSP={{ .Values.source_code_analyser.codeAnalysisLspService.env.startJavaLsp | quote }}
+          - --START_JAVA_LSP={{ .Values.source_code_analyser.codeAnalysisLspService.env.startJavaLsp | quote }}
 
         name: code-analysis-lsp-service
 
@@ -50,6 +51,7 @@ spec:
           - extract
           - --SOURCE_CODE_ANALYSER={{ .Values.source_code_analyser.codeAnalysisService.env.sourceCodeAnalyser | quote }}
           - --PORT={{ .Values.source_code_analyser.codeAnalysisService.env.port | int }}
+          - --OPENAI_API_KEY={{ .Values.source_code_analyser.codeAnalysisService.env.openAIKey | quote }}
 
         name: code-analysis-service
 
