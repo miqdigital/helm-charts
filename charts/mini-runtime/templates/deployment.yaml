@@ -65,7 +65,10 @@ spec:
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorUrl}}
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
-          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken}}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.mini_runtime.aktoApiSecurityRuntime.image.repository }}:{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.tag
