@@ -19,9 +19,9 @@ mini_runtime:
       useHostName: true
       databaseAbstractorUrl: https://aquaman.akto.io
       databaseAbstractorToken: 
-        # Optional -- Name of an existing secret containing the Database Abstractor Token
+        # Name of an existing secret containing the Database Abstractor Token
         existingSecret: ""
-        # Optional -- Token to use if existingSecret is not provided
+        # Token to use if existingSecret is not provided
         token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
