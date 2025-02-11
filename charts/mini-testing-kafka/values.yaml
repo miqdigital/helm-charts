@@ -39,7 +39,7 @@ testing:
   kafka1:
     env:
       kafkaAdvertisedListeners: LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,
-        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-mini-runtime.$(MY_POD_NAMESPACE).svc.cluster.local:9092
+        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-mini-testing-kafka.$(MY_POD_NAMESPACE).svc.cluster.local:9092
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
       kafkaCreateTopics: akto.test.messages:1:1

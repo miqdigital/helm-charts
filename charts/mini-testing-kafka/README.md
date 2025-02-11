@@ -14,7 +14,7 @@ Please ensure you have the following -
 ## Steps 
 Here are the steps to install Akto via Helm charts - 
 
-### Collect the env variables needed to install hybrid-redact mini-runtime
+### Collect the env variables needed to install mini-testing-kafka
 
 1. AKTO_TOKEN : You'll find this token in akto saas dashboard under quick start > hybrid saas . To see the complete docs, visit https://docs.akto.io/traffic-connections/traffic-data-sources/hybrid-saas .
 2. PROXY_URI, NO_PROXY_URLS: Proxy variables to be used if internet connectivity is behind a proxy, skip these variables.

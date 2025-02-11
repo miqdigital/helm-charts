@@ -166,7 +166,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: KAFKA_ADVERTISED_LISTENERS
-          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}-mini-runtime.{{.Release.Namespace}}.svc.cluster.local:9092"
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}-mini-testing-kafka.{{.Release.Namespace}}.svc.cluster.local:9092"
         - name: KAFKA_BROKER_ID
           value: {{ quote .Values.testing.kafka1.env.kafkaBrokerId }}
         - name: KAFKA_CLEANUP_POLICY
