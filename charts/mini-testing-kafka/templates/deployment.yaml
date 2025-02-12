@@ -74,7 +74,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "akto.fullname" . }}-testing
+  name: {{ include "akto.fullname" . }}
   {{ if .Values.keel.keel.enabled }}
   annotations:
     keel.sh/policy: force
@@ -88,12 +88,12 @@ spec:
   replicas: {{ .Values.testing.replicas }}
   selector:
     matchLabels:
-      app: {{ include "akto.fullname" . }}-testing
+      app: {{ include "akto.fullname" . }}
     {{- include "akto.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: {{ include "akto.fullname" . }}-testing
+        app: {{ include "akto.fullname" . }}
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
       containers:
@@ -118,12 +118,6 @@ spec:
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.kafkaBrokerUrl}} 
         - name: NEW_TESTING_ENABLED
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled}}
-        - name: POSTGRES_URL
-          value: {{ quote .Values.tokens.env.postgresUrl}}
-        - name: POSTGRES_USER
-          value: {{ quote .Values.tokens.env.postgresUser}}
-        - name: POSTGRES_PASSWORD
-          value: {{ quote .Values.tokens.env.postgresPassword}}
         - name: PROXY_URI
           value: {{ quote .Values.tokens.env.proxyUri}}
         - name: NO_PROXY
@@ -143,6 +137,7 @@ spec:
         ports:
           - containerPort: 3000
         resources: {{- toYaml .Values.testing.aktoApiSecurityPuppeteerReplay.resources |  nindent 10 }}
+    {{ if eq .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled "true" }}
       - env:
         - name: ZOOKEEPER_CLIENT_PORT
           value: {{ quote .Values.testing.zoo1.env.zookeeperClientPort }}
@@ -166,7 +161,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: KAFKA_ADVERTISED_LISTENERS
-          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}-mini-testing-kafka.{{.Release.Namespace}}.svc.cluster.local:9092"
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}.{{.Release.Namespace}}.svc.cluster.local:9092"
         - name: KAFKA_BROKER_ID
           value: {{ quote .Values.testing.kafka1.env.kafkaBrokerId }}
         - name: KAFKA_CLEANUP_POLICY
@@ -208,4 +203,5 @@ spec:
         - containerPort: 29092
         - containerPort: 9999
         resources: {{- toYaml .Values.testing.kafka1.resources | nindent 10 }}  
+    {{end}}
       restartPolicy: Always
