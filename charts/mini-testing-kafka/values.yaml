@@ -1,0 +1,127 @@
+tokens:
+  env:
+    proxyUri: ""
+    noProxy: ""
+
+testing:
+  aktoApiSecurityTesting:
+    env:
+      aktoAccountName: Helios
+      aktoConfigName: staging
+      newTestingEnabled: "true"
+      kafkaBrokerUrl: localhost:29092
+      puppeteerReplayServiceUrl: http://localhost:3000
+      databaseAbstractorUrl: https://cyborg.akto.io
+      databaseAbstractorToken: ""
+    image:
+      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
+      tag: improve-testing-performance
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "500Mi"
+      limits:
+        cpu: 2
+        memory: "8Gi"
+  aktoApiSecurityPuppeteerReplay:
+    image:
+      repository: aktosecurity/akto-puppeteer-replay
+      tag: latest
+    imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 1
+        memory: "4Gi"
+  replicas: 1
+  kafka1:
+    env:
+      kafkaAdvertisedListeners: LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,
+        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-mini-testing-kafka.$(MY_POD_NAMESPACE).svc.cluster.local:9092
+      kafkaBrokerId: "1"
+      kafkaCleanupPolicy: delete
+      kafkaCreateTopics: akto.test.messages:1:1
+      kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
+      kafkaListenerSecurityProtocolMap: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,
+        LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
+      kafkaLogCleanerEnable: "true"
+      kafkaLogRetentionBytes: "10737418240"
+      kafkaLogRetentionCheckIntervalMs: "60000"
+      kafkaLogRetentionHours: "5"
+      kafkaLogSegmentBytes: "104857600"
+      kafkaOffsetsTopicReplicationFactor: "1"
+      kafkaTransactionStateLogMinIsr: "1"
+      kafkaTransactionStateLogReplicationFactor: "1"
+      kafkaZookeeperConnect: 127.0.0.1:2181
+    image:
+      repository: confluentinc/cp-kafka
+      tag: 7.8.0-3-ubi8
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 2
+        memory: "4Gi"
+  ports:
+  - port: 9092
+    targetPort: 9092
+  type: ClusterIP
+  zoo1:
+    env:
+      kafkaOpts: -Dzookeeper.admin.enableServer=false
+      zookeeperClientPort: "2181"
+      zookeeperServerId: "1"
+      zookeeperServers: zoo1:2888:3888
+    image:
+      repository: confluentinc/cp-zookeeper
+      tag: 7.8.0-3-ubi8
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 1
+        memory: "2Gi"
+
+keel:
+  keel:
+    env:
+      awsAccessKeyId: ""
+      awsRegion: ""
+      awsSecretAccessKey: ""
+      hipchatApprovalsBotName: ""
+      hipchatApprovalsChannel: ""
+      hipchatApprovalsPasswort: ""
+      hipchatApprovalsUserName: ""
+      hipchatChannels: ""
+      hipchatToken: ""
+      insecureRegistry: "true"
+      mattermostEndpoint: ""
+      notificationLevel: info
+      webhookEndpoint: ""
+    image:
+      repository: keelhq/keel
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+    enabled: true
+  maxUnavailable: 1
+  ports:
+  - name: keel
+    port: 9300
+    protocol: TCP
+    targetPort: 9300
+  replicas: 1
+  serviceAccount:
+    annotations: {}
+  type: LoadBalancer
+kubernetesClusterDomain: cluster.local
