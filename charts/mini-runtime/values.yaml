@@ -18,7 +18,16 @@ mini_runtime:
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://aquaman.akto.io
+      # If you want to use secrets to store database abstractor token. default: false
+      useSecretsForDatabaseAbstractorToken: false
+      # If not using secrets, place token here.
       databaseAbstractorToken: ""
+      # If using secrets, place token here.
+      databaseAbstractorTokenSecrets: 
+        # Name of an existing secret containing the Database Abstractor Token
+        existingSecret: ""
+        # Token to use if existingSecret is not provided
+        token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
       tag: latest
@@ -32,8 +41,6 @@ mini_runtime:
         memory: "8Gi"
   kafka1:
     env:
-      kafkaAdvertisedListeners: LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,
-        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-mini-runtime.$(MY_POD_NAMESPACE).svc.cluster.local:9092
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
       kafkaCreateTopics: akto.api.logs:3:3
