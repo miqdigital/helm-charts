@@ -18,7 +18,11 @@ mini_runtime:
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://aquaman.akto.io
-      databaseAbstractorToken: ""
+      databaseAbstractorToken: 
+        # Name of an existing secret containing the Database Abstractor Token
+        existingSecret: ""
+        # Token to use if existingSecret is not provided
+        token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
       tag: latest
