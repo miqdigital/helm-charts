@@ -69,12 +69,8 @@ spec:
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorUrl}}
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
           value: {{ quote .Values.tokens.env.databaseAbstractorToken}}
-        - name: POSTGRES_URL
-          value: {{ quote .Values.tokens.env.postgresUrl}}
-        - name: POSTGRES_USER
-          value: {{ quote .Values.tokens.env.postgresUser}}
-        - name: POSTGRES_PASSWORD
-          value: {{ quote .Values.tokens.env.postgresPassword}}
+        - name: TESTING_DB_LAYER_SERVICE_URL
+          value: {{ quote .Values.tokens.env.testingDbLayerUrl}}
         - name: PROXY_URI
           value: {{ quote .Values.tokens.env.proxyUri}}
         - name: NO_PROXY
@@ -270,12 +266,8 @@ spec:
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorUrl}}
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
           value: {{ quote .Values.tokens.env.databaseAbstractorToken}}
-        - name: POSTGRES_URL
-          value: {{ quote .Values.tokens.env.postgresUrl}}
-        - name: POSTGRES_USER
-          value: {{ quote .Values.tokens.env.postgresUser}}
-        - name: POSTGRES_PASSWORD
-          value: {{ quote .Values.tokens.env.postgresPassword}}
+        - name: TESTING_DB_LAYER_SERVICE_URL
+          value: {{ quote .Values.tokens.env.testingDbLayerUrl}}
         - name: PROXY_URI
           value: {{ quote .Values.tokens.env.proxyUri}}
         - name: NO_PROXY
