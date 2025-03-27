@@ -1,0 +1,71 @@
+tokens:
+  env:
+    postgresUrl: ""
+    postgresUser: ""
+    postgresPassword: ""
+    proxyUri: ""
+    noProxy: ""
+
+testing_db_layer:
+  aktoApiSecurityTestingDbLayer:
+    env:
+      aktoAccountName: Helios
+      aktoConfigName: staging
+      aktoInstanceType: DASHBOARD
+    image:
+      repository: public.ecr.aws/aktosecurity/akto-api-security-testing-db-layer
+      tag: latest
+    imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 2
+        memory: "4Gi"
+  ports:
+  - port: 8100
+    targetPort: 8080
+  replicas: 1
+  type: LoadBalancer
+kubernetesClusterDomain: cluster.local
+
+keel:
+  keel:
+    env:
+      awsAccessKeyId: ""
+      awsRegion: ""
+      awsSecretAccessKey: ""
+      hipchatApprovalsBotName: ""
+      hipchatApprovalsChannel: ""
+      hipchatApprovalsPasswort: ""
+      hipchatApprovalsUserName: ""
+      hipchatChannels: ""
+      hipchatToken: ""
+      insecureRegistry: "true"
+      mattermostEndpoint: ""
+      notificationLevel: info
+      webhookEndpoint: ""
+    image:
+      repository: keelhq/keel
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+    enabled: true
+  maxUnavailable: 1
+  ports:
+  - name: keel
+    port: 9300
+    protocol: TCP
+    targetPort: 9300
+  replicas: 1
+  serviceAccount:
+    annotations: {}
+  type: LoadBalancer
+kubernetesClusterDomain: cluster.local
