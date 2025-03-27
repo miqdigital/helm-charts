@@ -23,7 +23,7 @@ mini_runtime:
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://cyborg.akto.io
-      testingDbLayerUrl: http://10.108.215.105:8100/api
+      testingDbLayerUrl: ""
     enabled: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
@@ -94,7 +94,7 @@ testing:
       aktoConfigName: staging
       puppeteerReplayServiceUrl: http://localhost:3000
       databaseAbstractorUrl: https://cyborg.akto.io
-      testingDbLayerUrl: http://10.108.215.105:8100/api
+      testingDbLayerUrl: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
       tag: 1.42.1_local
