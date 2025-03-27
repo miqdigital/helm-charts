@@ -70,7 +70,7 @@ spec:
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
           value: {{ quote .Values.tokens.env.databaseAbstractorToken}}
         - name: TESTING_DB_LAYER_SERVICE_URL
-          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.testingDbLayerUrl}}
+          value: {{ quote .Values.tokens.env.testingDbLayerUrl}}
         - name: PROXY_URI
           value: {{ quote .Values.tokens.env.proxyUri}}
         - name: NO_PROXY
@@ -267,7 +267,7 @@ spec:
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
           value: {{ quote .Values.tokens.env.databaseAbstractorToken}}
         - name: TESTING_DB_LAYER_SERVICE_URL
-          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.testingDbLayerUrl}}
+          value: {{ quote .Values.tokens.env.testingDbLayerUrl}}
         - name: PROXY_URI
           value: {{ quote .Values.tokens.env.proxyUri}}
         - name: NO_PROXY
