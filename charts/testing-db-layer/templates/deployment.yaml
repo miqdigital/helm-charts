@@ -42,6 +42,10 @@ spec:
             value: {{ quote .Values.tokens.env.postgresPassword}}
           - name: KUBERNETES_CLUSTER_DOMAIN
             value: {{ quote .Values.kubernetesClusterDomain }}
+          - name: PROXY_URI
+            value: {{ quote .Values.tokens.env.proxyUri}}
+          - name: NO_PROXY
+            value: {{ quote .Values.tokens.env.noProxy}}
           image: {{ .Values.testing_db_layer.aktoApiSecurityTestingDbLayer.image.repository }}:{{ .Values.testing_db_layer.aktoApiSecurityTestingDbLayer.image.tag
             | default .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.testing_db_layer.aktoApiSecurityTestingDbLayer.imagePullPolicy }}
