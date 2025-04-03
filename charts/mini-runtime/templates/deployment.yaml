@@ -58,6 +58,8 @@ spec:
         - name: PUPPETEER_REPLAY_SERVICE_URL
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.puppeteerReplayServiceUrl
             }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoLogLevel }}
         - name: AKTO_MONGO_CONN
           value: {{ quote .Values.mongo.aktoMongoConn }}
         - name: USE_HOSTNAME

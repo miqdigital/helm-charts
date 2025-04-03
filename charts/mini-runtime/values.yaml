@@ -15,6 +15,7 @@ mini_runtime:
       aktoKafkaTopicName: akto.api.logs
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
+      aktoLogLevel: WARN
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://aquaman.akto.io
