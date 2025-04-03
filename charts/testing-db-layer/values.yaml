@@ -14,8 +14,8 @@ testing_db_layer:
       aktoInstanceType: DASHBOARD
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-testing-db-layer
-      tag: 1.42.14_local
-    imagePullPolicy: IfNotPresent
+      tag: 1.42.15_local
+    imagePullPolicy: Always
     resources:
       requests:
         cpu: 1
