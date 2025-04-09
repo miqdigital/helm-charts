@@ -1,0 +1,183 @@
+---
+# Source: akto-mini-runtime/templates/mini-runtime.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: akto-mini-runtime-mini-runtime
+  labels:
+    helm.sh/chart: akto-mini-runtime-0.2.1
+    app.kubernetes.io/name: akto-mini-runtime
+    app.kubernetes.io/version: "0.2.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app: akto-mini-runtime-mini-runtime
+    app.kubernetes.io/name: akto-mini-runtime
+  ports:
+  - port: 9092
+    targetPort: 9092
+---
+# Source: akto-mini-runtime/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: akto-mini-runtime-mini-runtime  
+  labels:
+    helm.sh/chart: akto-mini-runtime-0.2.1
+    app.kubernetes.io/name: akto-mini-runtime
+    app.kubernetes.io/version: "0.2.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: akto-mini-runtime-mini-runtime
+      app.kubernetes.io/name: akto-mini-runtime
+  template:
+    metadata:
+      labels:
+        app: akto-mini-runtime-mini-runtime
+        app.kubernetes.io/name: akto-mini-runtime
+    spec:
+      containers:
+      - env:
+        - name: AKTO_ACCOUNT_NAME
+          value: "Helios"
+        - name: IS_KUBERNETES
+          value: "true"
+        - name: RUNTIME_MODE
+          value: "hybrid"
+        - name: AKTO_CONFIG_NAME
+          value: "staging"
+        - name: AKTO_INSTANCE_TYPE
+          value: "DASHBOARD"
+        - name: AKTO_KAFKA_BROKER_MAL
+          value: "localhost:29092"
+        - name: AKTO_KAFKA_BROKER_URL
+          value: "127.0.0.1:29092"
+        - name: AKTO_KAFKA_GROUP_ID_CONFIG
+          value: "asdf"
+        - name: AKTO_KAFKA_MAX_POLL_RECORDS_CONFIG
+          value: "100"
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: "akto.api.logs"
+        - name: AKTO_TRAFFIC_BATCH_SIZE
+          value: "100"
+        - name: AKTO_TRAFFIC_BATCH_TIME_SECS
+          value: "10"
+        - name: PUPPETEER_REPLAY_SERVICE_URL
+          value: "http://akto-puppeteer-replay:3000"
+        - name: AKTO_MONGO_CONN
+          value: ""
+        - name: USE_HOSTNAME
+          value: "true"
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: "https://cyborg.akto.io"
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+          value: "<token>"
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: "cluster.local"
+        image: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime:latest
+        imagePullPolicy: Always
+        name: akto-api-security-runtime
+        resources:
+          limits:
+            cpu: 3
+            memory: 8Gi
+          requests:
+            cpu: 2
+            memory: 4Gi
+      - env:
+        - name: ZOOKEEPER_CLIENT_PORT
+          value: "2181"
+        - name: ZOOKEEPER_SERVERS
+          value: "zoo1:2888:3888"
+        - name: ZOOKEEPER_SERVER_ID
+          value: "1"
+        - name: KAFKA_OPTS
+          value: "-Dzookeeper.admin.enableServer=false"
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: "cluster.local"
+        image: confluentinc/cp-zookeeper:7.8.0-3-ubi8
+        name: zoo1
+        ports:
+        - containerPort: 2181
+        resources:
+          limits:
+            cpu: 2
+            memory: 4Gi
+          requests:
+            cpu: 1
+            memory: 2Gi
+      - env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-mini-runtime-mini-runtime.akto.svc.cluster.local:9092"
+        - name: KAFKA_BROKER_ID
+          value: "1"
+        - name: KAFKA_CLEANUP_POLICY
+          value: "delete"
+        - name: KAFKA_CREATE_TOPICS
+          value: "akto.api.logs:3:3"
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT"
+        - name: KAFKA_LOG_CLEANER_ENABLE
+          value: "true"
+        - name: KAFKA_LOG_RETENTION_BYTES
+          value: "10737418240"
+        - name: KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS
+          value: "60000"
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: "5"
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: "104857600"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: "127.0.0.1:2181"
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: "cluster.local"
+        image: confluentinc/cp-kafka:7.8.0-3-ubi8
+        name: kafka1
+        ports:
+        - containerPort: 9092
+        - containerPort: 19092
+        - containerPort: 29092
+        - containerPort: 9999
+        resources:
+          limits:
+            cpu: 2
+            memory: 8Gi
+          requests:
+            cpu: 1
+            memory: 4Gi
+      restartPolicy: Always
+---
+# Source: akto-mini-runtime/templates/hpa.yaml
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: akto-mini-runtime-mini-runtime
+  labels:
+    helm.sh/chart: akto-mini-runtime-0.2.1
+    app.kubernetes.io/name: akto-mini-runtime
+    app.kubernetes.io/version: "0.2.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  maxReplicas: 2
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: akto-mini-runtime-mini-runtime
+  targetCPUUtilizationPercentage: 80
