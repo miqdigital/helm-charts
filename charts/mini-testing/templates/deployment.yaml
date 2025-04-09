@@ -119,7 +119,7 @@ spec:
         - name: NEW_TESTING_ENABLED
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled}}
         - name: AKTO_LOG_LEVEL
-          value: {{ quote .Values.mini_runtime.aktoApiSecurityTesting.env.aktoLogLevel }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoLogLevel }}
         - name: PROXY_URI
           value: {{ quote .Values.tokens.env.proxyUri}}
         - name: NO_PROXY
