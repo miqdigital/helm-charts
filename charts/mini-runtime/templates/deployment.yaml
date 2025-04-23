@@ -109,13 +109,24 @@ spec:
         - name: AKTO_INTERNAL_KAFKA_BOOTSTRAP_SERVER
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoKafkaBrokerUrl
             }}
-        
-        - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendToken
-            }}
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendToken
-            }}
+            {{- if .Values.mini_runtime.aktoApiSecurityRuntime.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
+            {{- else }}
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken }}
+            {{- end }}
+        - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
+            {{- if .Values.mini_runtime.aktoApiSecurityRuntime.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
+            {{- else }}
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken }}
+            {{- end }}
         - name: AKTO_LOG_LEVEL
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoLogLevel }}
         - name: AKTO_THREAT_PROTECTION_BACKEND_URL
