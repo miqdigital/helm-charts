@@ -110,7 +110,7 @@ threat_client:
       aggregationRulesEnabled: false
     image:
       repository: aktosecurity/akto-threat-detection
-      tag: 1.0.8
+      tag: latest
     imagePullPolicy: Always
     resources:
       requests:
