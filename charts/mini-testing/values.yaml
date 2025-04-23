@@ -29,7 +29,7 @@ testing:
     image:
       repository: aktosecurity/akto-puppeteer-replay
       tag: latest
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     resources:
       requests:
         cpu: 1
