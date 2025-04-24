@@ -66,8 +66,7 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.dashboard.aktoApiSecurityDashboard.image.repository }}:{{ .Values.dashboard.aktoApiSecurityDashboard.image.tag
           | default .Chart.AppVersion }}
-        imagePullPolicy: {{ .Values.dashboard.aktoApiSecurityDashboard.imagePullPolicy
-          }}
+        imagePullPolicy: {{ .Values.dashboard.aktoApiSecurityDashboard.imagePullPolicy }}
         name: akto-api-security-dashboard
         ports:
         - containerPort: 8080
@@ -135,6 +134,7 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.testing.aktoApiSecurityTesting.image.repository }}:{{ .Values.testing.aktoApiSecurityTesting.image.tag
           | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.testing.aktoApiSecurityTesting.imagePullPolicy }}
         name: akto-api-security-testing
         resources: {{- toYaml .Values.testing.aktoApiSecurityTesting.resources |  nindent 10 }}
       restartPolicy: Always

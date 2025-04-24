@@ -144,6 +144,7 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.testing.aktoApiSecurityTesting.image.repository }}:{{ .Values.testing.aktoApiSecurityTesting.image.tag
           | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.testing.aktoApiSecurityTesting.imagePullPolicy }}
         name: akto-api-security-testing
         resources: {{- toYaml .Values.testing.aktoApiSecurityTesting.resources |  nindent 10 }}
       - name: akto-api-security-puppeteer-replay
@@ -236,8 +237,7 @@ spec:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.runtime.zoo1.image.repository }}:{{ .Values.runtime.zoo1.image.tag
-          | default .Chart.AppVersion }}
-        imagePullPolicy: {{ .Values.runtime.aktoApiSecurityRuntime.imagePullPolicy }}          
+          | default .Chart.AppVersion }}       
         name: zoo1
         ports:
         - containerPort: 2181
@@ -283,7 +283,6 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.runtime.kafka1.image.repository }}:{{ .Values.runtime.kafka1.image.tag
           | default .Chart.AppVersion }}
-        imagePullPolicy: {{ .Values.runtime.aktoApiSecurityRuntime.imagePullPolicy }}
         name: kafka1
         ports:
         - containerPort: 9092
