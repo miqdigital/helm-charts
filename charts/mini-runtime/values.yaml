@@ -18,7 +18,7 @@ mini_runtime:
       aktoLogLevel: WARN
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
-      databaseAbstractorUrl: https://aquaman.akto.io
+      databaseAbstractorUrl: https://cyborg.akto.io
       # If you want to use secrets to store database abstractor token. default: false
       useSecretsForDatabaseAbstractorToken: false
       # If not using secrets, place token here.
@@ -66,9 +66,11 @@ mini_runtime:
       requests:
         cpu: 1
         memory: "4Gi"
+        ephemeral-storage: "500Mi"
       limits:
         cpu: 2
         memory: "8Gi"
+        ephemeral-storage: "11Gi"
   ports:
   - port: 9092
     targetPort: 9092
