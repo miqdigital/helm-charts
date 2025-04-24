@@ -19,7 +19,7 @@ dashboard:
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-dashboard
       tag: latest
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     resources:
       requests:
         cpu: 1
@@ -31,7 +31,7 @@ dashboard:
     image:
       repository: aktosecurity/akto-puppeteer-replay
       tag: latest
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     resources:
       requests:
         cpu: 1
@@ -64,7 +64,7 @@ runtime:
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-runtime
       tag: latest
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     resources:
       requests:
         cpu: 2
@@ -140,6 +140,7 @@ testing:
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-testing
       tag: latest
+    imagePullPolicy: Always
     resources:
       requests:
         cpu: 1
@@ -151,7 +152,7 @@ testing:
     image:
       repository: aktosecurity/akto-puppeteer-replay
       tag: latest
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     resources:
       requests:
         cpu: 1
@@ -200,4 +201,4 @@ keel:
   serviceAccount:
     annotations: {}
   type: LoadBalancer
-kubernetesClusterDomain: cluster.local
+

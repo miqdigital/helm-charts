@@ -10,7 +10,7 @@ database_abstractor:
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-database-abstractor
       tag: latest
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     resources:
       requests:
         cpu: 1
@@ -62,4 +62,3 @@ keel:
   serviceAccount:
     annotations: {}
   type: LoadBalancer
-kubernetesClusterDomain: cluster.local
