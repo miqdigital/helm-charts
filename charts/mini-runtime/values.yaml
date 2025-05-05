@@ -59,10 +59,10 @@ mini_runtime:
       kafkaTransactionStateLogMinIsr: "1"
       kafkaTransactionStateLogReplicationFactor: "1"
       kafkaZookeeperConnect: 127.0.0.1:2181
-      sslKeystoreLocation: "/etc/kafka/secrets/kafka.server.keystore.jks"
+      sslKeystoreLocation: "/etc/kafka/secrets/server.keystore.jks"
       sslKeystorePassword: "password"
       sslKeyPassword: "password"
-      sslTruststoreLocation: "/etc/kafka/secrets/kafka.server.truststore.jks"
+      sslTruststoreLocation: "/etc/kafka/secrets/server.truststore.jks"
       sslTruststorePassword: "password"
       sslBaseMountPath: "/etc/kafka/secrets"
       sslSecretName: "kafka-certs"
