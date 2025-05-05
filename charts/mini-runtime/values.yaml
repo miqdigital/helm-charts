@@ -48,8 +48,8 @@ mini_runtime:
       kafkaCleanupPolicy: delete
       kafkaCreateTopics: akto.api.logs:3:3
       kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
-      kafkaListenerSecurityProtocolMap: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,
-        LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
+      kafkaListenerSecurityProtocolMap: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
+      kafkaListenerSecurityProtocolMapSsl: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED:SSL
       kafkaLogCleanerEnable: "true"
       kafkaLogRetentionBytes: "10737418240"
       kafkaLogRetentionCheckIntervalMs: "60000"
@@ -59,6 +59,14 @@ mini_runtime:
       kafkaTransactionStateLogMinIsr: "1"
       kafkaTransactionStateLogReplicationFactor: "1"
       kafkaZookeeperConnect: 127.0.0.1:2181
+      sslKeystoreLocation: "/etc/kafka/secrets/kafka.server.keystore.jks"
+      sslKeystorePassword: "password"
+      sslKeyPassword: "password"
+      sslTruststoreLocation: "/etc/kafka/secrets/kafka.server.truststore.jks"
+      sslTruststorePassword: "password"
+      sslBaseMountPath: "/etc/kafka/secrets"
+      sslSecretName: "kafka-certs"
+    useTls: false
     image:
       repository: confluentinc/cp-kafka
       tag: 7.8.0-3-ubi8
@@ -72,8 +80,17 @@ mini_runtime:
         memory: "8Gi"
         ephemeral-storage: "11Gi"
   ports:
-  - port: 9092
-    targetPort: 9092
+    default:
+      - port: 9092
+        targetPort: 9092
+    # both ports open for TLS and non-TLS
+    tls:
+      - name: plaintext
+        port: 9092
+        targetPort: 9092
+      - name: ssl
+        port: 9093
+        targetPort: 9093
   replicas: 1
   type: ClusterIP
   zoo1:

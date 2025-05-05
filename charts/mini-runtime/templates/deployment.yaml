@@ -99,7 +99,6 @@ spec:
         ports:
         - containerPort: 2181
         resources: {{- toYaml .Values.mini_runtime.zoo1.resources | nindent 10 }}
-      
       - env:  
         - name: RUNTIME_MODE
           value: "hybrid"
@@ -142,17 +141,19 @@ spec:
         imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
         name: akto-api-security-threat-client
         resources: {{- toYaml .Values.threat_client.aktoApiSecurityThreatClient.resources |  nindent 10 }}
-
       - env:
         - name: MY_POD_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
         - name: KAFKA_ADVERTISED_LISTENERS
+          value: >-
             {{- if .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
-          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
-            {{- else}}
-          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}-mini-runtime.{{.Release.Namespace}}.svc.cluster.local:9092"
+              {{ .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
+            {{- else if .Values.mini_runtime.kafka1.useTls }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
+            {{- else }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092
             {{- end }}
         - name: KAFKA_BROKER_ID
           value: {{ quote .Values.mini_runtime.kafka1.env.kafkaBrokerId }}
@@ -163,7 +164,12 @@ spec:
         - name: KAFKA_INTER_BROKER_LISTENER_NAME
           value: {{ quote .Values.mini_runtime.kafka1.env.kafkaInterBrokerListenerName }}
         - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
-          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMap }}
+          value: >-
+            {{- if .Values.mini_runtime.kafka1.useTls }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMapSsl }}
+            {{- else }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMap }}
+            {{- end }}
         - name: KAFKA_LOG_CLEANER_ENABLE
           value: {{ quote .Values.mini_runtime.kafka1.env.kafkaLogCleanerEnable }}
         - name: KAFKA_LOG_RETENTION_BYTES
@@ -184,18 +190,45 @@ spec:
             }}
         - name: KAFKA_ZOOKEEPER_CONNECT
           value: {{ quote .Values.mini_runtime.kafka1.env.kafkaZookeeperConnect }}
+
+        {{- if .Values.mini_runtime.kafka1.useTls }}
+        - name: KAFKA_SSL_KEYSTORE_LOCATION
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslKeystoreLocation }}
+        - name: KAFKA_SSL_KEYSTORE_PASSWORD
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslKeystorePassword }}
+        - name: KAFKA_SSL_KEY_PASSWORD
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslKeyPassword }}
+        - name: KAFKA_SSL_TRUSTSTORE_LOCATION
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslTruststoreLocation }}
+        - name: KAFKA_SSL_TRUSTSTORE_PASSWORD
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslTruststorePassword }}
+        {{- end }}
+
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.mini_runtime.kafka1.image.repository }}:{{ .Values.mini_runtime.kafka1.image.tag
           | default .Chart.AppVersion }}
+
+        {{- if .Values.mini_runtime.kafka1.useTls }}
+        volumeMounts:
+          - name: kafka-certs
+            mountPath: {{ quote .Values.mini_runtime.kafka1.env.sslBaseMountPath }}
+        {{- end }}
+
         name: kafka1
         ports:
         - containerPort: 9092
-        - containerPort: 19092
+        - containerPort: 9093
         - containerPort: 29092
         - containerPort: 9999
         resources: {{- toYaml .Values.mini_runtime.kafka1.resources | nindent 10 }}
       restartPolicy: Always
+      {{- if .Values.mini_runtime.kafka1.useTls }}
+      volumes:
+        - name: kafka-certs
+          secret:
+            secretName: {{ quote .Values.mini_runtime.kafka1.env.sslSecretName }}
+      {{- end }}
 
 ---
 {{ if .Values.keel.keel.enabled }}
