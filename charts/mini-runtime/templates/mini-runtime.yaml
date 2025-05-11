@@ -4,6 +4,10 @@ metadata:
   name: {{ include "akto.fullname" . }}-mini-runtime
   labels:
   {{- include "akto.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.mini_runtime.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   type: {{ .Values.mini_runtime.type }}
   selector:

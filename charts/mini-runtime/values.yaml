@@ -109,6 +109,8 @@ mini_runtime:
         targetPort: 8080
   replicas: 1
   type: LoadBalancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
   zoo1:
     env:
       kafkaOpts: -Dzookeeper.admin.enableServer=false
