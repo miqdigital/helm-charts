@@ -99,48 +99,6 @@ spec:
         ports:
         - containerPort: 2181
         resources: {{- toYaml .Values.mini_runtime.zoo1.resources | nindent 10 }}
-      - env:  
-        - name: RUNTIME_MODE
-          value: "hybrid"
-        - name: AKTO_TRAFFIC_KAFKA_BOOTSTRAP_SERVER
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoKafkaTrafficBrokerUrl
-            }}
-        - name: AKTO_INTERNAL_KAFKA_BOOTSTRAP_SERVER
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoKafkaBrokerUrl
-            }}
-        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
-            {{- if .Values.mini_runtime.aktoApiSecurityRuntime.env.useSecretsForDatabaseAbstractorToken }}
-          valueFrom:
-            secretKeyRef:
-              key: token
-              name: {{ (tpl .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
-            {{- else }}
-          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken }}
-            {{- end }}
-        - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
-            {{- if .Values.mini_runtime.aktoApiSecurityRuntime.env.useSecretsForDatabaseAbstractorToken }}
-          valueFrom:
-            secretKeyRef:
-              key: token
-              name: {{ (tpl .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
-            {{- else }}
-          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken }}
-            {{- end }}
-        - name: AKTO_LOG_LEVEL
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoLogLevel }}
-        - name: AKTO_THREAT_PROTECTION_BACKEND_URL
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendUrl }}
-        - name: IS_TESTING_CONTEXT
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.isTestingContext }}
-        - name: AGGREGATION_RULES_ENABLED
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aggregationRulesEnabled }}
-        - name: KUBERNETES_CLUSTER_DOMAIN
-          value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag
-          | default .Chart.AppVersion }}
-        imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
-        name: akto-api-security-threat-client
-        resources: {{- toYaml .Values.threat_client.aktoApiSecurityThreatClient.resources |  nindent 10 }}
       - env:
         - name: MY_POD_NAMESPACE
           valueFrom:
@@ -222,7 +180,7 @@ spec:
         - containerPort: 29092
         - containerPort: 9999
         resources: {{- toYaml .Values.mini_runtime.kafka1.resources | nindent 10 }}
-      
+            
       - env:
         - name: AKTO_KAFKA_BROKER_URL
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoKafkaBrokerMal }}
@@ -318,4 +276,82 @@ spec:
         - containerPort: 9300
         resources: {{- toYaml .Values.keel.keel.resources | nindent 10 }}
       serviceAccountName: {{ include "akto.fullname" . }}-keel
+{{ end }}
+
+{{ if .Values.threat_client.aktoApiSecurityThreatClient.env.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto.fullname" . }}-threat-client
+  {{ if .Values.keel.keel.enabled }}
+  annotations:
+    keel.sh/policy: force
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: "@every 60m"
+  {{ end }}
+  labels:
+  {{- include "akto.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.threat_client.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "akto.fullname" . }}-threat-client
+    {{- include "akto.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "akto.fullname" . }}-threat-client
+      {{- include "akto.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:  
+        - name: RUNTIME_MODE
+          value: "hybrid"
+        - name: AKTO_THREAT_DETECTION_POSTGRES
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresUrl }}
+        - name: AKTO_THREAT_DETECTION_POSTGRES_USER
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresUser }}
+        - name: AKTO_THREAT_DETECTION_POSTGRES_PASSWORD
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresPassword
+            }}
+        - name: AKTO_TRAFFIC_KAFKA_BOOTSTRAP_SERVER
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoKafkaTrafficBrokerUrl
+            }}
+        - name: AKTO_INTERNAL_KAFKA_BOOTSTRAP_SERVER
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoKafkaBrokerUrl
+            }}
+        - name: AKTO_THREAT_DETECTION_LOCAL_REDIS_URI
+          value: "redis://{{ include "akto.fullname" . }}-redis:6379"
+
+        - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
+            {{- if .Values.mini_runtime.aktoApiSecurityRuntime.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
+            {{- else }}
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken }}
+            {{- end }}
+
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+            {{- if .Values.mini_runtime.aktoApiSecurityRuntime.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
+            {{- else }}
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken }}
+            {{- end }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoLogLevel }}
+        - name: AKTO_THREAT_PROTECTION_BACKEND_URL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendUrl }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
+        name: akto-api-security-threat-client
+        resources: {{- toYaml .Values.threat_client.aktoApiSecurityThreatClient.resources |  nindent 10 }}
+      restartPolicy: Always
 {{ end }}
