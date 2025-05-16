@@ -19,9 +19,11 @@ runtime:
       useHostName: true
       databaseAbstractorUrl: http://aktoxy-database-abstractor:9000
       databaseAbstractorToken: ""
+      aktoLogLevel: DEBUG
+      runtimeMode: normal
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-runtime
-      tag: testim
+      tag: latest
     imagePullPolicy: Always
     resources:
       requests:
@@ -118,3 +120,48 @@ keel:
   serviceAccount:
     annotations: {}
   type: LoadBalancer
+
+threat_client:
+  aktoApiSecurityThreatClient:
+    env:
+      enabled: false
+      aggregationRulesEnabled: false
+      postgresUrl: jdbc:postgresql://postgres.default.svc.cluster.local:5432/akto
+      postgresUser: akto
+      postgresPassword: akto
+      aktoAccountName: Helios
+      aktoConfigName: staging
+      aktoInstanceType: DASHBOARD
+      aktoKafkaTrafficBrokerUrl: akto-runtime-runtime.default.svc.cluster.local:9092
+      aktoKafkaBrokerUrl: akto-runtime-runtime.default.svc.cluster.local:9092
+      backendUrl: https://tbs.akto.io
+      aktoLogLevel: DEBUG
+      useHostName: true
+    image:
+      repository: aktosecurity/akto-threat-detection
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      requests:
+        cpu: 1
+        memory: "1Gi"
+      limits:
+        cpu: 2
+        memory: "2Gi"
+
+redis:
+  image:
+    repository: redis
+    tag: "7.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "500Mi"
+    limits:
+      cpu: "900m"
+      memory: "1500Mi"
+  persistence:
+    enabled: true
+    size: "2Gi"
+    storageClass: ""
