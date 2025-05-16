@@ -17,7 +17,7 @@ spec:
 ---
 {{- end }}
 
-{{ if .Values.threat_client.aktoApiSecurityThreatClient.env.enabled }}
+{{ if and .Values.threat_client.aktoApiSecurityThreatClient.env.enabled .Values.threat_client.aktoApiSecurityThreatClient.env.aggregationRulesEnabled}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

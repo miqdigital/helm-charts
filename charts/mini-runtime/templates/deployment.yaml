@@ -346,6 +346,8 @@ spec:
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoLogLevel }}
         - name: AKTO_THREAT_PROTECTION_BACKEND_URL
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendUrl }}
+        - name: AGGREGATION_RULES_ENABLED
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aggregationRulesEnabled }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag
