@@ -237,7 +237,9 @@ spec:
       containers:
       - env:  
         - name: RUNTIME_MODE
-          value: "hybrid"
+          value: "normal"
+        - name: AKTO_MONGO_CONN
+          value: {{ quote .Values.mongo.aktoMongoConn }}
         - name: AKTO_THREAT_DETECTION_POSTGRES
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresUrl }}
         - name: AKTO_THREAT_DETECTION_POSTGRES_USER
@@ -275,5 +277,20 @@ spec:
         imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
         name: akto-api-security-threat-client
         resources: {{- toYaml .Values.threat_client.aktoApiSecurityThreatClient.resources |  nindent 10 }}
+      - env:
+        - name: AKTO_MONGO_CONN
+          value: {{ quote .Values.mongo.aktoMongoConn }}
+        - name: AKTO_THREAT_PROTECTION_MONGO_CONN
+          value: {{ quote .Values.mongo.aktoMongoConn }}
+        - name: THREAT_EVENTS_KAFKA_BROKER_URL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatBackend.env.kafkaBrokerUrl }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatBackend.env.aktoLogLevel }}
+        image: {{ .Values.threat_client.aktoApiSecurityThreatBackend.image.repository }}:{{ .Values.threat_client.aktoApiSecurityThreatBackend.image.tag
+          | default .Chart.AppVersion }}
+        name: akto-api-security-threat-backend
+        ports:
+        - containerPort: 9090
+        resources: {{- toYaml .Values.runtime.zoo1.resources | nindent 10 }}
       restartPolicy: Always
 {{ end }}
