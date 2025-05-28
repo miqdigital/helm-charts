@@ -164,6 +164,11 @@ threat_client:
       limits:
         cpu: 2
         memory: "2Gi"
+  ports:
+  - port: 9090
+    targetPort: 9090
+  replicas: 1
+  type: ClusterIP
 
 redis:
   image:

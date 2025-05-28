@@ -290,7 +290,7 @@ spec:
           | default .Chart.AppVersion }}
         name: akto-api-security-threat-backend
         ports:
-        - containerPort: 2181
+        - containerPort: 9090
         resources: {{- toYaml .Values.runtime.zoo1.resources | nindent 10 }}
       restartPolicy: Always
 {{ end }}
