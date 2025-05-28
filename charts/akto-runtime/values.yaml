@@ -134,11 +134,27 @@ threat_client:
       aktoInstanceType: DASHBOARD
       aktoKafkaTrafficBrokerUrl: akto-runtime-runtime.default.svc.cluster.local:9092
       aktoKafkaBrokerUrl: akto-runtime-runtime.default.svc.cluster.local:9092
-      backendUrl: https://tbs.akto.io
+      backendUrl: http://localhost:9090
       aktoLogLevel: DEBUG
       useHostName: true
     image:
       repository: aktosecurity/akto-threat-detection
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      requests:
+        cpu: 1
+        memory: "1Gi"
+      limits:
+        cpu: 2
+        memory: "2Gi"
+  
+  aktoApiSecurityThreatBackend:
+    env:
+      kafkaBrokerUrl: akto-runtime-runtime.default.svc.cluster.local:9092
+      aktoLogLevel: DEBUG
+    image:
+      repository: aktosecurity/akto-threat-detection-backend
       tag: latest
     imagePullPolicy: Always
     resources:
