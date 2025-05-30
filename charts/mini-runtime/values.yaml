@@ -69,7 +69,7 @@ mini_runtime:
     useTls: false
     image:
       repository: confluentinc/cp-kafka
-      tag: 7.8.0-3-ubi8
+      tag: 7.9.1-1-ubi8
     resources:
       requests:
         cpu: 1
@@ -103,7 +103,7 @@ mini_runtime:
       zookeeperServers: zoo1:2888:3888
     image:
       repository: confluentinc/cp-zookeeper
-      tag: 7.8.0-3-ubi8
+      tag: 7.9.1-1-ubi8
     resources:
       requests:
         cpu: 1
