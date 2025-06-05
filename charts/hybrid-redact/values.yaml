@@ -4,6 +4,8 @@ tokens:
     proxyUri: ""
     noProxy: ""
     testingDbLayerUrl: ""
+    publicKey: ""
+    privateKey: ""
 
 mini_runtime: 
   aktoApiSecurityRuntime:
@@ -24,7 +26,7 @@ mini_runtime:
     enabled: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: 1.46.4_local
+      tag: 1.46.5_local
     imagePullPolicy: Always
     resources:
       requests:
@@ -91,9 +93,10 @@ testing:
       aktoConfigName: staging
       puppeteerReplayServiceUrl: http://localhost:3000
       databaseAbstractorUrl: https://cyborg.akto.io
+      publicKey: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
-      tag: 1.46.2_local
+      tag: 1.46.5_local
     resources:
       requests:
         cpu: "200m"
