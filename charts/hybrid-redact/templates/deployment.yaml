@@ -71,8 +71,8 @@ spec:
           value: {{ quote .Values.tokens.env.databaseAbstractorToken}}
         - name: TESTING_DB_LAYER_SERVICE_URL
           value: {{ quote .Values.tokens.env.testingDbLayerUrl}}
-        - name: PRIVATE_KEY
-          value: {{ quote .Values.tokens.env.privateKey}}
+        - name: PUBLIC_KEY
+          value: {{ quote .Values.tokens.env.publicKey}}
         - name: PROXY_URI
           value: {{ quote .Values.tokens.env.proxyUri}}
         - name: NO_PROXY
@@ -270,8 +270,8 @@ spec:
           value: {{ quote .Values.tokens.env.databaseAbstractorToken}}
         - name: TESTING_DB_LAYER_SERVICE_URL
           value: {{ quote .Values.tokens.env.testingDbLayerUrl}}
-        - name: PUBLIC_KEY
-          value: {{ quote .Values.tokens.env.publicKey}}
+        - name: PRIVATE_KEY
+          value: {{ quote .Values.tokens.env.privateKey}}
         - name: PROXY_URI
           value: {{ quote .Values.tokens.env.proxyUri}}
         - name: NO_PROXY
