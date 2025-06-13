@@ -92,7 +92,7 @@ mini_runtime:
         targetPort: 9093
 
   replicas: 1
-  type: LoadBalancer
+  type: ClusterIP
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
   zoo1:
