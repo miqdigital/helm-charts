@@ -204,6 +204,6 @@ redis:
       cpu: "900m"
       memory: "1500Mi"
   persistence:
-    enabled: true
+    enabled: false
     size: "2Gi"
     storageClass: ""
