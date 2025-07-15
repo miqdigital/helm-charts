@@ -18,6 +18,7 @@ mini_runtime:
       aktoKafkaGroupIdConfig: asdf
       aktoKafkaMaxPollRecordsConfig: "100"
       aktoKafkaTopicName: akto.api.logs
+      blockLogs: true
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
