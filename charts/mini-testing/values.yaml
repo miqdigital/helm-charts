@@ -13,7 +13,7 @@ testing:
       puppeteerReplayServiceUrl: http://localhost:3000
       databaseAbstractorUrl: https://cyborg.akto.io
       databaseAbstractorToken: ""
-      blockLogs: "true"
+      blockLogs: "false"
       aktoLogLevel: WARN
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
