@@ -129,9 +129,16 @@ spec:
             }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        - name: MINI_TESTING_NAME
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.miniTestingName }}
+        - name: PROMETHEUS_SERVER_PORT
+          value: {{ quote .Values.testing.prometheusServer.port }}
         image: {{ .Values.testing.aktoApiSecurityTesting.image.repository }}:{{ .Values.testing.aktoApiSecurityTesting.image.tag
           | default .Chart.AppVersion }}
         name: akto-api-security-testing
+        ports:
+          - containerPort: {{ .Values.testing.prometheusServer.port }}
+            name: {{ quote .Values.testing.prometheusServer.name }}
         imagePullPolicy: {{ .Values.testing.aktoApiSecurityTesting.imagePullPolicy }}
         resources: {{- toYaml .Values.testing.aktoApiSecurityTesting.resources |  nindent 10 }}
       - name: akto-api-security-puppeteer-replay

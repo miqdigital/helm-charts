@@ -1,0 +1,26 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "akto.fullname" . }}-scaledobject
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: {{ include "akto.fullname" . }}
+  minReplicaCount: {{ .Values.testing.autoScaling.minReplicas }}
+  maxReplicaCount: {{ .Values.testing.autoScaling.maxReplicas }}
+  pollingInterval: {{ .Values.testing.autoScaling.customMetrics.pollingInterval }}
+  cooldownPeriod: {{ .Values.testing.autoScaling.customMetrics.cooldownPeriod }}
+  triggers:
+  - type: {{ .Values.testing.autoScaling.customMetrics.type }}
+    name: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.name }}
+    metadata:
+      serverAddress: {{ .Values.testing.kubePrometheus.serverAddress }}
+      metricName: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.metricName }}
+      query: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.query }}
+      threshold: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.target }}
+  advanced:
+    scalingModifiers:
+      formula: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.name }}
+      target: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.target }}
+      activationTarget: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.target }}
+      metricType: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.type }}
