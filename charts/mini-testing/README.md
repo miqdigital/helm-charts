@@ -14,7 +14,7 @@ Please ensure you have the following -
 ## Dependencies
 If you don't need auto-scaling, skip this section.
 
-Otherwise, if auto-scaling needs to be enabled to allow parallel test runs via multiple kubernetes pods, we need to install few dependencies via helm chart. 
+Otherwise, if auto-scaling needs to be enabled to allow parallel test runs via multiple k8s pods, we need to install few dependencies via helm charts. 
 1. Install `kube-prometheus-stack`
 ```
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
