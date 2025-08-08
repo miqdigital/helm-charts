@@ -118,6 +118,8 @@ spec:
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.kafkaBrokerUrl}} 
         - name: NEW_TESTING_ENABLED
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled}}
+        - name: BLOCK_LOGS
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.blockLogs }}
         - name: AKTO_LOG_LEVEL
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoLogLevel }}
         - name: PROXY_URI
