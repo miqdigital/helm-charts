@@ -1,3 +1,4 @@
+{{ if .Values.testing.autoScaling.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,3 +15,4 @@ spec:
       targetPort: {{ .Values.testing.prometheusServer.port }}
       protocol: {{ .Values.testing.prometheusServer.protocol }}
       name: {{ .Values.testing.prometheusServer.name }}
+{{ end }}

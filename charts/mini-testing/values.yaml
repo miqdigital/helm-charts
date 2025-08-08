@@ -14,7 +14,7 @@ testing:
       databaseAbstractorUrl: https://cyborg.akto.io
       databaseAbstractorToken: ""
       aktoLogLevel: WARN
-      miniTestingName: default-auto-scaled-akto-mini-testing
+      miniTestingName: System-auto-scaled-akto-mini-testing
 
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
@@ -36,16 +36,14 @@ testing:
       path: /metrics
 
   kubePrometheus:
-    # todo: see what would be the namespace for kube-prometheus / prometheus-operator
-    serverAddress: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+    serviceName: prometheus-kube-prometheus-prometheus
+    port: 9090
     scrape:
       interval: 15s
       timeout: 10s
 
   replicas: 1
   autoScaling:
-    # todo: see if how we can use this flag to control the autoscaling
-    # todo: See backward compatibility if prometheus-operator and keda helm charts aren't installed
     enabled: true
     minReplicas: 1
     maxReplicas: 10
@@ -57,7 +55,6 @@ testing:
         metricName: is_module_busy
         trigger:
           name: is_module_busy_avg
-          query: avg(is_module_busy{job="akto-mini-testing-service"}) by (job)
           target: 0.9
           type: Value
 
