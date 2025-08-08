@@ -36,8 +36,8 @@ helm install keda kedacore/keda \
 3. Upgrade `keda` to set `watchNamespace`
 ```
 helm upgrade keda kedacore/keda \
-  --namespace dev \
-  --set watchNamespace=dev
+  --namespace <NAMESPACE> \
+  --set watchNamespace=<NAMESPACE>
 ```
   - This restricts keda to watch/control only specific namespace(s)
   - Its fine if you get this error - `Error: UPGRADE FAILED: no RoleBinding with the name "keda-operator" found`
