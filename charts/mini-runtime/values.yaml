@@ -166,7 +166,7 @@ ports:
 threat_client:
   aktoApiSecurityThreatClient:
     env:
-      enabled: true
+      enabled: false
       aggregationRulesEnabled: false
       postgresUrl: jdbc:postgresql://postgres.default.svc.cluster.local:5432/akto
       postgresUser: akto
@@ -174,8 +174,6 @@ threat_client:
       aktoAccountName: Helios
       aktoConfigName: staging
       aktoInstanceType: DASHBOARD
-      aktoKafkaTrafficBrokerUrl:
-      aktoKafkaBrokerUrl:
       backendUrl: https://tbs.akto.io
       aktoLogLevel: WARN
       useHostName: true
