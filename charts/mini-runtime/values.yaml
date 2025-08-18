@@ -174,8 +174,6 @@ threat_client:
       aktoAccountName: Helios
       aktoConfigName: staging
       aktoInstanceType: DASHBOARD
-      aktoKafkaTrafficBrokerUrl: akto-mini-runtime-mini-runtime.default.svc.cluster.local:9092
-      aktoKafkaBrokerUrl: akto-mini-runtime-mini-runtime.default.svc.cluster.local:9092
       backendUrl: https://tbs.akto.io
       aktoLogLevel: WARN
       useHostName: true
