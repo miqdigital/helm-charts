@@ -1,0 +1,28 @@
+image:
+  repository: aktosecurity/mirror-api-logging
+  tag: k8s_agent
+  pullPolicy: IfNotPresent
+
+podAnnotations: {}
+podLabels: {}
+
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+
+env:
+  DEPLOY_DAEMONSET: true
+  AKTO_TRAFFIC_BATCH_TIME_SECS: "10"
+  AKTO_TRAFFIC_BATCH_SIZE: "100"
+  AKTO_INFRA_MIRRORING_MODE: "gcp"
+  AKTO_KAFKA_BROKER_MAL: "akto-mini-runtime-mini-runtime:9092"
+  AKTO_MONGO_CONN: "mongodb://0.0.0.0:27017"
+
+resources: {}
+
+tolerations: []
+nodeSelector: {}
+affinity: {}
+ 
+miniRuntimeServiceName: ""
+miniRuntimeReleaseName: "akto-mini-runtime"
+
