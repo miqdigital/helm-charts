@@ -1,7 +1,7 @@
 image:
   repository: aktosecurity/mirror-api-logging
   tag: k8s_agent
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 podAnnotations: {}
 podLabels: {}
