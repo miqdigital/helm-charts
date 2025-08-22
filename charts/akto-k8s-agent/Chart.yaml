@@ -1,0 +1,18 @@
+apiVersion: v2
+name: akto-k8s-agent
+description: Akto Kubernetes DaemonSet agent for mirroring API logging
+type: application
+version: 0.1.0
+appVersion: "k8s_agent"
+keywords:
+  - akto
+  - daemonset
+  - logging
+  - k8s
+home: "https://www.akto.io"
+sources:
+  - "https://github.com/akto-api-security/helm-charts"
+maintainers:
+  - name: Akto
+    url: "https://www.akto.io"
+
