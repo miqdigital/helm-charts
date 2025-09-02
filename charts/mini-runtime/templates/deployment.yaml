@@ -79,6 +79,19 @@ spec:
             {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if .Values.mini_runtime.kafka1.useSasl }}
+        - name: KAFKA_AUTH_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_SASL_MECHANISM
+          value: "PLAIN"
+        - name: KAFKA_USERNAME
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslUsername }}
+        - name: KAFKA_PASSWORD
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslPassword }}
+        - name: AKTO_KAFKA_SASL_ENABLED
+          value: "true"
+        {{- end }}
+          
         image: {{ .Values.mini_runtime.aktoApiSecurityRuntime.image.repository }}:{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.tag
           | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.mini_runtime.aktoApiSecurityRuntime.imagePullPolicy }}
@@ -91,12 +104,29 @@ spec:
           value: {{ quote .Values.mini_runtime.zoo1.env.zookeeperServers }}
         - name: ZOOKEEPER_SERVER_ID
           value: {{ quote .Values.mini_runtime.zoo1.env.zookeeperServerId }}
+        {{- if .Values.mini_runtime.kafka1.useSasl }}
+        - name: KAFKA_OPTS
+          value: "{{ .Values.mini_runtime.zoo1.env.kafkaOpts }} -Djava.security.auth.login.config=/etc/zookeeper/secrets/zookeeper_jaas.conf"
+        - name: ZOOKEEPER_SASL_ENABLED
+          value: "true"
+        - name: ZOOKEEPER_SASL_PROVIDER
+          value: "org.apache.zookeeper.server.auth.SASLAuthenticationProvider"
+        - name: ZOOKEEPER_SASL_PROVIDER_CLASS
+          value: "org.apache.zookeeper.server.auth.SASLAuthenticationProvider"
+        {{- else }}
         - name: KAFKA_OPTS
           value: {{ quote .Values.mini_runtime.zoo1.env.kafkaOpts }}
+        {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.mini_runtime.zoo1.image.repository }}:{{ .Values.mini_runtime.zoo1.image.tag
           | default .Chart.AppVersion }}
+        {{- if .Values.mini_runtime.kafka1.useSasl }}
+        volumeMounts:
+          - name: zookeeper-jaas-config
+            mountPath: /etc/zookeeper/secrets
+            readOnly: true
+        {{- end }}
         name: zoo1
         ports:
         - containerPort: 2181
@@ -110,6 +140,8 @@ spec:
           value: >-
             {{- if .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
               {{ .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
+            {{- else if .Values.mini_runtime.kafka1.useSasl }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
             {{- else if .Values.mini_runtime.kafka1.useTls }}
               LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
             {{- else }}
@@ -122,10 +154,17 @@ spec:
         - name: KAFKA_CREATE_TOPICS
           value: {{ quote .Values.mini_runtime.kafka1.env.kafkaCreateTopics }}
         - name: KAFKA_INTER_BROKER_LISTENER_NAME
-          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaInterBrokerListenerName }}
+          value: >-
+            {{- if .Values.mini_runtime.kafka1.useSasl }}
+              LISTENER_DOCKER_EXTERNAL_DIFFHOST
+            {{- else }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaInterBrokerListenerName }}
+            {{- end }}
         - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
           value: >-
-            {{- if .Values.mini_runtime.kafka1.useTls }}
+            {{- if .Values.mini_runtime.kafka1.useSasl }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMapSasl }}
+            {{- else if .Values.mini_runtime.kafka1.useTls }}
               {{ .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMapSsl }}
             {{- else }}
               {{ .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMap }}
@@ -164,15 +203,31 @@ spec:
           value: {{ quote .Values.mini_runtime.kafka1.env.sslTruststorePassword }}
         {{- end }}
 
+        {{- if .Values.mini_runtime.kafka1.useSasl }}
+        - name: KAFKA_OPTS
+          value: "-Djava.security.auth.login.config=/etc/kafka/config/kafka_server_jaas.conf"
+        - name: KAFKA_SASL_ENABLED_MECHANISMS
+          value: "PLAIN"
+        - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
+          value: "PLAIN"
+        {{- end }}
+
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.mini_runtime.kafka1.image.repository }}:{{ .Values.mini_runtime.kafka1.image.tag
           | default .Chart.AppVersion }}
 
-        {{- if .Values.mini_runtime.kafka1.useTls }}
+        {{- if or .Values.mini_runtime.kafka1.useTls .Values.mini_runtime.kafka1.useSasl }}
         volumeMounts:
+          {{- if .Values.mini_runtime.kafka1.useTls }}
           - name: kafka-certs
             mountPath: {{ quote .Values.mini_runtime.kafka1.env.sslBaseMountPath }}
+          {{- end }}
+          {{- if .Values.mini_runtime.kafka1.useSasl }}
+          - name: kafka-jaas-config
+            mountPath: /etc/kafka/config
+            readOnly: true
+          {{- end }}
         {{- end }}
 
         name: kafka1
@@ -184,11 +239,21 @@ spec:
         resources: {{- toYaml .Values.mini_runtime.kafka1.resources | nindent 10 }}
  
       restartPolicy: Always
-      {{- if .Values.mini_runtime.kafka1.useTls }}
+      {{- if or .Values.mini_runtime.kafka1.useTls .Values.mini_runtime.kafka1.useSasl }}
       volumes:
+        {{- if .Values.mini_runtime.kafka1.useTls }}
         - name: kafka-certs
           secret:
             secretName: {{ quote .Values.mini_runtime.kafka1.env.sslSecretName }}
+        {{- end }}
+        {{- if .Values.mini_runtime.kafka1.useSasl }}
+        - name: kafka-jaas-config
+          configMap:
+            name: {{ include "akto.fullname" . }}-kafka-jaas-config
+        - name: zookeeper-jaas-config
+          configMap:
+            name: {{ include "akto.fullname" . }}-zookeeper-jaas-config
+        {{- end }}
       {{- end }}
 
 ---
@@ -335,6 +400,20 @@ spec:
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aggregationRulesEnabled }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if .Values.mini_runtime.kafka1.useSasl }}
+        - name: AKTO_KAFKA_SASL_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_SASL_MECHANISM
+          value: "PLAIN"
+        - name: KAFKA_AUTH_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_SASL_MECHANISM
+          value: "PLAIN"
+        - name: KAFKA_USERNAME
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslUsername }}
+        - name: KAFKA_PASSWORD
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslPassword }}
+        {{- end }}
         image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag
           | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}

@@ -16,6 +16,9 @@ env:
   AKTO_INFRA_MIRRORING_MODE: "gcp"
   AKTO_KAFKA_BROKER_MAL: "akto-mini-runtime-mini-runtime:9092"
   AKTO_MONGO_CONN: "mongodb://0.0.0.0:27017"
+  IS_AUTH_IMPLEMENTED: "false"
+  KAFKA_USERNAME: ""
+  KAFKA_PASSWORD: ""
 
 resources: {}
 
