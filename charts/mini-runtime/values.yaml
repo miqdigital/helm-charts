@@ -43,14 +43,15 @@ mini_runtime:
   kafka1:
     env:
       # add advertised listeners if you want to override the default listeners
-      kafkaAdvertisedListeners: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-mini-runtime-mini-runtime.default.svc.cluster.local:9092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://akto-mini-runtime-mini-runtime.default.svc.cluster.local:9093"
+      kafkaAdvertisedListeners: ""
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
       kafkaCreateTopics: akto.api.logs:3:3
       kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
       kafkaListenerSecurityProtocolMap: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
       kafkaListenerSecurityProtocolMapSsl: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED:SSL
-      kafkaListenerSecurityProtocolMapSasl: LISTENER_DOCKER_EXTERNAL_LOCALHOST:SASL_PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_PLAINTEXT
+      kafkaListenerSecurityProtocolMapSasl: LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_PLAINTEXT, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT
+      kafkaListenerSecurityProtocolMapSaslTls: LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_SSL, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_SSL
       kafkaLogCleanerEnable: "true"
       kafkaLogRetentionBytes: "10737418240"
       kafkaLogRetentionCheckIntervalMs: "60000"
