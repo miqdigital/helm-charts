@@ -370,27 +370,9 @@ spec:
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresPassword
             }}
         - name: AKTO_TRAFFIC_KAFKA_BOOTSTRAP_SERVER
-          value: >-
-            {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.useTls }}
-              akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
-            {{- else if .Values.mini_runtime.kafka1.useSasl }}
-              akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
-            {{- else if .Values.mini_runtime.kafka1.useTls }}
-              akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
-            {{- else }}
-              akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092
-            {{- end }}
+          value: akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092
         - name: AKTO_INTERNAL_KAFKA_BOOTSTRAP_SERVER
-          value: >-
-            {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.useTls }}
-              akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
-            {{- else if .Values.mini_runtime.kafka1.useSasl }}
-              akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
-            {{- else if .Values.mini_runtime.kafka1.useTls }}
-              akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
-            {{- else }}
-              akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092
-            {{- end }}
+          value: akto-mini-runtime-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092
         - name: AKTO_THREAT_DETECTION_LOCAL_REDIS_URI
           value: "redis://{{ include "akto.fullname" . }}-redis:6379"
 
@@ -432,10 +414,6 @@ spec:
           value: {{ quote .Values.mini_runtime.kafka1.env.saslUsername }}
         - name: KAFKA_PASSWORD
           value: {{ quote .Values.mini_runtime.kafka1.env.saslPassword }}
-        {{- end }}
-        {{- if .Values.mini_runtime.kafka1.useTls }}
-        - name: AKTO_KAFKA_TLS_ENABLED
-          value: "true"
         {{- end }}
         image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag
           | default .Chart.AppVersion }}
