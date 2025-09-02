@@ -50,6 +50,8 @@ mini_runtime:
       kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
       kafkaListenerSecurityProtocolMap: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
       kafkaListenerSecurityProtocolMapSsl: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED:SSL
+      kafkaListenerSecurityProtocolMapSasl: LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_PLAINTEXT, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT
+      kafkaListenerSecurityProtocolMapSaslTls: LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_SSL, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT
       kafkaLogCleanerEnable: "true"
       kafkaLogRetentionBytes: "10737418240"
       kafkaLogRetentionCheckIntervalMs: "60000"
@@ -59,14 +61,18 @@ mini_runtime:
       kafkaTransactionStateLogMinIsr: "1"
       kafkaTransactionStateLogReplicationFactor: "1"
       kafkaZookeeperConnect: 127.0.0.1:2181
-      sslKeystoreLocation: "/etc/kafka/secrets/server.keystore.jks"
+      sslKeystoreLocation: "/etc/kafka/ssl/secrets/server.keystore.jks"
       sslKeystorePassword: "password"
       sslKeyPassword: "password"
-      sslTruststoreLocation: "/etc/kafka/secrets/server.truststore.jks"
+      sslTruststoreLocation: "/etc/kafka/ssl/secrets/server.truststore.jks"
       sslTruststorePassword: "password"
-      sslBaseMountPath: "/etc/kafka/secrets"
+      sslBaseMountPath: "/etc/kafka/ssl/secrets"
       sslSecretName: "kafka-certs"
+      saslUsername: ""
+      saslPassword: ""
+      saslJaasConfigPath: "/etc/kafka/config/kafka_jaas.conf"
     useTls: false
+    useSasl: false
     image:
       repository: confluentinc/cp-kafka
       tag: 7.9.2-1-ubi8
@@ -90,6 +96,13 @@ mini_runtime:
       - name: ssl
         port: 9093
         targetPort: 9093
+    sasl:
+      - name: sasl-plaintext
+        port: 9092
+        targetPort: 9092
+      - name: sasl-ssl
+        port: 9093
+        targetPort: 9093
 
   replicas: 1
   type: ClusterIP
@@ -101,6 +114,9 @@ mini_runtime:
       zookeeperClientPort: "2181"
       zookeeperServerId: "1"
       zookeeperServers: zoo1:2888:3888
+      # SASL configuration for zookeeper
+      saslUsername: "zookeeper"
+      saslPassword: ""
     image:
       repository: confluentinc/cp-zookeeper
       tag: 7.9.2-1-ubi8
@@ -160,6 +176,13 @@ ports:
       port: 9092
       targetPort: 9092
     - name: ssl
+      port: 9093
+      targetPort: 9093
+  sasl:
+    - name: sasl-plaintext
+      port: 9092
+      targetPort: 9092
+    - name: sasl-ssl
       port: 9093
       targetPort: 9093
 

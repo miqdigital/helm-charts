@@ -50,6 +50,12 @@ spec:
               value: {{ (.Values.env.AKTO_KAFKA_BROKER_MAL | default (printf "%s.%s.svc.cluster.local:9092" (default (printf "%s-mini-runtime" .Values.miniRuntimeReleaseName) .Values.miniRuntimeServiceName) .Release.Namespace)) | quote }}
             - name: AKTO_MONGO_CONN
               value: {{ .Values.env.AKTO_MONGO_CONN | quote }}
+            - name: IS_AUTH_IMPLEMENTED
+              value: {{ .Values.env.IS_AUTH_IMPLEMENTED | quote }}
+            - name: KAFKA_USERNAME
+              value: {{ .Values.env.KAFKA_USERNAME | quote }}
+            - name: KAFKA_PASSWORD
+              value: {{ .Values.env.KAFKA_PASSWORD | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 {{- end }}
