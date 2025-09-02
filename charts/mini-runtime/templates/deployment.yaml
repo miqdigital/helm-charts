@@ -138,7 +138,7 @@ spec:
             {{- if .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
               {{ .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
             {{- else if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.useTls }}
-              LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://localhost:29092
+              LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://localhost:29092
             {{- else if .Values.mini_runtime.kafka1.useSasl }}
               LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092
             {{- else if .Values.mini_runtime.kafka1.useTls }}

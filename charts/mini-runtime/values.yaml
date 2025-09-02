@@ -51,7 +51,7 @@ mini_runtime:
       kafkaListenerSecurityProtocolMap: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
       kafkaListenerSecurityProtocolMapSsl: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT, LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED:SSL
       kafkaListenerSecurityProtocolMapSasl: LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_PLAINTEXT, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT
-      kafkaListenerSecurityProtocolMapSaslTls: LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_SSL, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_SSL
+      kafkaListenerSecurityProtocolMapSaslTls: LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_SSL, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT
       kafkaLogCleanerEnable: "true"
       kafkaLogRetentionBytes: "10737418240"
       kafkaLogRetentionCheckIntervalMs: "60000"
@@ -97,10 +97,10 @@ mini_runtime:
         port: 9093
         targetPort: 9093
     sasl:
-      - name: plaintext
+      - name: sasl-plaintext
         port: 9092
         targetPort: 9092
-      - name: sasl
+      - name: sasl-ssl
         port: 9093
         targetPort: 9093
 
@@ -179,10 +179,10 @@ ports:
       port: 9093
       targetPort: 9093
   sasl:
-    - name: plaintext
+    - name: sasl-plaintext
       port: 9092
       targetPort: 9092
-    - name: sasl
+    - name: sasl-ssl
       port: 9093
       targetPort: 9093
 
