@@ -61,7 +61,7 @@ testing:
 
   aktoApiSecurityPuppeteerReplay:
     image:
-      repository: aktosecurity/akto-puppeteer-replay
+      repository: public.ecr.aws/aktosecurity/akto-puppeteer-replay
       tag: latest
     imagePullPolicy: Always
     resources:
@@ -71,7 +71,7 @@ testing:
       limits:
         cpu: 1
         memory: "4Gi"
-  replicas: 1
+
   kafka1:
     env:
       kafkaBrokerId: "1"
@@ -90,7 +90,7 @@ testing:
       kafkaTransactionStateLogReplicationFactor: "1"
       kafkaZookeeperConnect: 127.0.0.1:2181
     image:
-      repository: confluentinc/cp-kafka
+      repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
       tag: 7.8.0-3-ubi8
     resources:
       requests:
@@ -110,7 +110,7 @@ testing:
       zookeeperServerId: "1"
       zookeeperServers: zoo1:2888:3888
     image:
-      repository: confluentinc/cp-zookeeper
+      repository: public.ecr.aws/aktosecurity/confluentinc-cp-zookeeper
       tag: 7.8.0-3-ubi8
     resources:
       requests:
@@ -137,7 +137,7 @@ keel:
       notificationLevel: info
       webhookEndpoint: ""
     image:
-      repository: keelhq/keel
+      repository: public.ecr.aws/aktosecurity/keelhq-keel
       tag: latest
     imagePullPolicy: Always
     resources:

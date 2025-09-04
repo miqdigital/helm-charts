@@ -145,7 +145,7 @@ keel:
       notificationLevel: info
       webhookEndpoint: ""
     image:
-      repository: keelhq/keel
+      repository: public.ecr.aws/aktosecurity/keelhq-keel
       tag: latest
     imagePullPolicy: IfNotPresent
     enabled: true
