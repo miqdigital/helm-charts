@@ -74,7 +74,7 @@ mini_runtime:
     useTls: false
     useSasl: false
     image:
-      repository: confluentinc/cp-kafka
+      repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
       tag: 7.9.2-1-ubi8
     resources:
       requests:
@@ -118,7 +118,7 @@ mini_runtime:
       saslUsername: "zookeeper"
       saslPassword: ""
     image:
-      repository: confluentinc/cp-zookeeper
+      repository: public.ecr.aws/aktosecurity/confluentinc-cp-zookeeper
       tag: 7.9.2-1-ubi8
     resources:
       requests:
