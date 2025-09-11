@@ -154,7 +154,9 @@ spec:
           value: {{ quote .Values.mini_runtime.kafka1.env.kafkaCreateTopics }}
         - name: KAFKA_INTER_BROKER_LISTENER_NAME
           value: >-
-            {{- if .Values.mini_runtime.kafka1.useSasl }}
+            {{- if .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaInterBrokerListenerName }}
+            {{- else if .Values.mini_runtime.kafka1.useSasl }}
               LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL
             {{- else if .Values.mini_runtime.kafka1.useTls }}
               LISTENER_DOCKER_EXTERNAL_DIFFHOST
