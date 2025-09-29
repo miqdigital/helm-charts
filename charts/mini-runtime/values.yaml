@@ -189,8 +189,8 @@ ports:
 threat_client:
   aktoApiSecurityThreatClient:
     env:
-      enabled: false
-      aggregationRulesEnabled: false
+      enabled: true
+      aggregationRulesEnabled: true
       postgresUrl: jdbc:postgresql://postgres.default.svc.cluster.local:5432/akto
       postgresUser: akto
       postgresPassword: akto
