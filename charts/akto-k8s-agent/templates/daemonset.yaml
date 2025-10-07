@@ -56,6 +56,8 @@ spec:
               value: {{ .Values.env.KAFKA_USERNAME | quote }}
             - name: KAFKA_PASSWORD
               value: {{ .Values.env.KAFKA_PASSWORD | quote }}
+            - name: AKTO_THREAT_ENABLED
+              value: {{ .Values.env.AKTO_THREAT_ENABLED | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 {{- end }}

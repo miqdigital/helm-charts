@@ -19,6 +19,7 @@ env:
   IS_AUTH_IMPLEMENTED: "false"
   KAFKA_USERNAME: ""
   KAFKA_PASSWORD: ""
+  AKTO_THREAT_ENABLED: false
 
 resources: {}
 
