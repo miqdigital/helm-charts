@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "data-ingestion-service.fullname" . }}
+  labels:
+    {{- include "data-ingestion-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.dataIngestionService.replicas }}
+  selector:
+    matchLabels:
+      {{- include "data-ingestion-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "data-ingestion-service.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: {{ .Values.dataIngestionService.restartPolicy }}
+      containers:
+      - name: data-ingestion-service
+        image: {{ .Values.dataIngestionService.image.repository }}:{{ .Values.dataIngestionService.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.dataIngestionService.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.dataIngestionService.service.targetPort }}
+          protocol: TCP
+        env:
+        - name: AKTO_TRAFFIC_BATCH_SIZE
+          value: {{ quote .Values.dataIngestionService.env.aktoTrafficBatchSize }}
+        - name: AKTO_TRAFFIC_BATCH_TIME_SECS
+          value: {{ quote .Values.dataIngestionService.env.aktoTrafficBatchTimeSecs }}
+        - name: AKTO_KAFKA_BROKER_URL
+          value: {{ quote .Values.dataIngestionService.env.aktoKafkaBrokerUrl }}
+        - name: AKTO_KAFKA_PRODUCER_BATCH_SIZE
+          value: {{ quote .Values.dataIngestionService.env.aktoKafkaProducerBatchSize }}
+        - name: AKTO_KAFKA_PRODUCER_LINGER_MS
+          value: {{ quote .Values.dataIngestionService.env.aktoKafkaProducerLingerMs }}
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: {{ quote .Values.dataIngestionService.env.aktoKafkaTopicName }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        resources:
+          {{- toYaml .Values.dataIngestionService.resources | nindent 10 }}
