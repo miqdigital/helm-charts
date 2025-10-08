@@ -1,0 +1,32 @@
+kubernetesClusterDomain: cluster.local
+
+dataIngestionService:
+  image:
+    repository: aktosecurity/data-ingestion-service
+    tag: latest
+  imagePullPolicy: Always
+
+  env:
+    aktoTrafficBatchSize: "100"
+    aktoTrafficBatchTimeSecs: "10"
+    aktoKafkaBrokerUrl: akto-mini-runtime-mini-runtime:9092
+    aktoKafkaProducerBatchSize: "10"
+    aktoKafkaProducerLingerMs: "10"
+    aktoKafkaTopicName: "akto.api.logs"
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: "512Mi"
+    limits:
+      cpu: 1
+      memory: "1Gi"
+
+  replicas: 1
+
+  service:
+    type: LoadBalancer
+    port: 8080
+    targetPort: 8080
+
+  restartPolicy: Always
