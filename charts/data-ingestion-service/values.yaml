@@ -28,7 +28,7 @@ dataIngestionService:
     type: LoadBalancer
     port: 8080
     targetPort: 8080
-    internal: false
+    internal: true
     # Comma-separated subnet IDs, e.g., "subnet-xxx,subnet-yyy,subnet-zzz"
     subnets: ""
 
