@@ -38,7 +38,7 @@ mini_runtime:
         cpu: 2
         memory: "4Gi"
       limits:
-        cpu: 3
+        cpu: 2
         memory: "8Gi"
   kafka1:
     env:
@@ -78,11 +78,11 @@ mini_runtime:
       tag: 7.9.2-1-ubi8
     resources:
       requests:
-        cpu: 1
+        cpu: 1.5
         memory: "4Gi"
         ephemeral-storage: "500Mi"
       limits:
-        cpu: 2
+        cpu: 1.5
         memory: "8Gi"
         ephemeral-storage: "11Gi"
   ports:
@@ -125,7 +125,7 @@ mini_runtime:
         cpu: 1
         memory: "1Gi"
       limits:
-        cpu: 2
+        cpu: 1
         memory: "2Gi"
 
 keel:
@@ -206,10 +206,10 @@ threat_client:
     imagePullPolicy: Always
     resources:
       requests:
-        cpu: 1
+        cpu: 1.5
         memory: "1Gi"
       limits:
-        cpu: 2
+        cpu: 1.5
         memory: "2Gi"
 
 redis:
