@@ -69,10 +69,7 @@ docker push your-registry/dvmcp:latest
 After building the image locally:
 
 ```bash
-helm install dvmcp ./damn-vulnerable-mcp-server \
-  --set image.repository=dvmcp \
-  --set image.tag=latest \
-  --set image.pullPolicy=Never
+helm install dvmcp ./damn-vulnerable-mcp-server
 ```
 
 ### Basic Installation (Other Clusters)
@@ -82,36 +79,27 @@ After pushing to your registry:
 ```bash
 helm install dvmcp ./damn-vulnerable-mcp-server \
   --set image.repository=your-registry/dvmcp \
-  --set image.tag=latest
+  --set image.pullPolicy=IfNotPresent
 ```
 
 ### With LoadBalancer for External Access
 
 ```bash
 helm install dvmcp ./damn-vulnerable-mcp-server \
-  --set image.repository=dvmcp \
-  --set image.tag=latest \
-  --set image.pullPolicy=Never \
   --set service.type=LoadBalancer
 ```
 
-### With NodePort for External Access
+### With ClusterIP (Internal Only)
 
 ```bash
 helm install dvmcp ./damn-vulnerable-mcp-server \
-  --set image.repository=dvmcp \
-  --set image.tag=latest \
-  --set image.pullPolicy=Never \
-  --set service.type=NodePort
+  --set service.type=ClusterIP
 ```
 
 ### With Persistence Enabled
 
 ```bash
 helm install dvmcp ./damn-vulnerable-mcp-server \
-  --set image.repository=dvmcp \
-  --set image.tag=latest \
-  --set image.pullPolicy=Never \
   --set persistence.enabled=true \
   --set persistence.size=2Gi
 ```
@@ -123,10 +111,10 @@ helm install dvmcp ./damn-vulnerable-mcp-server \
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `replicaCount` | Number of replicas | `1` |
-| `image.repository` | Image repository | `harishsg993010/damn-vulnerable-mcp-server` |
-| `image.tag` | Image tag | `""` (uses appVersion) |
-| `image.pullPolicy` | Image pull policy | `IfNotPresent` |
-| `service.type` | Service type (ClusterIP/NodePort/LoadBalancer) | `ClusterIP` |
+| `image.repository` | Image repository | `dvmcp` |
+| `image.tag` | Image tag | `latest` |
+| `image.pullPolicy` | Image pull policy | `Never` |
+| `service.type` | Service type (ClusterIP/NodePort/LoadBalancer) | `NodePort` |
 | `service.ports` | Port configurations for all 10 challenges | See values.yaml |
 | `resources.limits.cpu` | CPU limit | `2000m` |
 | `resources.limits.memory` | Memory limit | `2Gi` |
@@ -137,15 +125,16 @@ helm install dvmcp ./damn-vulnerable-mcp-server \
 
 ### Service Types
 
-#### ClusterIP (Default)
+#### NodePort (Default)
+- Accessible via node IP at ports 30001-30010
+- Good for development and testing clusters
+- Default ports configured for easy access
+
+#### ClusterIP
 - Only accessible within the cluster
 - Use `kubectl port-forward` for local access
 - Most secure for isolated testing
-
-#### NodePort
-- Accessible via node IP and high-numbered ports (30000-32767)
-- Good for development clusters
-- Configure specific ports via `service.nodePorts`
+- Set `service.type=ClusterIP` to use
 
 #### LoadBalancer
 - Gets external IP from cloud provider
@@ -228,7 +217,7 @@ Configure your MCP clients (Claude Desktop, Cursor, MCP Inspector) to connect to
 {
   "mcpServers": {
     "dvmcp-challenge-1": {
-      "url": "http://localhost:9001"
+      "url": "http://localhost:9001",
     },
     "dvmcp-challenge-2": {
       "url": "http://localhost:9002"
@@ -295,6 +284,23 @@ kubectl get svc dvmcp-damn-vulnerable-mcp-server
 ```bash
 # Check if servers are running
 kubectl exec -it <pod-name> -- supervisorctl status
+```
+
+## Testing
+
+Verify that the MCP servers are running correctly:
+
+```bash
+helm test dvmcp
+```
+
+This test connects to the first challenge server's SSE endpoint and verifies it's responding. A successful test output looks like:
+
+```
+TEST SUITE:     dvmcp-damn-vulnerable-mcp-server-test-connection
+Last Started:   Wed Oct 22 23:07:00 2025
+Last Completed: Wed Oct 22 23:07:06 2025
+Phase:          Succeeded
 ```
 
 ## Uninstallation

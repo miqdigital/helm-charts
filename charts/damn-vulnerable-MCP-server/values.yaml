@@ -4,44 +4,69 @@
 
 replicaCount: 1
 
+# Docker image configuration
+# Default: Uses locally built image (dvmcp:latest)
+# Build locally: docker build -t dvmcp:latest https://github.com/harishsg993010/damn-vulnerable-MCP-server.git
+# Or use remote repository: set repository to your-registry/dvmcp and pullPolicy to IfNotPresent
 image:
-  repository: harishsg993010/damn-vulnerable-mcp-server
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  repository: dvmcp
+  pullPolicy: Never
+  tag: latest
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
 podAnnotations: {}
 podLabels: {}
 
 podSecurityContext: {}
+  # NOTE: Security contexts are disabled by default because this image uses supervisord
+  # which requires root privileges. Since this is an educational vulnerability platform
+  # meant for local testing only, this is acceptable.
+  # For production use, consider:
+  # runAsNonRoot: true
+  # runAsUser: 1000
   # fsGroup: 2000
+  # seccompProfile:
+  #   type: RuntimeDefault
 
 securityContext: {}
+  # allowPrivilegeEscalation: false
   # capabilities:
   #   drop:
   #   - ALL
-  # readOnlyRootFilesystem: true
+  # readOnlyRootFilesystem: false
   # runAsNonRoot: true
   # runAsUser: 1000
 
 service:
-  type: ClusterIP
-  # For NodePort: specify nodePort values for each challenge server
-  # nodePorts:
-  #   challenge1: 30001
-  #   challenge2: 30002
-  #   challenge3: 30003
-  #   challenge4: 30004
-  #   challenge5: 30005
-  #   challenge6: 30006
-  #   challenge7: 30007
-  #   challenge8: 30008
-  #   challenge9: 30009
-  #   challenge10: 30010
+  type: NodePort
+  annotations: {}
+    # service.beta.kubernetes.io/aws-load-balancer-type: nlb
+  # Specify nodePort values for each challenge server
+  nodePorts:
+    challenge1: 30001
+    challenge2: 30002
+    challenge3: 30003
+    challenge4: 30004
+    challenge5: 30005
+    challenge6: 30006
+    challenge7: 30007
+    challenge8: 30008
+    challenge9: 30009
+    challenge10: 30010
 
   # Service ports for all 10 challenge servers
   ports:
@@ -147,10 +172,12 @@ affinity: {}
 # Persistence configuration for challenge data
 persistence:
   enabled: false
-  # storageClass: "-"
+  annotations: {}
+  storageClass: ""
+  # Use "-" to disable dynamic provisioning
   accessMode: ReadWriteOnce
   size: 1Gi
-  # existingClaim: ""
+  existingClaim: ""
   # Challenge data directories that will be persisted
   # These match the /tmp/dvmcp_challenge* directories created in the Dockerfile
   mountPaths:

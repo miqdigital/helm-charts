@@ -4,6 +4,10 @@ metadata:
   name: {{ include "damn-vulnerable-mcp-server.fullname" . }}
   labels:
     {{- include "damn-vulnerable-mcp-server.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:

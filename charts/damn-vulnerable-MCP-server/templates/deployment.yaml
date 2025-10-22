@@ -23,10 +23,12 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      terminationGracePeriodSeconds: 30
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      serviceAccountName: {{ include "damn-vulnerable-mcp-server.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -63,9 +65,10 @@ spec:
         {{- end }}
         resources:
           {{- toYaml .Values.resources | nindent 12 }}
-        {{- with .Values.volumeMounts }}
+        {{- if or .Values.volumeMounts .Values.persistence.enabled }}
         volumeMounts:
-          {{- toYaml . | nindent 12 }}
+        {{- with .Values.volumeMounts }}
+          {{- toYaml . | nindent 10 }}
         {{- end }}
         {{- if .Values.persistence.enabled }}
         {{- range $key, $path := .Values.persistence.mountPaths }}
@@ -73,8 +76,10 @@ spec:
           mountPath: {{ $path }}
         {{- end }}
         {{- end }}
-      {{- with .Values.volumes }}
+        {{- end }}
+      {{- if or .Values.volumes .Values.persistence.enabled }}
       volumes:
+      {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- if .Values.persistence.enabled }}
@@ -82,6 +87,7 @@ spec:
       - name: {{ $key }}-data
         persistentVolumeClaim:
           claimName: {{ include "damn-vulnerable-mcp-server.fullname" $ }}-{{ $key }}
+      {{- end }}
       {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
