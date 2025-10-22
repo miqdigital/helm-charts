@@ -1,0 +1,21 @@
+{{- if .Values.persistence.enabled -}}
+{{- range $key, $path := .Values.persistence.mountPaths }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "damn-vulnerable-mcp-server.fullname" $ }}-{{ $key }}
+  labels:
+    {{- include "damn-vulnerable-mcp-server.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $key }}
+spec:
+  accessModes:
+    - {{ $.Values.persistence.accessMode }}
+  {{- if $.Values.persistence.storageClass }}
+  storageClassName: {{ $.Values.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $.Values.persistence.size }}
+{{- end }}
+{{- end }}

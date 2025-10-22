@@ -1,0 +1,218 @@
+# Default values for damn-vulnerable-mcp-server
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: harishsg993010/damn-vulnerable-mcp-server
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  # For NodePort: specify nodePort values for each challenge server
+  # nodePorts:
+  #   challenge1: 30001
+  #   challenge2: 30002
+  #   challenge3: 30003
+  #   challenge4: 30004
+  #   challenge5: 30005
+  #   challenge6: 30006
+  #   challenge7: 30007
+  #   challenge8: 30008
+  #   challenge9: 30009
+  #   challenge10: 30010
+
+  # Service ports for all 10 challenge servers
+  ports:
+    challenge1:
+      port: 9001
+      targetPort: 9001
+      protocol: TCP
+    challenge2:
+      port: 9002
+      targetPort: 9002
+      protocol: TCP
+    challenge3:
+      port: 9003
+      targetPort: 9003
+      protocol: TCP
+    challenge4:
+      port: 9004
+      targetPort: 9004
+      protocol: TCP
+    challenge5:
+      port: 9005
+      targetPort: 9005
+      protocol: TCP
+    challenge6:
+      port: 9006
+      targetPort: 9006
+      protocol: TCP
+    challenge7:
+      port: 9007
+      targetPort: 9007
+      protocol: TCP
+    challenge8:
+      port: 9008
+      targetPort: 9008
+      protocol: TCP
+    challenge9:
+      port: 9009
+      targetPort: 9009
+      protocol: TCP
+    challenge10:
+      port: 9010
+      targetPort: 9010
+      protocol: TCP
+
+ingress:
+  enabled: false
+  className: ""
+  annotations:
+    # Path rewriting for nginx ingress - removes /challengeX prefix before forwarding to backend
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: dvmcp.local
+      paths:
+        # Challenge 1 - Easy: Basic Prompt Injection
+        # Path format: /challenge1(/|$)(.*) captures everything after /challenge1/ into $2
+        - path: /challenge1(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9001
+        # Challenge 2 - Easy: Tool Manipulation
+        - path: /challenge2(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9002
+        # Challenge 3 - Easy: File System Access
+        - path: /challenge3(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9003
+        # Challenge 4 - Medium: State Manipulation
+        - path: /challenge4(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9004
+        # Challenge 5 - Medium: Resource Enumeration
+        - path: /challenge5(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9005
+        # Challenge 6 - Medium: Input Validation
+        - path: /challenge6(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9006
+        # Challenge 7 - Medium: Authentication Bypass
+        - path: /challenge7(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9007
+        # Challenge 8 - Hard: Chain Attack
+        - path: /challenge8(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9008
+        # Challenge 9 - Hard: Privilege Escalation
+        - path: /challenge9(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9009
+        # Challenge 10 - Hard: Multi-Vector Attack
+        - path: /challenge10(/|$)(.*)
+          pathType: ImplementationSpecific
+          port: 9010
+  tls: []
+  #  - secretName: dvmcp-tls
+  #    hosts:
+  #      - dvmcp.local
+
+resources:
+  # We recommend setting resource limits since 10 servers run in one pod
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Liveness and readiness probes for health checking
+# Note: Disabled by default as the servers may not have a /health endpoint
+livenessProbe:
+  enabled: false
+  httpGet:
+    path: /health
+    port: 9001
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: false
+  httpGet:
+    path: /health
+    port: 9001
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Autoscaling configuration (not recommended for this use case)
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Persistence configuration for challenge data
+persistence:
+  enabled: false
+  # storageClass: "-"
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  # existingClaim: ""
+  # Challenge data directories that will be persisted
+  # These match the /tmp/dvmcp_challenge* directories created in the Dockerfile
+  mountPaths:
+    challenge3: /tmp/dvmcp_challenge3
+    challenge4: /tmp/dvmcp_challenge4
+    challenge6: /tmp/dvmcp_challenge6
+    challenge8: /tmp/dvmcp_challenge8
+    challenge10: /tmp/dvmcp_challenge10
