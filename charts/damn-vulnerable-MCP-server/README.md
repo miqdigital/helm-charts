@@ -134,9 +134,6 @@ helm install dvmcp ./damn-vulnerable-mcp-server \
 | `resources.requests.memory` | Memory request | `512Mi` |
 | `persistence.enabled` | Enable persistent storage | `false` |
 | `persistence.size` | Size of persistent volume | `1Gi` |
-| `ingress.enabled` | Enable ingress for HTTP routing | `false` |
-| `ingress.className` | Ingress class name | `""` |
-| `ingress.hosts` | Ingress host configurations | See values.yaml |
 
 ### Service Types
 
@@ -154,23 +151,6 @@ helm install dvmcp ./damn-vulnerable-mcp-server \
 - Gets external IP from cloud provider
 - Best for cloud-based testing environments
 - May incur cloud provider costs
-
-#### Ingress
-- Enable with `ingress.enabled=true`
-- Provides domain-based routing with path prefixes
-- Requires ingress controller (nginx, traefik, etc.)
-- All challenges accessible via single domain:
-  - `http://dvmcp.local/challenge1`
-  - `http://dvmcp.local/challenge2`
-  - ... etc
-
-**Enable Ingress:**
-```bash
-helm install dvmcp ./damn-vulnerable-mcp-server \
-  --set ingress.enabled=true \
-  --set ingress.className=nginx \
-  --set ingress.hosts[0].host=dvmcp.example.com
-```
 
 ## Accessing the Challenges
 
@@ -236,52 +216,11 @@ minikube tunnel
 kubectl get svc dvmcp-damn-vulnerable-mcp-server
 ```
 
-### Option 5: Ingress (Domain-based Routing)
-
-**Prerequisites:**
-1. Ingress controller installed (for minikube: `minikube addons enable ingress`)
-2. DNS/hosts file configured
-
-**Install with Ingress:**
-```bash
-helm install dvmcp ./damn-vulnerable-mcp-server \
-  --set image.repository=dvmcp \
-  --set image.tag=latest \
-  --set image.pullPolicy=Never \
-  --set ingress.enabled=true \
-  --set ingress.className=nginx
-```
-
-**For Minikube:**
-```bash
-# 1. Start tunnel in separate terminal
-minikube tunnel
-
-# 2. Add to /etc/hosts
-echo "127.0.0.1 dvmcp.local" | sudo tee -a /etc/hosts
-
-# 3. Access challenges
-curl http://dvmcp.local/challenge1
-curl http://dvmcp.local/challenge2
-# ... etc
-```
-
-Access all challenges at:
-- `http://dvmcp.local/challenge1` through `http://dvmcp.local/challenge10`
-
-**For MCP Inspector/Clients:**
-The ingress includes automatic path rewriting. Use URLs like:
-- `http://dvmcp.local/challenge1/sse` - automatically rewrites to backend `/sse`
-- `http://dvmcp.local/challenge2/sse` - automatically rewrites to backend `/sse`
-- etc.
-
-**Note:** Ingress adds extra latency due to additional routing layer. Use NodePort/Service for better performance in development.
-
 ## MCP Client Configuration
 
 Configure your MCP clients (Claude Desktop, Cursor, MCP Inspector) to connect to each challenge.
 
-**Note:** Use direct service access (Option 1 or 2 from "Accessing the Challenges" above) for MCP clients, not ingress. Ingress path rewriting can interfere with MCP SSE transport.
+**Recommended:** Use direct service access (Option 1 or 2 from "Accessing the Challenges" above) for best compatibility with MCP clients.
 
 ### Example: Claude Desktop Config
 

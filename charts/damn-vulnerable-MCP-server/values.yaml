@@ -86,63 +86,6 @@ service:
       targetPort: 9010
       protocol: TCP
 
-ingress:
-  enabled: false
-  className: ""
-  annotations:
-    # Path rewriting for nginx ingress - removes /challengeX prefix before forwarding to backend
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    # kubernetes.io/ingress.class: nginx
-    # cert-manager.io/cluster-issuer: letsencrypt-prod
-  hosts:
-    - host: dvmcp.local
-      paths:
-        # Challenge 1 - Easy: Basic Prompt Injection
-        # Path format: /challenge1(/|$)(.*) captures everything after /challenge1/ into $2
-        - path: /challenge1(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9001
-        # Challenge 2 - Easy: Tool Manipulation
-        - path: /challenge2(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9002
-        # Challenge 3 - Easy: File System Access
-        - path: /challenge3(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9003
-        # Challenge 4 - Medium: State Manipulation
-        - path: /challenge4(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9004
-        # Challenge 5 - Medium: Resource Enumeration
-        - path: /challenge5(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9005
-        # Challenge 6 - Medium: Input Validation
-        - path: /challenge6(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9006
-        # Challenge 7 - Medium: Authentication Bypass
-        - path: /challenge7(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9007
-        # Challenge 8 - Hard: Chain Attack
-        - path: /challenge8(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9008
-        # Challenge 9 - Hard: Privilege Escalation
-        - path: /challenge9(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9009
-        # Challenge 10 - Hard: Multi-Vector Attack
-        - path: /challenge10(/|$)(.*)
-          pathType: ImplementationSpecific
-          port: 9010
-  tls: []
-  #  - secretName: dvmcp-tls
-  #    hosts:
-  #      - dvmcp.local
-
 resources:
   # We recommend setting resource limits since 10 servers run in one pod
   limits:
