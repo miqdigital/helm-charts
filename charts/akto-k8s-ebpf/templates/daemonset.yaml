@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "akto-k8s-ebpf.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: akto-collector
+    {{- include "akto-k8s-ebpf.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: akto-collector
+      {{- include "akto-k8s-ebpf.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: akto-collector
+        {{- include "akto-k8s-ebpf.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      hostNetwork: {{ .Values.hostNetwork }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      dnsPolicy: {{ .Values.dnsPolicy }}
+      hostPID: {{ .Values.hostPID }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: mirror-api-logging
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          - name: AKTO_TRAFFIC_BATCH_TIME_SECS
+            value: {{ .Values.env.AKTO_TRAFFIC_BATCH_TIME_SECS | quote }}
+          - name: AKTO_TRAFFIC_BATCH_SIZE
+            value: {{ .Values.env.AKTO_TRAFFIC_BATCH_SIZE | quote }}
+          - name: AKTO_KAFKA_BROKER_MAL
+            value: {{ .Values.env.AKTO_KAFKA_BROKER_MAL | quote }}
+          - name: AKTO_K8_METADATA_CAPTURE
+            value: {{ .Values.env.AKTO_K8_METADATA_CAPTURE | quote }}
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        {{- with .Values.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+          - name: lib-modules
+            mountPath: {{ .Values.volumeMounts.libModules.mountPath }}
+            readOnly: {{ .Values.volumeMounts.libModules.readOnly }}
+          - name: sys-kernel
+            mountPath: {{ .Values.volumeMounts.sysKernel.mountPath }}
+            readOnly: {{ .Values.volumeMounts.sysKernel.readOnly }}
+          - name: host
+            mountPath: {{ .Values.volumeMounts.host.mountPath }}
+            readOnly: {{ .Values.volumeMounts.host.readOnly }}
+      volumes:
+        - name: sys-kernel
+          hostPath:
+            path: {{ .Values.volumes.sysKernel.hostPath }}
+        - name: lib-modules
+          hostPath:
+            path: {{ .Values.volumes.libModules.hostPath }}
+        - name: host
+          hostPath:
+            path: {{ .Values.volumes.host.hostPath }}

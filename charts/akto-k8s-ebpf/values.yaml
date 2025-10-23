@@ -1,0 +1,65 @@
+image:
+  repository: aktosecurity/mirror-api-logging
+  tag: k8s_ebpf
+  pullPolicy: Always
+
+podAnnotations: {}
+podLabels: {}
+
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+hostPID: true
+
+# ServiceAccount configuration
+serviceAccount:
+  create: true
+  name: pod-watcher
+
+# Environment variables
+env:
+  AKTO_TRAFFIC_BATCH_TIME_SECS: "10"
+  AKTO_TRAFFIC_BATCH_SIZE: "100"
+  AKTO_KAFKA_BROKER_MAL: "akto-mini-runtime-mini-runtime:9092"
+  AKTO_K8_METADATA_CAPTURE: "true"
+
+# Security context for eBPF and kernel access
+securityContext:
+  privileged: true
+  capabilities:
+    add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 50m
+    memory: 50Mi
+
+# Node selector, tolerations and affinity
+tolerations: []
+nodeSelector: {}
+affinity: {}
+
+# Volume configuration for kernel access
+volumes:
+  libModules:
+    hostPath: /lib/modules
+  sysKernel:
+    hostPath: /sys/kernel
+  host:
+    hostPath: /
+
+volumeMounts:
+  libModules:
+    mountPath: /lib/modules
+    readOnly: true
+  sysKernel:
+    mountPath: /sys/kernel
+    readOnly: true
+  host:
+    mountPath: /host
+    readOnly: true
