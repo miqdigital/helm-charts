@@ -1,0 +1,21 @@
+apiVersion: v2
+name: damn-vulnerable-mcp-server
+description: A Helm chart for Damn Vulnerable Model Context Protocol Server - Educational security testing platform with 10 MCP vulnerability challenges
+type: application
+version: 0.1.0
+appVersion: "latest"
+kubeVersion: ">=1.19.0-0"
+deprecated: false
+keywords:
+  - security
+  - mcp
+  - vulnerability
+  - educational
+  - testing
+maintainers:
+  - name: Akto Security
+    url: https://github.com/akto-api-security
+home: https://github.com/harishsg993010/damn-vulnerable-MCP-server
+sources:
+  - https://github.com/harishsg993010/damn-vulnerable-MCP-server
+icon: https://avatars.githubusercontent.com/u/92027393

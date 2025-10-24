@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "damn-vulnerable-mcp-server.fullname" . }}
+  labels:
+    {{- include "damn-vulnerable-mcp-server.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  {{- range $key, $value := .Values.service.ports }}
+  - port: {{ $value.port }}
+    targetPort: {{ $value.targetPort }}
+    protocol: {{ $value.protocol }}
+    name: {{ $key }}
+    {{- if and (eq $.Values.service.type "NodePort") (hasKey $.Values.service "nodePorts") (hasKey $.Values.service.nodePorts $key) }}
+    nodePort: {{ index $.Values.service.nodePorts $key }}
+    {{- end }}
+  {{- end }}
+  selector:
+    {{- include "damn-vulnerable-mcp-server.selectorLabels" . | nindent 4 }}

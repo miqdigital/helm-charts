@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "damn-vulnerable-mcp-server.fullname" . }}-test-connection"
+  labels:
+    {{- include "damn-vulnerable-mcp-server.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  containers:
+    - name: wget
+      image: busybox:1.36
+      command: ['sh', '-c']
+      args:
+        - |
+          # Test SSE endpoint - should return 200 and start streaming
+          # We just need to verify it connects and starts returning data
+          timeout 3 wget -O - '{{ include "damn-vulnerable-mcp-server.fullname" . }}:9001/sse' 2>&1 | grep -q "event:"
+          if [ $? -eq 0 ]; then
+            echo "SUCCESS: Server is responding on port 9001"
+            exit 0
+          else
+            echo "FAILED: Server did not respond with SSE data"
+            exit 1
+          fi
+  restartPolicy: Never
