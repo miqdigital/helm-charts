@@ -21,6 +21,10 @@ env:
   AKTO_TRAFFIC_BATCH_SIZE: "100"
   AKTO_KAFKA_BROKER_MAL: "akto-mini-runtime-mini-runtime:9092"
   AKTO_K8_METADATA_CAPTURE: "true"
+  AKTO_THREAT_ENABLED: "true"
+
+miniRuntimeServiceName: ""
+miniRuntimeReleaseName: "akto-mini-runtime"
 
 # Security context for eBPF and kernel access
 securityContext:
