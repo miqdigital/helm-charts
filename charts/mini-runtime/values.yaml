@@ -80,7 +80,7 @@ mini_runtime:
     useSasl: false
     image:
       repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
-      tag: 8.1.0
+      tag: 8.1.0-1-ubi9
     resources:
       requests:
         cpu: 1.5
