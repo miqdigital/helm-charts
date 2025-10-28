@@ -8,9 +8,6 @@ metadata:
     {{- with .Values.mini_runtime.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- if .Values.mini_runtime.loadBalancerDNS }}
-    external-dns.alpha.kubernetes.io/hostname: {{ .Values.mini_runtime.loadBalancerDNS }}
-    {{- end }}
 spec:
   type: {{ .Values.mini_runtime.type }}
   selector:

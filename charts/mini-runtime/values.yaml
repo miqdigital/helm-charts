@@ -137,9 +137,6 @@ mini_runtime:
   type: ClusterIP
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
-  # Optional: Specify a custom load balancer DNS name
-  # This can be useful for configuring external DNS or custom domain names
-  loadBalancerDNS: ""
 
 keel:
   keel:
