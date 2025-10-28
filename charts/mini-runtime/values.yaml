@@ -179,9 +179,6 @@ keel:
   serviceAccount:
     annotations: {}
   type: LoadBalancer
-  # Optional: Specify a custom load balancer DNS name
-  # This can be useful for configuring external DNS or custom domain names
-  loadBalancerDNS: ""
 
 ports:
   default:
