@@ -36,6 +36,18 @@ spec:
         app: {{ include "akto.fullname" . }}-redis
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: redis
         image: {{ .Values.redis.image.repository | default "redis" }}:{{ .Values.redis.image.tag | default "7.0" }}

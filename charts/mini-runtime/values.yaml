@@ -2,6 +2,30 @@ mongo:
   aktoMongoConn: ""
 
 kubernetesClusterDomain: cluster.local
+
+# Node scheduling configuration
+nodeSelector: {}
+  # Example usage:
+  # nodetype: coreservices
+
+tolerations: []
+  # Example usage:
+  # - key: nodetype
+  #   operator: Equal
+  #   value: coreservices
+  #   effect: NoSchedule
+
+affinity: {}
+  # Example usage:
+  # nodeAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     nodeSelectorTerms:
+  #     - matchExpressions:
+  #       - key: nodetype
+  #         operator: In
+  #         values:
+  #         - coreservices
+
 mini_runtime:
   aktoApiSecurityRuntime:
     env:
@@ -113,6 +137,9 @@ mini_runtime:
   type: ClusterIP
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+  # Optional: Specify a custom load balancer DNS name
+  # This can be useful for configuring external DNS or custom domain names
+  loadBalancerDNS: ""
 
 keel:
   keel:
@@ -152,6 +179,9 @@ keel:
   serviceAccount:
     annotations: {}
   type: LoadBalancer
+  # Optional: Specify a custom load balancer DNS name
+  # This can be useful for configuring external DNS or custom domain names
+  loadBalancerDNS: ""
 
 ports:
   default:
@@ -173,6 +203,7 @@ ports:
       targetPort: 9093
 
 threat_client:
+  replicas: 1
   aktoApiSecurityThreatClient:
     env:
       enabled: true
