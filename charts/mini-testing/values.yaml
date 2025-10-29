@@ -30,7 +30,7 @@ testing:
         memory: "8Gi"
 
   prometheusServer:
-    name: prometheus
+    name: prometheus # name of port defined in the service/container
     port: 9400
     protocol: TCP
     metricsEndpoint:
@@ -38,6 +38,7 @@ testing:
 
   kubePrometheus:
     serviceName: prometheus-kube-prometheus-prometheus
+    namespace: ""
     port: 9090
     scrape:
       interval: 15s

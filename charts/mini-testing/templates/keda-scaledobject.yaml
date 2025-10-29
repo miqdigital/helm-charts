@@ -15,7 +15,7 @@ spec:
   - type: {{ .Values.testing.autoScaling.customMetrics.type }}
     name: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.name }}
     metadata:
-      serverAddress: http://{{ .Values.testing.kubePrometheus.serviceName }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.testing.kubePrometheus.port }}
+      serverAddress: http://{{ .Values.testing.kubePrometheus.serviceName }}.{{ .Values.testing.kubePrometheus.namespace | default .Release.Namespace }}.svc.cluster.local:{{ .Values.testing.kubePrometheus.port }}
       metricName: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.metricName }}
       query: "avg({{ .Values.testing.autoScaling.customMetrics.isModuleBusy.metricName }})"
       threshold: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.target }}
