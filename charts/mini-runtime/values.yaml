@@ -78,9 +78,9 @@ mini_runtime:
       kafkaListenerSecurityProtocolMapSaslTls: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_SSL,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT
       kafkaProcessRoles: "broker,controller"
       kafkaNodeId: "1"
-      kafkaControllerQuorumVoters: "1@localhost:9093"
+      kafkaControllerQuorumVoters: "1@localhost:9094"
       kafkaControllerListenerNames: "CONTROLLER"
-      kafkaListeners: "CONTROLLER://0.0.0.0:9093,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:9092"
+      kafkaListeners: ""
       kafkaLogCleanerEnable: "true"
       kafkaLogRetentionBytes: "10737418240"
       kafkaLogRetentionCheckIntervalMs: "60000"
