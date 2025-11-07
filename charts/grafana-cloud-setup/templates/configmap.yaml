@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "grafana-cloud-setup.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "grafana-cloud-setup.labels" . | nindent 4 }}
+data:
+  config.alloy: |
+    // Discover pods with prometheus.io/scrape annotation
+    discovery.kubernetes "pods" {
+      role = "pod"
+      {{- if .Values.namespaces }}
+      namespaces {
+        names = [
+          {{- range .Values.namespaces }}
+          {{ quote . }},
+          {{- end }}
+        ]
+      }
+      {{- end }}
+    }
+
+    // Relabel to scrape only pods with prometheus.io/scrape: "true"
+    discovery.relabel "pod_annotations" {
+      targets = discovery.kubernetes.pods.targets
+
+      // Keep only pods with prometheus.io/scrape: "true"
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+        action = "keep"
+        regex = "true"
+      }
+
+      // Use prometheus.io/path annotation for metrics path (default: /metrics)
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+        action = "replace"
+        target_label = "__metrics_path__"
+        regex = "(.+)"
+      }
+
+      // Use prometheus.io/port annotation for port
+      rule {
+        source_labels = ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+        action = "replace"
+        regex = "([^:]+)(?::\\d+)?;(\\d+)"
+        replacement = "$1:$2"
+        target_label = "__address__"
+      }
+
+      // Add pod name label
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        action = "replace"
+        target_label = "pod"
+      }
+
+      // Add namespace label
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        action = "replace"
+        target_label = "namespace"
+      }
+
+      // IMPORTANT: Container label is intentionally omitted to prevent metric duplication.
+      //
+      // Technical context:
+      // - Pods are scraped at the pod IP level (all containers share the same network namespace)
+      // - Only ONE container per pod actually serves metrics on the specified port
+      // - Adding container labels would artificially create duplicate time series for all containers
+      //   in the pod, even though metrics originate from a single container
+      //
+      // Example issue: A pod with 4 containers (app, sidecar, kafka, zookeeper) would generate
+      // 4 time series per metric instead of 1, causing incorrect metric aggregations (e.g., avg()).
+      //
+      // Before deploying to production, verify:
+      // 1. Only ONE container per pod exposes metrics on the annotated port
+      // 2. The prometheus.io/port annotation matches the actual metrics endpoint port
+      // 3. Metrics queries do not filter by container label (use pod/namespace instead)
+      //
+      // If you need per-container metrics, use a ServiceMonitor with separate Service endpoints
+      // for each container, or configure Alloy to scrape at the container level with unique ports.
+
+      // Add cluster label
+      rule {
+        replacement = {{ quote .Values.grafanaCloud.clusterName }}
+        target_label = "cluster"
+      }
+
+      // Add job label
+      rule {
+        source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_name"]
+        separator = "/"
+        target_label = "job"
+      }
+    }
+
+    // Scrape metrics from discovered pods
+    prometheus.scrape "akto_metrics" {
+      targets    = discovery.relabel.pod_annotations.output
+      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      scrape_interval = {{ quote .Values.scrape.interval }}
+      scrape_timeout = {{ quote .Values.scrape.timeout }}
+    }
+
+    // Remote write to Grafana Cloud
+    prometheus.remote_write "grafana_cloud" {
+      endpoint {
+        url = {{ quote .Values.grafanaCloud.remoteWriteUrl }}
+        basic_auth {
+          username = {{ quote .Values.grafanaCloud.username }}
+          password = env("GRAFANA_CLOUD_WRITE_TOKEN")
+        }
+      }
+    }

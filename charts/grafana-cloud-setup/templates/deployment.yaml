@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "grafana-cloud-setup.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "grafana-cloud-setup.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "grafana-cloud-setup.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "grafana-cloud-setup.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "grafana-cloud-setup.serviceAccountName" . }}
+      containers:
+      - name: alloy
+        image: "{{ .Values.alloy.image.repository }}:{{ .Values.alloy.image.tag }}"
+        imagePullPolicy: {{ .Values.alloy.image.pullPolicy }}
+        args:
+        - run
+        - /etc/alloy/config.alloy
+        - --storage.path=/var/lib/alloy/data
+        - --server.http.listen-addr=0.0.0.0:12345
+        env:
+        - name: GRAFANA_CLOUD_WRITE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "grafana-cloud-setup.fullname" . }}-credentials
+              key: writeToken
+        ports:
+        - containerPort: 12345
+          name: http-metrics
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /etc/alloy
+        - name: data
+          mountPath: /var/lib/alloy/data
+        resources:
+          {{- toYaml .Values.alloy.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 12345
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 12345
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "grafana-cloud-setup.fullname" . }}-config
+      - name: data
+        emptyDir: {}

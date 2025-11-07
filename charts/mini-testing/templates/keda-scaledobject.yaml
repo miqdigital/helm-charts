@@ -15,14 +15,19 @@ spec:
   - type: {{ .Values.testing.autoScaling.customMetrics.type }}
     name: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.name }}
     metadata:
+      {{- if .Values.testing.grafanaCloud.enabled }}
+      # Grafana Cloud endpoint
+      serverAddress: {{ .Values.testing.grafanaCloud.queryUrl }}
+      authModes: "basic"
+      {{- else if .Values.testing.kubePrometheus.enabled }}
+      # In-cluster Prometheus endpoint
       serverAddress: http://{{ .Values.testing.kubePrometheus.serviceName }}.{{ .Values.testing.kubePrometheus.namespace | default .Release.Namespace }}.svc.cluster.local:{{ .Values.testing.kubePrometheus.port }}
+      {{- end }}
       metricName: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.metricName }}
       query: "avg({{ .Values.testing.autoScaling.customMetrics.isModuleBusy.metricName }})"
       threshold: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.target }}
-  advanced:
-    scalingModifiers:
-      formula: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.name }}
-      target: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.target }}
-      activationTarget: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.target }}
-      metricType: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.type }}
+    {{- if .Values.testing.grafanaCloud.enabled }}
+    authenticationRef:
+      name: {{ include "akto.fullname" . }}-grafana-cloud-auth
+    {{- end }}
 {{ end }}

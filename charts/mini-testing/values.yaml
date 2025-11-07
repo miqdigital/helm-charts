@@ -11,10 +11,10 @@ testing:
       newTestingEnabled: "true"
       kafkaBrokerUrl: localhost:29092
       puppeteerReplayServiceUrl: http://localhost:3000
-      databaseAbstractorUrl: https://cyborg.akto.io
+      databaseAbstractorUrl: http://host.docker.internal:5678
       databaseAbstractorToken: ""
       blockLogs: "false"
-      aktoLogLevel: WARN
+      aktoLogLevel: DEBUG
       miniTestingName: System-auto-scaled-akto-mini-testing
 
     image:
@@ -23,11 +23,11 @@ testing:
     imagePullPolicy: Always
     resources:
       requests:
-        cpu: "200m"
-        memory: "500Mi"
+        cpu: "100m"
+        memory: "100Mi"
       limits:
-        cpu: 2
-        memory: "8Gi"
+        cpu: "500m"
+        memory: "1Gi"
 
   prometheusServer:
     name: prometheus # name of port defined in the service/container
@@ -36,13 +36,29 @@ testing:
     metricsEndpoint:
       path: /metrics
 
+  # Configuration for in-cluster Prometheus (default)
   kubePrometheus:
+    enabled: true  # Set to false when using Grafana Cloud
     serviceName: prometheus-kube-prometheus-prometheus
-    namespace: ""
+    namespace: ""  # Leave empty to use same namespace as release
     port: 9090
     scrape:
       interval: 15s
       timeout: 10s
+
+  # Configuration for Grafana Cloud (external Prometheus)
+  # Set kubePrometheus.enabled=false when using this
+  # Requires grafana-cloud-setup chart to be installed first
+  grafanaCloud:
+    enabled: false
+    # Prometheus query endpoint (for KEDA to read metrics)
+    queryUrl: ""  # e.g., https://prometheus-prod-43-prod-ap-south-1.grafana.net/api/prom
+    # Username/Instance ID
+    username: ""  # e.g., 2781763
+    # API token for KEDA to query metrics (set via --set for security)
+    readToken: ""
+    # Secret name containing the read token
+    secretName: grafana-cloud-tokens
 
   replicas: 1
   autoScaling:
@@ -67,11 +83,11 @@ testing:
     imagePullPolicy: Always
     resources:
       requests:
-        cpu: 1
-        memory: "2Gi"
+        cpu: "200m"
+        memory: "200Mi"
       limits:
-        cpu: 1
-        memory: "4Gi"
+        cpu: "200m"
+        memory: "400Mi"
 
   kafka1:
     env:
@@ -95,11 +111,11 @@ testing:
       tag: 7.8.0-3-ubi8
     resources:
       requests:
-        cpu: 1
-        memory: "2Gi"
+        cpu: "200m"
+        memory: "200Mi"
       limits:
-        cpu: 2
-        memory: "4Gi"
+        cpu: "400m"
+        memory: "400Mi"
   ports:
   - port: 9092
     targetPort: 9092
@@ -115,11 +131,11 @@ testing:
       tag: 7.8.0-3-ubi8
     resources:
       requests:
-        cpu: 1
-        memory: "2Gi"
+        cpu: "200m"
+        memory: "200Mi"
       limits:
-        cpu: 1
-        memory: "2Gi"
+        cpu: "400m"
+        memory: "400Mi"
 
 keel:
   keel:
@@ -158,5 +174,5 @@ keel:
   replicas: 1
   serviceAccount:
     annotations: {}
-  type: LoadBalancer
+  type: ClusterIP
 kubernetesClusterDomain: cluster.local
