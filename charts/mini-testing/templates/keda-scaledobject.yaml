@@ -30,4 +30,10 @@ spec:
     authenticationRef:
       name: {{ include "akto.fullname" . }}-grafana-cloud-auth
     {{- end }}
+  advanced:
+    scalingModifiers:
+      formula: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.name }}
+      target: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.target }}
+      activationTarget: {{ quote .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.target }}
+      metricType: {{ .Values.testing.autoScaling.customMetrics.isModuleBusy.trigger.type }}
 {{ end }}
