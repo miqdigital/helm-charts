@@ -1,0 +1,15 @@
+{{ if and .Values.testing.autoScaling.enabled .Values.testing.grafanaCloud.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: {{ include "akto.fullname" . }}-grafana-cloud-auth
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretTargetRef:
+  - parameter: username
+    name: {{ .Values.testing.grafanaCloud.secretName }}
+    key: username
+  - parameter: password
+    name: {{ .Values.testing.grafanaCloud.secretName }}
+    key: readToken
+{{ end }}

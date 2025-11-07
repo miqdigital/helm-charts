@@ -1,0 +1,16 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "grafana-cloud-setup.fullname" . }}
+  labels:
+    {{- include "grafana-cloud-setup.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "grafana-cloud-setup.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "grafana-cloud-setup.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: grafana-cloud-setup
+description: Grafana Alloy setup for scraping Kubernetes metrics and pushing to Grafana Cloud
+type: application
+version: 0.1.0
+appVersion: "1.0"
+keywords:
+  - grafana
+  - prometheus
+  - monitoring
+  - alloy
+maintainers:
+  - name: Akto

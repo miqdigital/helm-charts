@@ -1,4 +1,4 @@
-{{ if .Values.testing.autoScaling.enabled }}
+{{ if and .Values.testing.autoScaling.enabled .Values.testing.kubePrometheus.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

@@ -1,0 +1,44 @@
+grafanaCloud:
+  # Grafana Cloud Prometheus endpoints
+  remoteWriteUrl: ""  # e.g., https://prometheus-prod-43-prod-ap-south-1.grafana.net/api/prom/push
+
+  # Grafana Cloud credentials
+  username: ""  # e.g., 2781763
+  writeToken: ""  # Grafana Cloud write token (set via --set for security)
+
+  # Cluster identifier for metrics
+  clusterName: ""  # e.g., my-k8s-cluster
+
+# Namespaces to scrape (comma-separated or list)
+# If empty, will scrape all namespaces
+namespaces:
+  - default
+
+# Scrape configuration
+scrape:
+  interval: "15s"
+  timeout: "10s"
+
+# Grafana Alloy configuration
+alloy:
+  image:
+    repository: grafana/alloy
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Service account permissions
+  serviceAccount:
+    create: true
+    name: grafana-alloy
+
+# Enable RBAC (required for pod discovery)
+rbac:
+  create: true
