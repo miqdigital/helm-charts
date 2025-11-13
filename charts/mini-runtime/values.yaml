@@ -27,6 +27,17 @@ affinity: {}
   #         - coreservices
 
 mini_runtime:
+  # External Kafka Configuration
+  # Set useExternalKafka to true to use an existing Kafka cluster
+  # When enabled, the internal Kafka container will not be deployed
+  useExternalKafka: false
+  externalKafka:
+    # Kafka broker URL (e.g., kafka.example.com:9092 or kafka1:9092,kafka2:9092,kafka3:9092)
+    brokerUrl: ""
+    # SASL authentication (leave empty for no authentication)
+    username: ""
+    password: ""
+
   aktoApiSecurityRuntime:
     env:
       aktoAccountName: Helios
