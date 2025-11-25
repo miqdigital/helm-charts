@@ -1,0 +1,214 @@
+mongo:
+  aktoMongoConn: ""
+
+kubernetesClusterDomain: cluster.local
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+mini_runtime:
+  useExternalKafka: false
+  externalKafka:
+    brokerUrl: ""
+    username: ""
+    password: ""
+
+  aktoApiSecurityRuntime:
+    env:
+      aktoAccountName: Helios
+      aktoConfigName: staging
+      aktoInstanceType: DASHBOARD
+      aktoKafkaBrokerMal: localhost:29092
+      aktoKafkaBrokerUrl: 127.0.0.1:29092
+      aktoKafkaGroupIdConfig: asdf
+      aktoKafkaMaxPollRecordsConfig: "100"
+      aktoKafkaTopicName: akto.api.logs
+      aktoTrafficBatchSize: "100"
+      aktoTrafficBatchTimeSecs: "10"
+      aktoLogLevel: WARN
+      puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+      useHostName: true
+      databaseAbstractorUrl: https://cyborg.akto.io
+      useSecretsForDatabaseAbstractorToken: false
+      databaseAbstractorToken: ""
+      databaseAbstractorTokenSecrets: 
+        existingSecret: ""
+        token: ""
+    image:
+      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 2
+        memory: "4Gi"
+  kafka1:
+    env:
+      kafkaAdvertisedListeners: ""
+      kafkaBrokerId: "1"
+      kafkaCleanupPolicy: delete
+      kafkaCreateTopics: akto.api.logs:3:3
+      kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
+      kafkaListenerSecurityProtocolMap: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
+      kafkaListenerSecurityProtocolMapSsl: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED:SSL
+      kafkaListenerSecurityProtocolMapSasl: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:SASL_PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:SASL_PLAINTEXT
+      kafkaListenerSecurityProtocolMapSaslTls: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_SSL,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT
+      kafkaProcessRoles: "broker,controller"
+      kafkaNodeId: "1"
+      kafkaControllerQuorumVoters: "1@localhost:9094"
+      kafkaControllerListenerNames: "CONTROLLER"
+      kafkaListeners: ""
+      kafkaLogCleanerEnable: "true"
+      kafkaLogRetentionBytes: "10737418240"
+      kafkaLogRetentionCheckIntervalMs: "60000"
+      kafkaLogRetentionHours: "5"
+      kafkaLogSegmentBytes: "104857600"
+      kafkaOffsetsTopicReplicationFactor: "1"
+      kafkaTransactionStateLogMinIsr: "1"
+      kafkaTransactionStateLogReplicationFactor: "1"
+      kafkaClusterId: "c6a1b8e2-4f2a-4b2a-9c3f-1a2b3c4d5e6f"
+      sslKeystoreLocation: "/etc/kafka/ssl/secrets/server.keystore.jks"
+      sslKeystorePassword: "password"
+      sslKeyPassword: "password"
+      sslTruststoreLocation: "/etc/kafka/ssl/secrets/server.truststore.jks"
+      sslTruststorePassword: "password"
+      sslBaseMountPath: "/etc/kafka/ssl/secrets"
+      sslSecretName: "kafka-certs"
+      saslUsername: ""
+      saslPassword: ""
+      saslJaasConfigPath: "/etc/kafka/config/kafka_jaas.conf"
+    useTls: false
+    useSasl: false
+    image:
+      repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
+      tag: 8.1.0-1-ubi9
+    resources:
+      requests:
+        cpu: 1.5
+        memory: "4Gi"
+        ephemeral-storage: "500Mi"
+      limits:
+        cpu: 1.5
+        memory: "8Gi"
+        ephemeral-storage: "11Gi"
+  ports:
+    default:
+      - port: 9092
+        targetPort: 9092
+    tls:
+      - name: plaintext
+        port: 9092
+        targetPort: 9092
+      - name: ssl
+        port: 9093
+        targetPort: 9093
+    sasl:
+      - name: sasl-plaintext
+        port: 9092
+        targetPort: 9092
+      - name: sasl-ssl
+        port: 9093
+        targetPort: 9093
+
+  replicas: 1
+  type: ClusterIP
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+
+keel:
+  keel:
+    env:
+      awsAccessKeyId: ""
+      awsRegion: ""
+      awsSecretAccessKey: ""
+      hipchatApprovalsBotName: ""
+      hipchatApprovalsChannel: ""
+      hipchatApprovalsPasswort: ""
+      hipchatApprovalsUserName: ""
+      hipchatChannels: ""
+      hipchatToken: ""
+      insecureRegistry: "true"
+      mattermostEndpoint: ""
+      notificationLevel: info
+      webhookEndpoint: ""
+    image:
+      repository: public.ecr.aws/aktosecurity/keelhq-keel
+      tag: latest
+    imagePullPolicy: IfNotPresent
+    enabled: true
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+  maxUnavailable: 1
+  ports:
+  - name: keel
+    port: 9300
+    protocol: TCP
+    targetPort: 9300
+  replicas: 1
+  serviceAccount:
+    annotations: {}
+  type: LoadBalancer
+
+dataIngestionService:
+  image:
+    repository: aktosecurity/data-ingestion-service
+    tag: latest
+  imagePullPolicy: Always
+
+  env:
+    aktoTrafficBatchSize: "100"
+    aktoTrafficBatchTimeSecs: "10"
+    aktoKafkaBrokerUrl: akto-mrs-runtime-combined-mini-runtime:9092
+    aktoKafkaProducerBatchSize: "10"
+    aktoKafkaProducerLingerMs: "10"
+    aktoKafkaTopicName: "akto.api.logs"
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: "512Mi"
+    limits:
+      cpu: 1
+      memory: "1Gi"
+
+  replicas: 1
+
+  service:
+    type: LoadBalancer
+    port: 8080
+    targetPort: 8080
+    internal: true
+    subnets: ""
+
+  restartPolicy: Always
+
+
+ports:
+  default:
+    - port: 9092
+      targetPort: 9092
+  tls:
+    - name: plaintext
+      port: 9092
+      targetPort: 9092
+    - name: ssl
+      port: 9093
+      targetPort: 9093
+  sasl:
+    - name: sasl-plaintext
+      port: 9092
+      targetPort: 9092
+    - name: sasl-ssl
+      port: 9093
+      targetPort: 9093
