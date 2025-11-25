@@ -1,0 +1,16 @@
+{{- if and (not .Values.mini_runtime.useExternalKafka) .Values.mini_runtime.kafka1.useSasl }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "akto.fullname" . }}-kafka-jaas-config
+  labels:
+    {{- include "akto.labels" . | nindent 4 }}
+data:
+  kafka_server_jaas.conf: |
+    KafkaServer {
+      org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="{{ if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}{{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.username }}{{ else }}{{ .Values.mini_runtime.kafka1.env.saslUsername }}{{ end }}"
+        password="{{ if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}{{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.password }}{{ else }}{{ .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}"
+        user_{{ if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}{{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.username }}{{ else }}{{ .Values.mini_runtime.kafka1.env.saslUsername }}{{ end }}="{{ if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}{{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.password }}{{ else }}{{ .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}";
+    };
+{{- end }}

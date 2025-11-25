@@ -1,0 +1,388 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto.fullname" . }}-mini-runtime
+  {{ if .Values.keel.keel.enabled }}
+  annotations:
+    keel.sh/policy: force
+    keel.sh/match-tag: "true"
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: "@every 60m"
+    keel.sh/monitorContainers: "runtime"
+  {{ end }}
+  labels:
+  {{- include "akto.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.mini_runtime.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "akto.fullname" . }}-mini-runtime
+    {{- include "akto.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "akto.fullname" . }}-mini-runtime
+      {{- include "akto.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - env:
+        - name: AKTO_ACCOUNT_NAME
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoAccountName }}
+        - name: IS_KUBERNETES
+          value: "true"
+        - name: RUNTIME_MODE
+          value: "hybrid"
+        - name: AKTO_CONFIG_NAME
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoConfigName }}
+        - name: AKTO_INSTANCE_TYPE
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoInstanceType }}
+        - name: AKTO_KAFKA_BROKER_MAL
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.brokerUrl }}{{ else }}{{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoKafkaBrokerMal }}{{ end }}
+        - name: AKTO_KAFKA_BROKER_URL
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.brokerUrl }}{{ else }}{{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoKafkaBrokerUrl }}{{ end }}
+        - name: AKTO_KAFKA_GROUP_ID_CONFIG
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoKafkaGroupIdConfig
+            }}
+        - name: AKTO_KAFKA_MAX_POLL_RECORDS_CONFIG
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoKafkaMaxPollRecordsConfig
+            }}
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoKafkaTopicName
+            }}
+        - name: AKTO_TRAFFIC_BATCH_SIZE
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoTrafficBatchSize
+            }}
+        - name: AKTO_TRAFFIC_BATCH_TIME_SECS
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoTrafficBatchTimeSecs
+            }}
+        - name: PUPPETEER_REPLAY_SERVICE_URL
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.puppeteerReplayServiceUrl
+            }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoLogLevel }}
+        - name: AKTO_MONGO_CONN
+          value: {{ quote .Values.mongo.aktoMongoConn }}
+        - name: USE_HOSTNAME
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.useHostName}}
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorUrl}}
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+            {{- if .Values.mini_runtime.aktoApiSecurityRuntime.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
+            {{- else }}
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken }}
+            {{- end }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if or .Values.mini_runtime.kafka1.useSasl (and .Values.mini_runtime.useExternalKafka .Values.mini_runtime.externalKafka.username) }}
+        - name: KAFKA_AUTH_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_SASL_MECHANISM
+          value: "PLAIN"
+        - name: KAFKA_USERNAME
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.username }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslUsername }}{{ end }}
+        - name: KAFKA_PASSWORD
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.password }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}
+        {{- end }}
+        image: {{ .Values.mini_runtime.aktoApiSecurityRuntime.image.repository }}:{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.mini_runtime.aktoApiSecurityRuntime.imagePullPolicy }}
+        name: akto-api-security-runtime
+        resources: {{- toYaml .Values.mini_runtime.aktoApiSecurityRuntime.resources |  nindent 10 }}
+
+      {{- if not .Values.mini_runtime.useExternalKafka }}
+      - env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: >-
+            {{- if .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
+            {{- else if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.useTls }}
+              LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://localhost:29092
+            {{- else if .Values.mini_runtime.kafka1.useSasl }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092
+            {{- else if .Values.mini_runtime.kafka1.useTls }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9093
+            {{- else }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ .Release.Name }}-mini-runtime.{{ .Release.Namespace }}.svc.cluster.local:9092
+            {{- end }}
+        - name: KAFKA_BROKER_ID
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaBrokerId }}
+        - name: KAFKA_CLEANUP_POLICY
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaCleanupPolicy }}
+        - name: KAFKA_CREATE_TOPICS
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaCreateTopics }}
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: >-
+            {{- if .Values.mini_runtime.kafka1.env.kafkaAdvertisedListeners }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaInterBrokerListenerName }}
+            {{- else if .Values.mini_runtime.kafka1.useSasl }}
+              LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL
+            {{- else if .Values.mini_runtime.kafka1.useTls }}
+              LISTENER_DOCKER_EXTERNAL_DIFFHOST
+            {{- else }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaInterBrokerListenerName }}
+            {{- end }}
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: >-
+            {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.useTls }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMapSaslTls }}
+            {{- else if .Values.mini_runtime.kafka1.useSasl }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMapSasl }}
+            {{- else if .Values.mini_runtime.kafka1.useTls }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMapSsl }}
+            {{- else }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaListenerSecurityProtocolMap }}
+            {{- end }}
+        - name: KAFKA_PROCESS_ROLES
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaProcessRoles }}
+        - name: KAFKA_NODE_ID
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaNodeId }}
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaControllerQuorumVoters }}
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaControllerListenerNames }}
+        - name: KAFKA_LISTENERS
+          value: >-
+            {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.useTls }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://0.0.0.0:9093
+            {{- else if .Values.mini_runtime.kafka1.useSasl }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://0.0.0.0:9092
+            {{- else if .Values.mini_runtime.kafka1.useTls }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED://0.0.0.0:9093
+            {{- else if .Values.mini_runtime.kafka1.env.kafkaListeners }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaListeners }}
+            {{- else }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:9092
+            {{- end }}
+      
+        - name: KAFKA_LOG_CLEANER_ENABLE
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaLogCleanerEnable }}
+        - name: KAFKA_LOG_RETENTION_BYTES
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaLogRetentionBytes }}
+        - name: KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaLogRetentionCheckIntervalMs }}
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaLogRetentionHours }}
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaLogSegmentBytes }}
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaOffsetsTopicReplicationFactor
+            }}
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaTransactionStateLogMinIsr }}
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaTransactionStateLogReplicationFactor
+            }}
+        - name: CLUSTER_ID
+          value: {{ quote .Values.mini_runtime.kafka1.env.kafkaClusterId }}
+
+        {{- if .Values.mini_runtime.kafka1.useTls }}
+        - name: KAFKA_SSL_KEYSTORE_LOCATION
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslKeystoreLocation }}
+        - name: KAFKA_SSL_KEYSTORE_PASSWORD
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslKeystorePassword }}
+        - name: KAFKA_SSL_KEY_PASSWORD
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslKeyPassword }}
+        - name: KAFKA_SSL_TRUSTSTORE_LOCATION
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslTruststoreLocation }}
+        - name: KAFKA_SSL_TRUSTSTORE_PASSWORD
+          value: {{ quote .Values.mini_runtime.kafka1.env.sslTruststorePassword }}
+        {{- end }}
+
+        {{- if .Values.mini_runtime.kafka1.useSasl }}
+        - name: KAFKA_OPTS
+          value: "-Djava.security.auth.login.config=/etc/kafka/config/kafka_server_jaas.conf"
+        - name: KAFKA_SASL_ENABLED_MECHANISMS
+          value: "PLAIN"
+        - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
+          value: "PLAIN"
+        {{- end }}
+
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.mini_runtime.kafka1.image.repository }}:{{ .Values.mini_runtime.kafka1.image.tag
+          | default .Chart.AppVersion }}
+
+        {{- if or .Values.mini_runtime.kafka1.useTls .Values.mini_runtime.kafka1.useSasl }}
+        volumeMounts:
+          {{- if .Values.mini_runtime.kafka1.useTls }}
+          - name: kafka-certs
+            mountPath: {{ quote .Values.mini_runtime.kafka1.env.sslBaseMountPath }}
+          {{- end }}
+          {{- if .Values.mini_runtime.kafka1.useSasl }}
+          - name: kafka-jaas-config
+            mountPath: /etc/kafka/config
+            readOnly: true
+          {{- end }}
+        {{- end }}
+
+        name: kafka1
+        ports:
+        - containerPort: 9092
+        - containerPort: 9093
+        - containerPort: 29092
+        - containerPort: 9999
+        resources: {{- toYaml .Values.mini_runtime.kafka1.resources | nindent 10 }}
+      {{- end }}
+
+      restartPolicy: Always
+      {{- if and (not .Values.mini_runtime.useExternalKafka) (or .Values.mini_runtime.kafka1.useTls .Values.mini_runtime.kafka1.useSasl) }}
+      volumes:
+        {{- if .Values.mini_runtime.kafka1.useTls }}
+        - name: kafka-certs
+          secret:
+            secretName: {{ quote .Values.mini_runtime.kafka1.env.sslSecretName }}
+        {{- end }}
+        {{- if .Values.mini_runtime.kafka1.useSasl }}
+        - name: kafka-jaas-config
+          configMap:
+            name: {{ include "akto.fullname" . }}-kafka-jaas-config
+        {{- end }}
+      {{- end }}
+
+---
+{{ if .Values.keel.keel.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto.fullname" . }}-keel
+  labels:
+    app: keel
+  {{- include "akto.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.keel.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "akto.fullname" . }}-keel
+    {{- include "akto.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "akto.fullname" . }}-keel
+      {{- include "akto.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - command:
+        - /bin/keel
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AWS_ACCESS_KEY_ID
+          value: {{ quote .Values.keel.keel.env.awsAccessKeyId }}
+        - name: AWS_SECRET_ACCESS_KEY
+          value: {{ quote .Values.keel.keel.env.awsSecretAccessKey }}
+        - name: AWS_REGION
+          value: {{ quote .Values.keel.keel.env.awsRegion }}
+        - name: WEBHOOK_ENDPOINT
+          value: {{ quote .Values.keel.keel.env.webhookEndpoint }}
+        - name: MATTERMOST_ENDPOINT
+          value: {{ quote .Values.keel.keel.env.mattermostEndpoint }}
+        - name: HIPCHAT_TOKEN
+          value: {{ quote .Values.keel.keel.env.hipchatToken }}
+        - name: HIPCHAT_CHANNELS
+          value: {{ quote .Values.keel.keel.env.hipchatChannels }}
+        - name: HIPCHAT_APPROVALS_CHANNEL
+          value: {{ quote .Values.keel.keel.env.hipchatApprovalsChannel }}
+        - name: HIPCHAT_APPROVALS_BOT_NAME
+          value: {{ quote .Values.keel.keel.env.hipchatApprovalsBotName }}
+        - name: HIPCHAT_APPROVALS_USER_NAME
+          value: {{ quote .Values.keel.keel.env.hipchatApprovalsUserName }}
+        - name: HIPCHAT_APPROVALS_PASSWORT
+          value: {{ quote .Values.keel.keel.env.hipchatApprovalsPasswort }}
+        - name: NOTIFICATION_LEVEL
+          value: {{ quote .Values.keel.keel.env.notificationLevel }}
+        - name: INSECURE_REGISTRY
+          value: {{ quote .Values.keel.keel.env.insecureRegistry }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.keel.keel.image.repository }}:{{ .Values.keel.keel.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.keel.keel.imagePullPolicy }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9300
+          initialDelaySeconds: 30
+          timeoutSeconds: 10
+        name: keel
+        ports:
+        - containerPort: 9300
+        resources: {{- toYaml .Values.keel.keel.resources | nindent 10 }}
+      serviceAccountName: {{ include "akto.fullname" . }}-keel
+{{ end }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "data-ingestion-service.fullname" . }}
+  labels:
+    {{- include "data-ingestion-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.dataIngestionService.replicas }}
+  selector:
+    matchLabels:
+      {{- include "data-ingestion-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "data-ingestion-service.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: {{ .Values.dataIngestionService.restartPolicy }}
+      containers:
+      - name: data-ingestion-service
+        image: {{ .Values.dataIngestionService.image.repository }}:{{ .Values.dataIngestionService.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.dataIngestionService.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.dataIngestionService.service.targetPort }}
+          protocol: TCP
+        env:
+        - name: AKTO_TRAFFIC_BATCH_SIZE
+          value: {{ quote .Values.dataIngestionService.env.aktoTrafficBatchSize }}
+        - name: AKTO_TRAFFIC_BATCH_TIME_SECS
+          value: {{ quote .Values.dataIngestionService.env.aktoTrafficBatchTimeSecs }}
+        - name: AKTO_KAFKA_BROKER_URL
+          value: {{ quote .Values.dataIngestionService.env.aktoKafkaBrokerUrl }}
+        - name: AKTO_KAFKA_PRODUCER_BATCH_SIZE
+          value: {{ quote .Values.dataIngestionService.env.aktoKafkaProducerBatchSize }}
+        - name: AKTO_KAFKA_PRODUCER_LINGER_MS
+          value: {{ quote .Values.dataIngestionService.env.aktoKafkaProducerLingerMs }}
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: {{ quote .Values.dataIngestionService.env.aktoKafkaTopicName }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        resources:
+          {{- toYaml .Values.dataIngestionService.resources | nindent 10 }}
+
