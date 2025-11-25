@@ -5,7 +5,7 @@ threat_protection_backend:
   kafka1:
     env:
       kafkaAdvertisedListeners: LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,
-        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-runtime.$(MY_POD_NAMESPACE).svc.cluster.local:9092
+        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-threat-backend.$(MY_POD_NAMESPACE).svc.cluster.local:9092
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
       kafkaCreateTopics: akto.api.logs:3:3
