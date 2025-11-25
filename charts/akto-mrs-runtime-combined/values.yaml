@@ -169,7 +169,7 @@ dataIngestionService:
   env:
     aktoTrafficBatchSize: "100"
     aktoTrafficBatchTimeSecs: "10"
-    aktoKafkaBrokerUrl: akto-mrs-runtime-combined:9092
+    aktoKafkaBrokerUrl: akto-mrs-runtime-combined-mini-runtime:9092
     aktoKafkaProducerBatchSize: "10"
     aktoKafkaProducerLingerMs: "10"
     aktoKafkaTopicName: "akto.api.logs"

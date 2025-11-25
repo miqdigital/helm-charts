@@ -347,18 +347,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "data-ingestion-service.fullname" . }}
+  name: {{ include "akto.fullname" . }}-data-ingestion-service
   labels:
-    {{- include "data-ingestion-service.labels" . | nindent 4 }}
+    app: data-ingestion-service
+  {{- include "akto.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.dataIngestionService.replicas }}
   selector:
     matchLabels:
-      {{- include "data-ingestion-service.selectorLabels" . | nindent 6 }}
+      app: {{ include "akto.fullname" . }}-data-ingestion-service
+    {{- include "akto.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "data-ingestion-service.selectorLabels" . | nindent 8 }}
+        app: {{ include "akto.fullname" . }}-data-ingestion-service
+    {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
       restartPolicy: {{ .Values.dataIngestionService.restartPolicy }}
       containers:
