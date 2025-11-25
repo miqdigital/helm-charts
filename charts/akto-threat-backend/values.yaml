@@ -1,0 +1,58 @@
+mongo:
+  aktoMongoConn: ""
+
+threat_protection_backend:
+  kafka1:
+    env:
+      kafkaAdvertisedListeners: LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,
+        LISTENER_DOCKER_EXTERNAL_DIFFHOST://akto-runtime.$(MY_POD_NAMESPACE).svc.cluster.local:9092
+      kafkaBrokerId: "1"
+      kafkaCleanupPolicy: delete
+      kafkaCreateTopics: akto.api.logs:3:3
+      kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
+      kafkaListenerSecurityProtocolMap: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
+      kafkaProcessRoles: "broker,controller"
+      kafkaNodeId: "1"
+      kafkaControllerQuorumVoters: "1@localhost:9093"
+      kafkaControllerListenerNames: "CONTROLLER"
+      kafkaListeners: "CONTROLLER://0.0.0.0:9093,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:9092"
+      kafkaLogCleanerEnable: "true"
+      kafkaLogRetentionBytes: "10737418240"
+      kafkaLogRetentionCheckIntervalMs: "60000"
+      kafkaLogRetentionHours: "5"
+      kafkaLogSegmentBytes: "104857600"
+      kafkaOffsetsTopicReplicationFactor: "1"
+      kafkaTransactionStateLogMinIsr: "1"
+      kafkaTransactionStateLogReplicationFactor: "1"
+      kafkaClusterId: "c6a1b8e2-4f2a-4b2a-9c3f-1a2b3c4d5e6f"
+    image:
+      repository: confluentinc/cp-kafka
+      tag: 8.1.0-1-ubi9
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 1
+        memory: "4Gi"
+  
+  aktoApiSecurityThreatBackend:
+    env:
+      kafkaBrokerUrl: kafka1:19092
+      aktoLogLevel: DEBUG
+    image:
+      repository: aktosecurity/akto-threat-detection-backend
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      requests:
+        cpu: 1
+        memory: "1Gi"
+      limits:
+        cpu: 2
+        memory: "2Gi"
+  ports:
+  - port: 9092
+    targetPort: 9092
+  replicas: 1
+  type: ClusterIP

@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto.fullname" . }}-threat-backend
+  annotations:
+    keel.sh/policy: force
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: "@every 60m"
+  labels:
+  {{- include "akto.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.threat_backend.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "akto.fullname" . }}-threat-backend
+    {{- include "akto.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "akto.fullname" . }}-threat-backend
+      {{- include "akto.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}-runtime.{{.Release.Namespace}}.svc.cluster.local:9092"
+        - name: KAFKA_BROKER_ID
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaBrokerId }}
+        - name: KAFKA_CLEANUP_POLICY
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaCleanupPolicy }}
+        - name: KAFKA_CREATE_TOPICS
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaCreateTopics }}
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaInterBrokerListenerName }}
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaListenerSecurityProtocolMap }}
+        - name: KAFKA_PROCESS_ROLES
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaProcessRoles }}
+        - name: KAFKA_NODE_ID
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaNodeId }}
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaControllerQuorumVoters }}
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaControllerListenerNames }}
+        - name: KAFKA_LISTENERS
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaListeners }}
+        - name: KAFKA_LOG_CLEANER_ENABLE
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaLogCleanerEnable }}
+        - name: KAFKA_LOG_RETENTION_BYTES
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaLogRetentionBytes }}
+        - name: KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaLogRetentionCheckIntervalMs }}
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaLogRetentionHours }}
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaLogSegmentBytes }}
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaOffsetsTopicReplicationFactor
+            }}
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaTransactionStateLogMinIsr }}
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaTransactionStateLogReplicationFactor
+            }}
+        - name: CLUSTER_ID
+          value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaClusterId }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.threat_protection_backend.kafka1.image.repository }}:{{ .Values.threat_protection_backend.kafka1.image.tag
+          | default .Chart.AppVersion }}
+        name: kafka1
+        ports:
+        - containerPort: 9092
+        - containerPort: 19092
+        - containerPort: 29092
+        - containerPort: 9093
+        - containerPort: 9999
+        resources: {{- toYaml .Values.threat_protection_backend.kafka1.resources | nindent 10 }}
+
+      - env:
+        - name: AKTO_MONGO_CONN
+          value: {{ quote .Values.mongo.aktoMongoConn }}
+        - name: AKTO_THREAT_PROTECTION_MONGO_CONN
+          value: {{ quote .Values.mongo.aktoMongoConn }}
+        - name: THREAT_EVENTS_KAFKA_BROKER_URL
+          value: {{ quote .Values.threat_protection_backend.aktoApiSecurityThreatBackend.env.kafkaBrokerUrl }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.threat_protection_backend.aktoApiSecurityThreatBackend.env.aktoLogLevel }}
+        image: {{ .Values.threat_protection_backend.aktoApiSecurityThreatBackend.image.repository }}:{{ .Values.threat_protection_backend.aktoApiSecurityThreatBackend.image.tag
+          | default .Chart.AppVersion }}
+        name: akto-api-security-threat-backend
+        ports:
+        - containerPort: 9090
+        resources: {{- toYaml .Values.threat_protection_backend.aktoApiSecurityThreatBackend.resources | nindent 10 }}
+      restartPolicy: Always
+{{ end }}
