@@ -7,9 +7,9 @@ metadata:
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: nlb
 spec:
-  type: {{ .Values.threat_backend.type }}
+  type: {{ .Values.threat_protection_backend.type }}
   selector:
     app: {{ include "akto.fullname" . }}-threat-backend
   {{- include "akto.selectorLabels" . | nindent 4 }}
   ports:
-	{{- .Values.threat_backend.ports | toYaml | nindent 2 -}}
+	{{- .Values.threat_protection_backend.ports | toYaml | nindent 2 -}}
