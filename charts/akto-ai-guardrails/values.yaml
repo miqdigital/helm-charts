@@ -1,0 +1,180 @@
+kubernetesClusterDomain: cluster.local
+
+# Global settings
+global:
+  imagePullSecrets: []
+  storageClass: ""
+
+# Agent Guard Engine (Go Service)
+agentGuardEngine:
+  enabled: false
+  replicas: 1
+  image:
+    repository: public.ecr.aws/aktosecurity/akto-agent-guard-engine
+    tag: 1.12.1_local
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8091
+    targetPort: 8091
+
+  env:
+    ginMode: release
+    port: "8091"
+    pythonServiceUrl: http://akto-ai-guardrails-executor:8092
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8091
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8091
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Agent Guard Executor (Python Service)
+agentGuardExecutor:
+  enabled: true
+  replicas: 1
+  image:
+    repository: public.ecr.aws/aktosecurity/akto-agent-guard-executor
+    tag: 1.12.1_local
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8092
+    targetPort: 8092
+
+  env:
+    pythonUnbuffered: "1"
+    port: "8092"
+    hfHome: /app/.cache/huggingface
+
+  resources:
+    requests:
+      cpu: 2
+      memory: 2Gi
+    limits:
+      cpu: 4
+      memory: 6Gi
+
+  # Persistent volume for model cache
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 20Gi
+    mountPath: /app/.cache/huggingface
+
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8092
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 10
+
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8092
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 5
+
+# Guardrails Service
+guardrailsService:
+  enabled: true
+  replicas: 1
+  image:
+    repository: public.ecr.aws/aktosecurity/akto-agent-guard-service
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 9091
+    targetPort: 9091
+
+  env:
+    # These should be provided via values or secrets
+    aktoApiToken: ""
+    aktoDbAbstractorHost: "cyborg.akto.io"
+    aktoAgentGuardUrl: "http://localhost:8092"
+    aktoThreatDetectionHost: "tbs.akto.io"
+    aktoLlmValidatorHost: "cyborg.akto.io"
+    aktoIngestHost: ""
+    logLevel: info
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 9091
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 9091
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod Security
+podSecurityContext: {}
+
+securityContext: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
