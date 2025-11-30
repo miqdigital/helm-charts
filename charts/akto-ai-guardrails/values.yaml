@@ -58,7 +58,7 @@ agentGuardExecutor:
   replicas: 1
   image:
     repository: public.ecr.aws/aktosecurity/akto-agent-guard-executor
-    tag: 1.12.1_local
+    tag: latest
     pullPolicy: IfNotPresent
 
   service:
