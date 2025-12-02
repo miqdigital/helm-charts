@@ -39,7 +39,7 @@ mini_runtime:
         token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: latest
+      tag: 1.54.4_local
     imagePullPolicy: Always
     resources:
       requests:
@@ -139,7 +139,7 @@ keel:
       webhookEndpoint: ""
     image:
       repository: public.ecr.aws/aktosecurity/keelhq-keel
-      tag: latest
+      tag: akto_v1.0.0
     imagePullPolicy: IfNotPresent
     enabled: true
     resources:

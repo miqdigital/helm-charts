@@ -41,7 +41,7 @@ threat_protection_backend:
       aktoLogLevel: DEBUG
     image:
       repository: aktosecurity/akto-threat-detection-backend
-      tag: latest
+      tag: "1.6.7"
     imagePullPolicy: Always
     resources:
       requests:
