@@ -162,14 +162,14 @@ spec:
           value: {{ quote .Values.mini_runtime.kafka1.env.kafkaControllerListenerNames }}
         - name: KAFKA_LISTENERS
           value: >-
-            {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.useTls }}
+            {{- if .Values.mini_runtime.kafka1.env.kafkaListeners }}
+              {{ .Values.mini_runtime.kafka1.env.kafkaListeners }}
+            {{- else if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.useTls }}
               CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://0.0.0.0:9093
             {{- else if .Values.mini_runtime.kafka1.useSasl }}
               CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://0.0.0.0:9092
             {{- else if .Values.mini_runtime.kafka1.useTls }}
               CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED://0.0.0.0:9093
-            {{- else if .Values.mini_runtime.kafka1.env.kafkaListeners }}
-              {{ .Values.mini_runtime.kafka1.env.kafkaListeners }}
             {{- else }}
               CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:9092
             {{- end }}

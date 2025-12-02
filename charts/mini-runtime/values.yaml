@@ -110,7 +110,6 @@ mini_runtime:
       sslSecretName: "kafka-certs"
       saslUsername: ""
       saslPassword: ""
-      saslJaasConfigPath: "/etc/kafka/config/kafka_jaas.conf"
     useTls: false
     useSasl: false
     image:
@@ -125,24 +124,6 @@ mini_runtime:
         cpu: 1.5
         memory: "8Gi"
         ephemeral-storage: "11Gi"
-  ports:
-    default:
-      - port: 9092
-        targetPort: 9092
-    tls:
-      - name: plaintext
-        port: 9092
-        targetPort: 9092
-      - name: ssl
-        port: 9093
-        targetPort: 9093
-    sasl:
-      - name: sasl-plaintext
-        port: 9092
-        targetPort: 9092
-      - name: sasl-ssl
-        port: 9093
-        targetPort: 9093
 
   replicas: 1
   type: ClusterIP
