@@ -81,7 +81,7 @@ agentGuardExecutor:
 
   # Persistent volume for model cache
   persistence:
-    enabled: true
+    enabled: false
     storageClass: ""
     accessMode: ReadWriteOnce
     size: 20Gi
@@ -92,9 +92,9 @@ agentGuardExecutor:
     httpGet:
       path: /health
       port: 8092
-    initialDelaySeconds: 60
-    periodSeconds: 15
-    timeoutSeconds: 10
+    initialDelaySeconds: 90
+    periodSeconds: 30
+    timeoutSeconds: 20
     failureThreshold: 10
 
   readinessProbe:
@@ -102,9 +102,9 @@ agentGuardExecutor:
     httpGet:
       path: /health
       port: 8092
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 5
+    initialDelaySeconds: 60
+    periodSeconds: 20
+    timeoutSeconds: 15
     failureThreshold: 5
 
 # Guardrails Service
