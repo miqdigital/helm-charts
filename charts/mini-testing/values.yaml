@@ -20,8 +20,6 @@ testing:
       databaseAbstractorTokenSecrets: 
         # Name of an existing secret containing the Database Abstractor Token
         existingSecret: ""
-        # Token to use if existingSecret is not provided
-        token: ""
       blockLogs: "false"
       aktoLogLevel: WARN
       miniTestingName: System-auto-scaled-akto-mini-testing
