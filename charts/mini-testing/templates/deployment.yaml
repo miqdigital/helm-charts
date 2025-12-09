@@ -119,7 +119,14 @@ spec:
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorUrl}}
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorToken}}
+          {{- if .Values.testing.aktoApiSecurityTesting.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
+            {{- else }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorToken }}
+            {{- end }}
         - name: AKTO_KAFKA_BROKER_URL
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.kafkaBrokerUrl}} 
         - name: NEW_TESTING_ENABLED
