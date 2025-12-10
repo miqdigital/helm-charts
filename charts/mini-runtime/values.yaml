@@ -108,6 +108,11 @@ mini_runtime:
       sslTruststorePassword: "password"
       sslBaseMountPath: "/etc/kafka/ssl/secrets"
       sslSecretName: "kafka-certs"
+      useSecretsForSaslCredentials: false
+      saslCredentialsSecrets:
+        existingSecret: ""
+        username: ""
+        password: ""
       saslUsername: ""
       saslPassword: ""
     useTls: false

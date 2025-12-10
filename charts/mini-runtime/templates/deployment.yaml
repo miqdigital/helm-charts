@@ -94,10 +94,23 @@ spec:
           value: "true"
         - name: AKTO_KAFKA_SASL_MECHANISM
           value: "PLAIN"
+        {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
+        - name: KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: username
+        - name: KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: password
+        {{- else }}
         - name: KAFKA_USERNAME
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.username }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslUsername }}{{ end }}
         - name: KAFKA_PASSWORD
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.password }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}
+        {{- end }}
         {{- end }}
         image: {{ .Values.mini_runtime.aktoApiSecurityRuntime.image.repository }}:{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.tag
           | default .Chart.AppVersion }}
@@ -434,11 +447,24 @@ spec:
           value: "PLAIN"
         - name: KAFKA_AUTH_ENABLED
           value: "true"
+        {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
+        - name: KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: username
+        - name: KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: password
+        {{- else }}
         - name: KAFKA_USERNAME
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.username }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslUsername }}{{ end }}
         - name: KAFKA_PASSWORD
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.password }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}
         {{- end }}
+        {{- end}}
         image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag
           | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
