@@ -123,7 +123,7 @@ spec:
           valueFrom:
             secretKeyRef:
               key: token
-              name: {{ (tpl .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-runtime" (include "akto.fullname" .) ) }}
+              name: {{ (tpl .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-testing" (include "akto.fullname" .) ) }}
             {{- else }}
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorToken }}
             {{- end }}

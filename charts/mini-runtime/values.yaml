@@ -111,6 +111,8 @@ mini_runtime:
       useSecretsForSaslCredentials: false
       saslCredentialsSecrets:
         existingSecret: ""
+        username: ""
+        password: ""
       saslUsername: ""
       saslPassword: ""
     useTls: false
