@@ -66,7 +66,7 @@ mini_runtime:
         token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: 1.54.4_local
+      tag: 1.57.6_local
     imagePullPolicy: Always
     resources:
       requests:
