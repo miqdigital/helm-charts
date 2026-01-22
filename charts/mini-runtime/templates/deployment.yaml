@@ -36,6 +36,45 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if and (not .Values.mini_runtime.useExternalKafka) .Values.mini_runtime.kafka1.useSasl }}
+      initContainers:
+      - name: generate-jaas-config
+        image: busybox:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            mkdir -p /etc/kafka/secrets
+            cat > /etc/kafka/secrets/kafka_server_jaas.conf <<EOF
+            KafkaServer {
+              org.apache.kafka.common.security.plain.PlainLoginModule required
+              username="${KAFKA_SASL_USERNAME}"
+              password="${KAFKA_SASL_PASSWORD}"
+              user_${KAFKA_SASL_USERNAME}="${KAFKA_SASL_PASSWORD}";
+            };
+            EOF
+            echo "JAAS config generated successfully"
+        env:
+        {{- if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
+        - name: KAFKA_SASL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.username }}
+        - name: KAFKA_SASL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.password }}
+        {{- else }}
+        - name: KAFKA_SASL_USERNAME
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslUsername }}
+        - name: KAFKA_SASL_PASSWORD
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslPassword }}
+        {{- end }}
+        volumeMounts:
+        - name: kafka-jaas-config
+          mountPath: /etc/kafka/secrets
+      {{- end }}
       containers:
       - env:
         - name: POD_NAME
@@ -266,7 +305,7 @@ spec:
 
         {{- if .Values.mini_runtime.kafka1.useSasl }}
         - name: KAFKA_OPTS
-          value: "-Djava.security.auth.login.config=/etc/kafka/config/kafka_server_jaas.conf"
+          value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
         - name: KAFKA_SASL_ENABLED_MECHANISMS
           value: "PLAIN"
         - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
@@ -277,18 +316,14 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.mini_runtime.kafka1.image.repository }}:{{ .Values.mini_runtime.kafka1.image.tag
           | default .Chart.AppVersion }}
-
-        {{- if or .Values.mini_runtime.kafka1.useTls .Values.mini_runtime.kafka1.useSasl }}
         volumeMounts:
-          {{- if .Values.mini_runtime.kafka1.useTls }}
-          - name: kafka-certs
-            mountPath: {{ quote .Values.mini_runtime.kafka1.env.sslBaseMountPath }}
-          {{- end }}
-          {{- if .Values.mini_runtime.kafka1.useSasl }}
-          - name: kafka-jaas-config
-            mountPath: /etc/kafka/config
-            readOnly: true
-          {{- end }}
+        {{- if .Values.mini_runtime.kafka1.useSasl }}
+        - name: kafka-jaas-config
+          mountPath: /etc/kafka/secrets
+        {{- end }}
+        {{- if .Values.mini_runtime.kafka1.useTls }}
+        - name: kafka-certs
+          mountPath: {{ quote .Values.mini_runtime.kafka1.env.sslBaseMountPath }}
         {{- end }}
 
         name: kafka1
@@ -313,17 +348,14 @@ spec:
         emptyDir:
           sizeLimit: {{ .Values.fluent_bit.stateStorage.sizeLimit }}
       {{- end }}
-      {{- if and (not .Values.mini_runtime.useExternalKafka) (or .Values.mini_runtime.kafka1.useTls .Values.mini_runtime.kafka1.useSasl) }}
-        {{- if .Values.mini_runtime.kafka1.useTls }}
-        - name: kafka-certs
-          secret:
-            secretName: {{ quote .Values.mini_runtime.kafka1.env.sslSecretName }}
-        {{- end }}
-        {{- if .Values.mini_runtime.kafka1.useSasl }}
-        - name: kafka-jaas-config
-          configMap:
-            name: {{ include "akto.fullname" . }}-kafka-jaas-config
-        {{- end }}
+      {{- if and (not .Values.mini_runtime.useExternalKafka) .Values.mini_runtime.kafka1.useSasl }}
+      - name: kafka-jaas-config
+        emptyDir: {}
+      {{- end }}
+      {{- if and (not .Values.mini_runtime.useExternalKafka) .Values.mini_runtime.kafka1.useTls }}
+      - name: kafka-certs
+        secret:
+          secretName: {{ quote .Values.mini_runtime.kafka1.env.sslSecretName }}
       {{- end }}
 
 ---
