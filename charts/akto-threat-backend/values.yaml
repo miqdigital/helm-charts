@@ -40,8 +40,8 @@ threat_protection_backend:
       kafkaBrokerUrl: localhost:29092
       aktoLogLevel: DEBUG
     image:
-      repository: aktosecurity/akto-threat-detection-backend
-      tag: "sha256:31716b412fd4da62cce7f97f5f11a5be2aef202594a585982ac201b16af0ff05"
+      repository: aktosecurity/akto-threat-detection-backend@sha256:d56603b995d854132069e3dc25899f582ca1aa8d39711e0ae99917549364d870
+      tag: ""
     imagePullPolicy: Always
     resources:
       requests:

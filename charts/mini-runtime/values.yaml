@@ -65,8 +65,8 @@ mini_runtime:
         # Token to use if existingSecret is not provided
         token: ""
     image:
-      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: 1.58.3_local
+      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime@sha256:ffedd525aff09e5b41f2a811e365935b7d714d19e7e70f87b0988d41974c3b1d
+      tag: ""
     imagePullPolicy: Always
     resources:
       requests:
@@ -209,8 +209,8 @@ threat_client:
       aktoLogLevel: WARN
       useHostName: true
     image:
-      repository: aktosecurity/akto-threat-detection
-      tag: "sha256:c07f1e38c226d05fa97c698d997d0e1664d286a498a93a9981231655c4b8a492"
+      repository: aktosecurity/akto-threat-detection@sha256:cdb0ced5dcc1c1fe4717343d6481d1581f8856c65ad8774fdfc483bcaa99354c
+      tag: ""
     imagePullPolicy: Always
     resources:
       requests:

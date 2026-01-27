@@ -90,8 +90,7 @@ spec:
           value: {{ quote .Values.threat_protection_backend.aktoApiSecurityThreatBackend.env.kafkaBrokerUrl }}
         - name: AKTO_LOG_LEVEL
           value: {{ quote .Values.threat_protection_backend.aktoApiSecurityThreatBackend.env.aktoLogLevel }}
-        image: {{ .Values.threat_protection_backend.aktoApiSecurityThreatBackend.image.repository }}:{{ .Values.threat_protection_backend.aktoApiSecurityThreatBackend.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.threat_protection_backend.aktoApiSecurityThreatBackend.image.repository }}{{ if not (contains "@" .Values.threat_protection_backend.aktoApiSecurityThreatBackend.image.repository) }}:{{ .Values.threat_protection_backend.aktoApiSecurityThreatBackend.image.tag | default .Chart.AppVersion }}{{ end }}
         name: akto-api-security-threat-backend
         ports:
         - containerPort: 9090
