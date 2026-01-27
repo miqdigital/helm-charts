@@ -313,8 +313,7 @@ spec:
 
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.mini_runtime.kafka1.image.repository }}:{{ .Values.mini_runtime.kafka1.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.mini_runtime.kafka1.image.repository }}{{ if not (contains "@" .Values.mini_runtime.kafka1.image.repository) }}:{{ .Values.mini_runtime.kafka1.image.tag | default .Chart.AppVersion }}{{ end }}
         volumeMounts:
         {{- if .Values.mini_runtime.kafka1.useSasl }}
         - name: kafka-jaas-config
@@ -426,8 +425,7 @@ spec:
           value: {{ quote .Values.keel.keel.env.insecureRegistry }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.keel.keel.image.repository }}:{{ .Values.keel.keel.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.keel.keel.image.repository }}{{ if not (contains "@" .Values.keel.keel.image.repository) }}:{{ .Values.keel.keel.image.tag | default .Chart.AppVersion }}{{ end }}
         imagePullPolicy: {{ .Values.keel.keel.imagePullPolicy }}
         livenessProbe:
           httpGet:

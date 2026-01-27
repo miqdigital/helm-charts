@@ -70,8 +70,7 @@ spec:
           value: {{ quote .Values.threat_protection_backend.kafka1.env.kafkaClusterId }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.threat_protection_backend.kafka1.image.repository }}:{{ .Values.threat_protection_backend.kafka1.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.threat_protection_backend.kafka1.image.repository }}{{ if not (contains "@" .Values.threat_protection_backend.kafka1.image.repository) }}:{{ .Values.threat_protection_backend.kafka1.image.tag | default .Chart.AppVersion }}{{ end }}
         name: kafka1
         ports:
         - containerPort: 9092
