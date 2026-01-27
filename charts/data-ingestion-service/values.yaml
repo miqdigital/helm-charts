@@ -13,8 +13,8 @@ dataIngestionService:
     aktoKafkaProducerBatchSize: "10"
     aktoKafkaProducerLingerMs: "10"
     aktoKafkaTopicName: "akto.api.logs"
-    aktoLogLevel: "DEBUG"
-    aktoKafkaReconnectIntervalSeconds: "30"
+    aktoLogLevel: "WARN"
+    aktoKafkaReconnectIntervalSeconds: "70"
 
   resources:
     requests:
