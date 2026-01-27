@@ -210,7 +210,7 @@ threat_client:
       useHostName: true
     image:
       repository: aktosecurity/akto-threat-detection
-      tag: "1.8.9"
+      tag: "sha256:c07f1e38c226d05fa97c698d997d0e1664d286a498a93a9981231655c4b8a492"
     imagePullPolicy: Always
     resources:
       requests:

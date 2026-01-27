@@ -3,7 +3,7 @@ kubernetesClusterDomain: cluster.local
 dataIngestionService:
   image:
     repository: aktosecurity/data-ingestion-service
-    tag: latest
+    tag: "sha256:291f1e2df21bbb6be698efb5c51cb7925acfd354f7b64d5bf01153b650a34b59"
   imagePullPolicy: Always
 
   env:
