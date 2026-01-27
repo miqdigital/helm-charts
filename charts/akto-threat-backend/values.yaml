@@ -26,8 +26,8 @@ threat_protection_backend:
       kafkaTransactionStateLogReplicationFactor: "1"
       kafkaClusterId: "c6a1b8e2-4f2a-4b2a-9c3f-1a2b3c4d5e6f"
     image:
-      repository: confluentinc/cp-kafka
-      tag: 8.1.0-1-ubi9
+      repository: confluentinc/cp-kafka@sha256:8e8c97320f6b0ace6ec9e6bef48bdafa6895e62fad6e7dacab947e07d1ee7e7d
+      tag: ""
     resources:
       requests:
         cpu: 1
@@ -40,8 +40,8 @@ threat_protection_backend:
       kafkaBrokerUrl: localhost:29092
       aktoLogLevel: DEBUG
     image:
-      repository: aktosecurity/akto-threat-detection-backend
-      tag: "1.6.7"
+      repository: aktosecurity/akto-threat-detection-backend@sha256:d56603b995d854132069e3dc25899f582ca1aa8d39711e0ae99917549364d870
+      tag: ""
     imagePullPolicy: Always
     resources:
       requests:
