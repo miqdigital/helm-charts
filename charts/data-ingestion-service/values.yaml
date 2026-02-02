@@ -34,3 +34,16 @@ dataIngestionService:
     subnets: ""
 
   restartPolicy: Always
+
+  # Kafka SASL Authentication
+  useSasl: true  # Set to true to enable SASL authentication
+
+  kafka:
+    saslUsername: ""
+    saslPassword: ""
+
+    useSecretsForSaslCredentials: true
+    saslCredentialsSecrets:
+      existingSecret: "akto-mini-runtime-mini-runtime-sasl"  # Name of existing secret of mini-runtime (e.g., "akto-kafka-sasl")
+      username: ""  
+      password: ""  

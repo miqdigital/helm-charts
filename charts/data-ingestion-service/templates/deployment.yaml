@@ -15,6 +15,44 @@ spec:
         {{- include "data-ingestion-service.selectorLabels" . | nindent 8 }}
     spec:
       restartPolicy: {{ .Values.dataIngestionService.restartPolicy }}
+      {{- if .Values.dataIngestionService.useSasl }}
+      initContainers:
+      - name: generate-jaas-config
+        image: busybox:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            mkdir -p /etc/kafka/secrets
+            cat > /etc/kafka/secrets/kafka_client_jaas.conf <<EOF
+            KafkaClient {
+              org.apache.kafka.common.security.plain.PlainLoginModule required
+              username="${AKTO_KAFKA_USERNAME}"
+              password="${AKTO_KAFKA_PASSWORD}";
+            };
+            EOF
+            echo "Kafka client JAAS config generated successfully"
+        env:
+        {{- if .Values.dataIngestionService.kafka.useSecretsForSaslCredentials }}
+        - name: AKTO_KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.dataIngestionService.kafka.saslCredentialsSecrets.existingSecret }}
+              key: {{ .Values.dataIngestionService.kafka.saslCredentialsSecrets.username }}
+        - name: AKTO_KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.dataIngestionService.kafka.saslCredentialsSecrets.existingSecret }}
+              key: {{ .Values.dataIngestionService.kafka.saslCredentialsSecrets.password }}
+        {{- else }}
+        - name: AKTO_KAFKA_USERNAME
+          value: {{ quote .Values.dataIngestionService.kafka.saslUsername }}
+        - name: AKTO_KAFKA_PASSWORD
+          value: {{ quote .Values.dataIngestionService.kafka.saslPassword }}
+        {{- end }}
+        volumeMounts:
+        - name: kafka-jaas-config
+          mountPath: /etc/kafka/secrets
+      {{- end }}
       containers:
       - name: data-ingestion-service
         image: {{ .Values.dataIngestionService.image.repository }}:{{ .Values.dataIngestionService.image.tag | default .Chart.AppVersion }}
@@ -39,5 +77,40 @@ spec:
           value: {{ quote .Values.dataIngestionService.env.aktoLogLevel }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if .Values.dataIngestionService.useSasl }}
+        - name: KAFKA_OPTS
+          value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_client_jaas.conf"
+        - name: AKTO_KAFKA_SASL_MECHANISM
+          value: "PLAIN"
+        - name: AKTO_KAFKA_SECURITY_PROTOCOL
+          value: "SASL_PLAINTEXT"
+        {{- if and .Values.dataIngestionService.useSasl .Values.dataIngestionService.kafka.useSecretsForSaslCredentials }}
+        - name: AKTO_KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.dataIngestionService.kafka.saslCredentialsSecrets.existingSecret }}
+              key: {{ .Values.dataIngestionService.kafka.saslCredentialsSecrets.username }}
+        - name: AKTO_KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.dataIngestionService.kafka.saslCredentialsSecrets.existingSecret }}
+              key: {{ .Values.dataIngestionService.kafka.saslCredentialsSecrets.password }}
+        {{- else }}
+        - name: AKTO_KAFKA_USERNAME
+          value: {{ quote .Values.dataIngestionService.kafka.saslUsername }}
+        - name: AKTO_KAFKA_PASSWORD
+          value: {{ quote .Values.dataIngestionService.kafka.saslPassword }}
+        {{- end }}
+        {{- end }}
         resources:
           {{- toYaml .Values.dataIngestionService.resources | nindent 10 }}
+        {{- if .Values.dataIngestionService.useSasl }}
+        volumeMounts:
+        - name: kafka-jaas-config
+          mountPath: /etc/kafka/secrets
+        {{- end }}
+      {{- if .Values.dataIngestionService.useSasl }}
+      volumes:
+      - name: kafka-jaas-config
+        emptyDir: {}
+      {{- end }}
