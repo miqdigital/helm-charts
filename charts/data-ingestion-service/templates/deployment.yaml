@@ -55,11 +55,7 @@ spec:
       {{- end }}
       containers:
       - name: data-ingestion-service
-        {{- if .Values.dataIngestionService.image.digest }}
         image: {{ .Values.dataIngestionService.image.repository }}@{{ .Values.dataIngestionService.image.digest }}
-        {{- else }}
-        image: {{ .Values.dataIngestionService.image.repository }}:{{ .Values.dataIngestionService.image.tag | default .Chart.AppVersion }}
-        {{- end }}
         imagePullPolicy: {{ .Values.dataIngestionService.imagePullPolicy }}
         ports:
         - containerPort: {{ .Values.dataIngestionService.service.targetPort }}
