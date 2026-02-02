@@ -4,6 +4,7 @@ dataIngestionService:
   image:
     repository: aktosecurity/data-ingestion-service
     tag: "latest"
+    digest: "sha256:213aded7adc54b809bbd887d85dfc028eaca95fe296190d8f9d1926395631f2b"
   imagePullPolicy: Always
 
   env:
