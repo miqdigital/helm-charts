@@ -15,6 +15,18 @@ spec:
         {{- include "data-ingestion-service.selectorLabels" . | nindent 8 }}
     spec:
       restartPolicy: {{ .Values.dataIngestionService.restartPolicy }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.dataIngestionService.useSasl }}
       initContainers:
       - name: generate-jaas-config
