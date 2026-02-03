@@ -2,8 +2,8 @@ apiVersion: v2
 name: data-ingestion-service
 description: Helm chart for Akto Data Ingestion Service
 type: application
-version: 0.1.4-sha
-appVersion: "0.1.4-sha"
+version: 0.1.5-sha
+appVersion: "0.1.5-sha"
 home: https://www.akto.io
 icon: https://akto-setup.s3.amazonaws.com/templates/128x128.png
 sources:
