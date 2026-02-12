@@ -62,11 +62,19 @@ dataIngestionService:
   useSasl: false  # Set to true to enable SASL authentication
 
   kafka:
+    # SASL mechanism: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
+    saslMechanism: "SCRAM-SHA-256"
     saslUsername: ""
     saslPassword: ""
+
+    # SSL/TLS configuration
+    # Set to true if connecting via SSL/TLS (e.g., NLB with SSL termination)
+    useSsl: false
+    # Security protocol: PLAINTEXT, SASL_PLAINTEXT, SASL_SSL, SSL
+    securityProtocol: "SASL_PLAINTEXT"
 
     useSecretsForSaslCredentials: false
     saslCredentialsSecrets:
       existingSecret: "akto-mini-runtime-mini-runtime-sasl"  # Name of existing secret of mini-runtime (e.g., "akto-kafka-sasl")
-      username: ""  
+      username: ""
       password: ""  

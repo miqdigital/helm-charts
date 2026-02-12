@@ -44,6 +44,7 @@ spec:
         args:
           - |
             mkdir -p /etc/kafka/secrets
+            {{- if eq .Values.mini_runtime.kafka1.env.saslMechanism "PLAIN" }}
             cat > /etc/kafka/secrets/kafka_server_jaas.conf <<EOF
             KafkaServer {
               org.apache.kafka.common.security.plain.PlainLoginModule required
@@ -52,6 +53,15 @@ spec:
               user_${KAFKA_SASL_USERNAME}="${KAFKA_SASL_PASSWORD}";
             };
             EOF
+            {{- else }}
+            cat > /etc/kafka/secrets/kafka_server_jaas.conf <<EOF
+            KafkaServer {
+              org.apache.kafka.common.security.scram.ScramLoginModule required
+              username="${KAFKA_SASL_USERNAME}"
+              password="${KAFKA_SASL_PASSWORD}";
+            };
+            EOF
+            {{- end }}
             echo "JAAS config generated successfully"
         env:
         {{- if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
@@ -119,6 +129,8 @@ spec:
             }}
         - name: AKTO_LOG_LEVEL
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoLogLevel }}
+        - name: AKTO_RUN_MCP_JOBS
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoRunMcpJobs }}
         - name: AKTO_MONGO_CONN
           value: {{ quote .Values.mongo.aktoMongoConn }}
         - name: USE_HOSTNAME
@@ -140,7 +152,11 @@ spec:
         - name: KAFKA_AUTH_ENABLED
           value: "true"
         - name: AKTO_KAFKA_SASL_MECHANISM
-          value: "PLAIN"
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.saslMechanism }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}{{ end }}
+        {{- if .Values.mini_runtime.useExternalKafka }}
+        - name: AKTO_KAFKA_SECURITY_PROTOCOL
+          value: {{ quote .Values.mini_runtime.externalKafka.securityProtocol }}
+        {{- end }}
         {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
         - name: KAFKA_USERNAME
           valueFrom:
@@ -306,13 +322,35 @@ spec:
         - name: KAFKA_OPTS
           value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
         - name: KAFKA_SASL_ENABLED_MECHANISMS
-          value: "PLAIN"
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}
         - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
-          value: "PLAIN"
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}
         {{- end }}
 
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if and .Values.mini_runtime.kafka1.useSasl (or (eq .Values.mini_runtime.kafka1.env.saslMechanism "SCRAM-SHA-256") (eq .Values.mini_runtime.kafka1.env.saslMechanism "SCRAM-SHA-512")) }}
+        - name: KAFKA_SCRAM_USERNAME
+          {{- if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: username
+          {{- else }}
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslUsername }}
+          {{- end }}
+        - name: KAFKA_SCRAM_PASSWORD
+          {{- if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: password
+          {{- else }}
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslPassword }}
+          {{- end }}
+        - name: KAFKA_SCRAM_MECHANISM
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}
+        {{- end }}
         image: {{ .Values.mini_runtime.kafka1.image.repository }}:{{ .Values.mini_runtime.kafka1.image.tag | default .Chart.AppVersion }}
         volumeMounts:
         {{- if .Values.mini_runtime.kafka1.useSasl }}
@@ -535,7 +573,7 @@ spec:
         - name: AKTO_KAFKA_SASL_ENABLED
           value: "true"
         - name: AKTO_KAFKA_SASL_MECHANISM
-          value: "PLAIN"
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.saslMechanism }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}{{ end }}
         - name: KAFKA_AUTH_ENABLED
           value: "true"
         {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}

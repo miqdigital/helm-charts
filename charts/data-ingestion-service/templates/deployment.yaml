@@ -35,6 +35,7 @@ spec:
         args:
           - |
             mkdir -p /etc/kafka/secrets
+            {{- if eq .Values.dataIngestionService.kafka.saslMechanism "PLAIN" }}
             cat > /etc/kafka/secrets/kafka_client_jaas.conf <<EOF
             KafkaClient {
               org.apache.kafka.common.security.plain.PlainLoginModule required
@@ -42,6 +43,15 @@ spec:
               password="${AKTO_KAFKA_PASSWORD}";
             };
             EOF
+            {{- else }}
+            cat > /etc/kafka/secrets/kafka_client_jaas.conf <<EOF
+            KafkaClient {
+              org.apache.kafka.common.security.scram.ScramLoginModule required
+              username="${AKTO_KAFKA_USERNAME}"
+              password="${AKTO_KAFKA_PASSWORD}";
+            };
+            EOF
+            {{- end }}
             echo "Kafka client JAAS config generated successfully"
         env:
         {{- if .Values.dataIngestionService.kafka.useSecretsForSaslCredentials }}
@@ -67,7 +77,7 @@ spec:
       {{- end }}
       containers:
       - name: data-ingestion-service
-        image: {{ .Values.dataIngestionService.image.repository }}@{{ .Values.dataIngestionService.image.digest }}
+        image: {{ .Values.dataIngestionService.image.repository }}:{{ .Values.dataIngestionService.image.tag | default "latest" }}
         imagePullPolicy: {{ .Values.dataIngestionService.imagePullPolicy }}
         ports:
         - containerPort: {{ .Values.dataIngestionService.service.targetPort }}
@@ -91,11 +101,11 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         {{- if .Values.dataIngestionService.useSasl }}
         - name: KAFKA_OPTS
-          value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_client_jaas.conf"
+          value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_client_jaas.conf{{- if .Values.dataIngestionService.kafka.useSsl }} -Dssl.endpoint.identification.algorithm={{- end }}"
         - name: AKTO_KAFKA_SASL_MECHANISM
-          value: "PLAIN"
+          value: {{ quote .Values.dataIngestionService.kafka.saslMechanism }}
         - name: AKTO_KAFKA_SECURITY_PROTOCOL
-          value: "SASL_PLAINTEXT"
+          value: {{ quote .Values.dataIngestionService.kafka.securityProtocol }}
         {{- if and .Values.dataIngestionService.useSasl .Values.dataIngestionService.kafka.useSecretsForSaslCredentials }}
         - name: AKTO_KAFKA_USERNAME
           valueFrom:
