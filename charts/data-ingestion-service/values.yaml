@@ -26,7 +26,7 @@ affinity: {}
 dataIngestionService:
   image:
     repository: aktosecurity/data-ingestion-service
-    digest: "sha256:213aded7adc54b809bbd887d85dfc028eaca95fe296190d8f9d1926395631f2b"
+    digest: sha256:036cd45c3d6c68aba5df329f2c4208514622586708568bf63d1b96765db5fa20
   imagePullPolicy: Always
 
   env:
@@ -62,11 +62,19 @@ dataIngestionService:
   useSasl: false  # Set to true to enable SASL authentication
 
   kafka:
+    # SASL mechanism: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
+    saslMechanism: "SCRAM-SHA-256"
     saslUsername: ""
     saslPassword: ""
+
+    # SSL/TLS configuration
+    # Set to true if connecting via SSL/TLS (e.g., NLB with SSL termination)
+    useSsl: false
+    # Security protocol: PLAINTEXT, SASL_PLAINTEXT, SASL_SSL, SSL
+    securityProtocol: "SASL_PLAINTEXT"
 
     useSecretsForSaslCredentials: false
     saslCredentialsSecrets:
       existingSecret: "akto-mini-runtime-mini-runtime-sasl"  # Name of existing secret of mini-runtime (e.g., "akto-kafka-sasl")
-      username: ""  
+      username: ""
       password: ""  

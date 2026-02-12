@@ -37,6 +37,13 @@ mini_runtime:
     # SASL authentication (leave empty for no authentication)
     username: ""
     password: ""
+    # SASL mechanism for external Kafka: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
+    saslMechanism: "SCRAM-SHA-256"
+    # SSL/TLS configuration for external Kafka
+    # Set to true if connecting via SSL/TLS (e.g., NLB with SSL termination)
+    useSsl: true
+    # Security protocol: PLAINTEXT, SASL_PLAINTEXT, SASL_SSL, SSL
+    securityProtocol: "SASL_SSL"
 
   aktoApiSecurityRuntime:
     env:
@@ -51,6 +58,7 @@ mini_runtime:
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
       aktoLogLevel: WARN
+      aktoRunMcpJobs: "true"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://cyborg.akto.io
@@ -65,8 +73,8 @@ mini_runtime:
         # Token to use if existingSecret is not provided
         token: ""
     image:
-      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: 1.58.3_local
+      repository: aktosecurity/mini-runtime
+      digest: sha256:31c7b975ff5cbdb03587ad0f75cbf388d0441b637757ac0893ea9dcb1c1bae8b
     imagePullPolicy: Always
     resources:
       requests:
@@ -115,6 +123,8 @@ mini_runtime:
         password: ""
       saslUsername: ""
       saslPassword: ""
+      # SASL mechanism: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
+      saslMechanism: "SCRAM-SHA-256"
     useTls: false
     useSasl: false
     image:
