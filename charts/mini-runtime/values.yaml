@@ -73,8 +73,8 @@ mini_runtime:
         # Token to use if existingSecret is not provided
         token: ""
     image:
-      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: 1.58.3_local
+      repository: aktosecurity/mini-runtime
+      digest: sha256:31c7b975ff5cbdb03587ad0f75cbf388d0441b637757ac0893ea9dcb1c1bae8b
     imagePullPolicy: Always
     resources:
       requests:

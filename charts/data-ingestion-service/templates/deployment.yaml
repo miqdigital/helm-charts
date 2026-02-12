@@ -77,7 +77,7 @@ spec:
       {{- end }}
       containers:
       - name: data-ingestion-service
-        image: {{ .Values.dataIngestionService.image.repository }}:{{ .Values.dataIngestionService.image.tag | default "latest" }}
+        image: {{ .Values.dataIngestionService.image.repository }}{{ if .Values.dataIngestionService.image.digest }}@{{ .Values.dataIngestionService.image.digest }}{{ else }}:{{ .Values.dataIngestionService.image.tag | default "latest" }}{{ end }}
         imagePullPolicy: {{ .Values.dataIngestionService.imagePullPolicy }}
         ports:
         - containerPort: {{ .Values.dataIngestionService.service.targetPort }}

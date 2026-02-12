@@ -175,7 +175,7 @@ spec:
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.password }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}
         {{- end }}
         {{- end }}
-        image: {{ .Values.mini_runtime.aktoApiSecurityRuntime.image.repository }}:{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.tag | default .Chart.AppVersion }}
+        image: {{ .Values.mini_runtime.aktoApiSecurityRuntime.image.repository }}{{ if .Values.mini_runtime.aktoApiSecurityRuntime.image.digest }}@{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.digest }}{{ else }}:{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.tag | default .Chart.AppVersion }}{{ end }}
         imagePullPolicy: {{ .Values.mini_runtime.aktoApiSecurityRuntime.imagePullPolicy }}
         name: akto-api-security-runtime
         resources: {{- toYaml .Values.mini_runtime.aktoApiSecurityRuntime.resources |  nindent 10 }}
