@@ -39,11 +39,12 @@ spec:
       {{- if and (not .Values.mini_runtime.useExternalKafka) .Values.mini_runtime.kafka1.useSasl }}
       initContainers:
       - name: generate-jaas-config
-        image: busybox:latest
+        image: {{ .Values.busybox.image.repository }}@{{ .Values.busybox.image.digest }}
         command: ["/bin/sh", "-c"]
         args:
           - |
             mkdir -p /etc/kafka/secrets
+            {{- if eq .Values.mini_runtime.kafka1.env.saslMechanism "PLAIN" }}
             cat > /etc/kafka/secrets/kafka_server_jaas.conf <<EOF
             KafkaServer {
               org.apache.kafka.common.security.plain.PlainLoginModule required
@@ -52,6 +53,15 @@ spec:
               user_${KAFKA_SASL_USERNAME}="${KAFKA_SASL_PASSWORD}";
             };
             EOF
+            {{- else }}
+            cat > /etc/kafka/secrets/kafka_server_jaas.conf <<EOF
+            KafkaServer {
+              org.apache.kafka.common.security.scram.ScramLoginModule required
+              username="${KAFKA_SASL_USERNAME}"
+              password="${KAFKA_SASL_PASSWORD}";
+            };
+            EOF
+            {{- end }}
             echo "JAAS config generated successfully"
         env:
         {{- if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
@@ -119,6 +129,8 @@ spec:
             }}
         - name: AKTO_LOG_LEVEL
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoLogLevel }}
+        - name: AKTO_RUN_MCP_JOBS
+          value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoRunMcpJobs }}
         - name: AKTO_MONGO_CONN
           value: {{ quote .Values.mongo.aktoMongoConn }}
         - name: USE_HOSTNAME
@@ -139,8 +151,14 @@ spec:
         {{- if or .Values.mini_runtime.kafka1.useSasl (and .Values.mini_runtime.useExternalKafka .Values.mini_runtime.externalKafka.username) }}
         - name: KAFKA_AUTH_ENABLED
           value: "true"
+        - name: AKTO_KAFKA_SASL_ENABLED
+          value: "true"
         - name: AKTO_KAFKA_SASL_MECHANISM
-          value: "PLAIN"
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.saslMechanism }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}{{ end }}
+        {{- if .Values.mini_runtime.useExternalKafka }}
+        - name: AKTO_KAFKA_SECURITY_PROTOCOL
+          value: {{ quote .Values.mini_runtime.externalKafka.securityProtocol }}
+        {{- end }}
         {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
         - name: KAFKA_USERNAME
           valueFrom:
@@ -159,7 +177,7 @@ spec:
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.password }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}
         {{- end }}
         {{- end }}
-        image: {{ .Values.mini_runtime.aktoApiSecurityRuntime.image.repository }}:{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.tag | default .Chart.AppVersion }}
+        image: {{ .Values.mini_runtime.aktoApiSecurityRuntime.image.repository }}{{ if .Values.mini_runtime.aktoApiSecurityRuntime.image.digest }}@{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.digest }}{{ else }}:{{ .Values.mini_runtime.aktoApiSecurityRuntime.image.tag | default .Chart.AppVersion }}{{ end }}
         imagePullPolicy: {{ .Values.mini_runtime.aktoApiSecurityRuntime.imagePullPolicy }}
         name: akto-api-security-runtime
         resources: {{- toYaml .Values.mini_runtime.aktoApiSecurityRuntime.resources |  nindent 10 }}
@@ -171,7 +189,7 @@ spec:
       
       {{- if .Values.fluent_bit.enabled }}
       - name: fluent-bit
-        image: {{ .Values.fluent_bit.image.repository }}:{{ .Values.fluent_bit.image.tag | default "latest" }}
+        image: {{ .Values.fluent_bit.image.repository }}{{ if .Values.fluent_bit.image.digest }}@{{ .Values.fluent_bit.image.digest }}{{ else }}:{{ .Values.fluent_bit.image.tag | default "latest" }}{{ end }}
         imagePullPolicy: {{ .Values.fluent_bit.image.pullPolicy }}
         env:
         - name: POD_NAME
@@ -306,14 +324,83 @@ spec:
         - name: KAFKA_OPTS
           value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
         - name: KAFKA_SASL_ENABLED_MECHANISMS
-          value: "PLAIN"
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}
         - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
-          value: "PLAIN"
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}
         {{- end }}
 
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.mini_runtime.kafka1.image.repository }}:{{ .Values.mini_runtime.kafka1.image.tag | default .Chart.AppVersion }}
+        {{- if and .Values.mini_runtime.kafka1.useSasl (or (eq .Values.mini_runtime.kafka1.env.saslMechanism "SCRAM-SHA-256") (eq .Values.mini_runtime.kafka1.env.saslMechanism "SCRAM-SHA-512")) }}
+        - name: KAFKA_SCRAM_USERNAME
+          {{- if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: username
+          {{- else }}
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslUsername }}
+          {{- end }}
+        - name: KAFKA_SCRAM_PASSWORD
+          {{- if .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: password
+          {{- else }}
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslPassword }}
+          {{- end }}
+        - name: KAFKA_SCRAM_MECHANISM
+          value: {{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}
+        {{- end }}
+        image: {{ .Values.mini_runtime.kafka1.image.repository }}{{ if .Values.mini_runtime.kafka1.image.digest }}@{{ .Values.mini_runtime.kafka1.image.digest }}{{ else }}:{{ .Values.mini_runtime.kafka1.image.tag | default .Chart.AppVersion }}{{ end }}
+        {{- if .Values.mini_runtime.kafka1.autoFormatWithScram }}
+        command:
+          - bash
+          - -c
+          - |
+            # Auto-format storage with SCRAM credentials on first deployment
+            if [ ! -f /var/lib/kafka/data/.kafka-formatted ]; then
+              echo "========================================================================"
+              echo "FIRST TIME DEPLOYMENT - Formatting Kafka storage with SCRAM user"
+              echo "========================================================================"
+              echo "Cluster ID: ${CLUSTER_ID}"
+              echo "SCRAM Username: ${KAFKA_SCRAM_USERNAME}"
+              echo "SCRAM Mechanism: ${KAFKA_SCRAM_MECHANISM}"
+              echo ""
+
+              # Generate server.properties using Confluent's configure script
+              echo "Generating Kafka configuration..."
+              /etc/confluent/docker/configure
+
+              # Format storage with SCRAM credentials
+              echo "Formatting storage with SCRAM user..."
+              kafka-storage format \
+                --config /etc/kafka/kafka.properties \
+                --cluster-id "${CLUSTER_ID}" \
+                --add-scram "${KAFKA_SCRAM_MECHANISM}=[name=${KAFKA_SCRAM_USERNAME},password=${KAFKA_SCRAM_PASSWORD}]" || {
+                  echo "ERROR: Failed to format storage with SCRAM"
+                  exit 1
+                }
+
+              # Mark as formatted
+              touch /var/lib/kafka/data/.kafka-formatted
+              echo ""
+              echo "SUCCESS: Storage formatted with SCRAM user!"
+              echo "========================================================================"
+            else
+              echo "========================================================================"
+              echo "Storage already formatted - skipping format step"
+              echo "========================================================================"
+            fi
+
+            echo ""
+            echo "Starting Kafka broker with SASL authentication..."
+            echo "========================================================================"
+
+            # Start Kafka using the default entrypoint
+            exec /etc/confluent/docker/run
+        {{- end }}
         volumeMounts:
         {{- if .Values.mini_runtime.kafka1.useSasl }}
         - name: kafka-jaas-config
@@ -425,7 +512,7 @@ spec:
           value: {{ quote .Values.keel.keel.env.insecureRegistry }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.keel.keel.image.repository }}:{{ .Values.keel.keel.image.tag | default .Chart.AppVersion }}
+        image: {{ .Values.keel.keel.image.repository }}{{ if .Values.keel.keel.image.digest }}@{{ .Values.keel.keel.image.digest }}{{ else }}:{{ .Values.keel.keel.image.tag | default .Chart.AppVersion }}{{ end }}
         imagePullPolicy: {{ .Values.keel.keel.imagePullPolicy }}
         livenessProbe:
           httpGet:
@@ -535,7 +622,7 @@ spec:
         - name: AKTO_KAFKA_SASL_ENABLED
           value: "true"
         - name: AKTO_KAFKA_SASL_MECHANISM
-          value: "PLAIN"
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.saslMechanism }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}{{ end }}
         - name: KAFKA_AUTH_ENABLED
           value: "true"
         {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
@@ -556,7 +643,7 @@ spec:
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.password }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}
         {{- end }}
         {{- end}}
-        image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag | default .Chart.AppVersion }}
+        image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}{{ if .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}@{{ .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}{{ else }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag | default .Chart.AppVersion }}{{ end }}
         imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
         name: akto-api-security-threat-client
         resources: {{- toYaml .Values.threat_client.aktoApiSecurityThreatClient.resources |  nindent 10 }}
