@@ -3,6 +3,12 @@ mongo:
 
 kubernetesClusterDomain: cluster.local
 
+# Busybox image for init containers
+busybox:
+  image:
+    repository: busybox
+    digest: sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f
+
 # Node scheduling configuration
 nodeSelector: {}
   # Example usage:
@@ -37,6 +43,13 @@ mini_runtime:
     # SASL authentication (leave empty for no authentication)
     username: ""
     password: ""
+    # SASL mechanism for external Kafka: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
+    saslMechanism: "SCRAM-SHA-256"
+    # SSL/TLS configuration for external Kafka
+    # Set to true if connecting via SSL/TLS (e.g., MSK with TLS)
+    useSsl: false
+    # Security protocol: PLAINTEXT, SASL_PLAINTEXT, SASL_SSL, SSL
+    securityProtocol: "SASL_SSL"
 
   aktoApiSecurityRuntime:
     env:
@@ -51,6 +64,7 @@ mini_runtime:
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
       aktoLogLevel: WARN
+      aktoRunMcpJobs: "true"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://cyborg.akto.io
@@ -65,8 +79,8 @@ mini_runtime:
         # Token to use if existingSecret is not provided
         token: ""
     image:
-      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: 1.58.3_local
+      repository: aktosecurity/mini-runtime
+      digest: sha256:31c7b975ff5cbdb03587ad0f75cbf388d0441b637757ac0893ea9dcb1c1bae8b
     imagePullPolicy: Always
     resources:
       requests:
@@ -115,11 +129,17 @@ mini_runtime:
         password: ""
       saslUsername: ""
       saslPassword: ""
+      # SASL mechanism: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
+      saslMechanism: "SCRAM-SHA-512"
     useTls: false
     useSasl: false
+    # Auto-format storage with SCRAM on first deployment (single helm install)
+    # When enabled, Kafka will format storage with SCRAM user on first run
+    # Requires persistence.enabled: true
+    autoFormatWithScram: false
     image:
       repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
-      tag: 8.1.1-1-ubi9
+      digest: sha256:d20bd62f01826c454e88530efc6d73654cb4697182f37206742b96c7b947236e
     resources:
       requests:
         cpu: 1.5
@@ -129,6 +149,12 @@ mini_runtime:
         cpu: 1.5
         memory: "8Gi"
         ephemeral-storage: "11Gi"
+
+    # Persistent storage for Kafka data (SCRAM users, topics, etc.)
+    persistence:
+      enabled: false
+      size: "5Gi"
+      storageClass: ""
 
   replicas: 1
   type: ClusterIP
@@ -153,7 +179,7 @@ keel:
       webhookEndpoint: ""
     image:
       repository: public.ecr.aws/aktosecurity/keelhq-keel
-      tag: akto_v1.0.0
+      digest: sha256:1eb61443d68eff7efe1dc5607e8b3054a518c4abba0aa840ffb6a19456b04507
     imagePullPolicy: IfNotPresent
     enabled: true
     resources:
@@ -210,7 +236,7 @@ threat_client:
       useHostName: true
     image:
       repository: aktosecurity/akto-threat-detection
-      tag: "1.8.9"
+      digest: sha256:2fa2f6044a59f3a3a439d263429506debf31ae0b630c6f1c297a8108389bbe47
     imagePullPolicy: Always
     resources:
       requests:
@@ -223,7 +249,7 @@ threat_client:
 redis:
   image:
     repository: redis
-    tag: "7.0"
+    digest: sha256:66aa868bf695bfbe0d812cd9cac8c7388bec0f4dcddc598d3718da1455a72366
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -242,7 +268,7 @@ fluent_bit:
   
   image:
     repository: public.ecr.aws/aktosecurity/akto-logging-sidecar
-    tag: "4.2.2"
+    digest: sha256:7d727245767ae632eb296c2ff4d206bf2e205b5f244c1f37b8fdd61f9fb33985
     pullPolicy: IfNotPresent
 
   resources:

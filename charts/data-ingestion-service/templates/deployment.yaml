@@ -30,11 +30,12 @@ spec:
       {{- if .Values.dataIngestionService.useSasl }}
       initContainers:
       - name: generate-jaas-config
-        image: busybox:latest
+        image: {{ .Values.busybox.image.repository }}@{{ .Values.busybox.image.digest }}
         command: ["/bin/sh", "-c"]
         args:
           - |
             mkdir -p /etc/kafka/secrets
+            {{- if eq .Values.dataIngestionService.kafka.saslMechanism "PLAIN" }}
             cat > /etc/kafka/secrets/kafka_client_jaas.conf <<EOF
             KafkaClient {
               org.apache.kafka.common.security.plain.PlainLoginModule required
@@ -42,6 +43,15 @@ spec:
               password="${AKTO_KAFKA_PASSWORD}";
             };
             EOF
+            {{- else }}
+            cat > /etc/kafka/secrets/kafka_client_jaas.conf <<EOF
+            KafkaClient {
+              org.apache.kafka.common.security.scram.ScramLoginModule required
+              username="${AKTO_KAFKA_USERNAME}"
+              password="${AKTO_KAFKA_PASSWORD}";
+            };
+            EOF
+            {{- end }}
             echo "Kafka client JAAS config generated successfully"
         env:
         {{- if .Values.dataIngestionService.kafka.useSecretsForSaslCredentials }}
@@ -92,8 +102,10 @@ spec:
         {{- if .Values.dataIngestionService.useSasl }}
         - name: KAFKA_OPTS
           value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_client_jaas.conf"
+        - name: AKTO_KAFKA_SASL_ENABLED
+          value: "true"
         - name: AKTO_KAFKA_SASL_MECHANISM
-          value: "PLAIN"
+          value: {{ quote .Values.dataIngestionService.kafka.saslMechanism }}
         - name: AKTO_KAFKA_SECURITY_PROTOCOL
           value: "SASL_PLAINTEXT"
         {{- if and .Values.dataIngestionService.useSasl .Values.dataIngestionService.kafka.useSecretsForSaslCredentials }}
