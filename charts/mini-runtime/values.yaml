@@ -80,7 +80,7 @@ mini_runtime:
         token: ""
     image:
       repository: aktosecurity/mini-runtime
-      digest: sha256:31c7b975ff5cbdb03587ad0f75cbf388d0441b637757ac0893ea9dcb1c1bae8b
+      digest: sha256:16349776434cfcea0424371941b377a0b764730047f7783de5902369e25fb23a
     imagePullPolicy: Always
     resources:
       requests:
@@ -230,7 +230,7 @@ threat_client:
       useHostName: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-threat-detection
-      digest: sha256:88e7791b7eb9e113c62fa1636c9c9574a3343a602330f0058d3aae4e0b508b3f
+      digest: sha256:01c87c5f41283bbd62e1cd31a9f074cec13eb25f73a1c46b519f6b79efd69f20 
     imagePullPolicy: Always
     resources:
       requests:
