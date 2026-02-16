@@ -226,11 +226,11 @@ threat_client:
       aktoConfigName: staging
       aktoInstanceType: DASHBOARD
       backendUrl: https://tbs.akto.io
-      aktoLogLevel: WARN
+      aktoLogLevel: INFO
       useHostName: true
     image:
-      repository: aktosecurity/akto-threat-detection
-      digest: sha256:2fa2f6044a59f3a3a439d263429506debf31ae0b630c6f1c297a8108389bbe47
+      repository: public.ecr.aws/aktosecurity/akto-threat-detection
+      digest: sha256:88e7791b7eb9e113c62fa1636c9c9574a3343a602330f0058d3aae4e0b508b3f
     imagePullPolicy: Always
     resources:
       requests:
@@ -242,8 +242,8 @@ threat_client:
 
 redis:
   image:
-    repository: redis
-    digest: sha256:66aa868bf695bfbe0d812cd9cac8c7388bec0f4dcddc598d3718da1455a72366
+    repository: public.ecr.aws/aktosecurity/redis
+    digest: sha256:47200b04138293fae39737e50878a238b13ec0781083126b1b0c63cf5d992e8d
     pullPolicy: IfNotPresent
   resources:
     requests:
