@@ -3,7 +3,7 @@ name: api-gateway-logging
 description: Helm chart for Akto API Gateway logging collector
 type: application
 version: 0.1.0
-appVersion: "api-gateway-logging-temp-cred-openapi"
+appVersion: "api-gateway-logging"
 home: https://www.akto.io
 sources:
   - https://github.com/akto-api-security/helm-charts
