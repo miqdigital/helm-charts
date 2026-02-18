@@ -1,0 +1,32 @@
+image:
+  repository: aktosecurity/mirror-api-logging
+  tag: api-gateway-logging-temp-cred-openapi
+  pullPolicy: Always
+
+replicas: 1
+
+serviceAccount:
+  create: true
+  name: service-account-eks
+  annotations:
+    eks.amazonaws.com/role-arn: ""
+
+env:
+  AKTO_BYTES_IN_THRESHOLD: "100"
+  AKTO_TRAFFIC_BATCH_TIME_SECS: "10"
+  AKTO_TRAFFIC_BATCH_SIZE: "100"
+  AKTO_KAFKA_BROKER_MAL: "akto-mini-runtime-mini-runtime.default.svc.cluster.local:9092"
+  CLOUDWATCH_READ_BATCH_SIZE: "5"
+  CROSS_ACCOUNT_ROLE_ARN: ""
+  LOG_GROUP_PREFIX: "API-Gateway-Execution-Logs"
+  SESSION_NAME: "testing"
+  AWS_REGION: ""
+  DATABASE_ABSTRACTOR_TOKEN: ""
+  DISCOVER_OPENAPI_SPEC: "true"
+  OPENAPI_DISCOVERY_INTERVAL_MINUTES: "15"
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
