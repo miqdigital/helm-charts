@@ -12,14 +12,23 @@ testing:
       kafkaBrokerUrl: localhost:29092
       puppeteerReplayServiceUrl: http://localhost:3000
       databaseAbstractorUrl: https://cyborg.akto.io
+      # If you want to use secrets to store database abstractor token. default: false
+      useSecretsForDatabaseAbstractorToken: false
+      # If not using secrets, place token here.
       databaseAbstractorToken: ""
+      # If using secrets, place token here.
+      databaseAbstractorTokenSecrets: 
+        # Name of an existing secret containing the Database Abstractor Token
+        existingSecret: ""
+        # Token to use if existingSecret is not provided
+        token: ""
       blockLogs: "false"
       aktoLogLevel: WARN
       miniTestingName: System-auto-scaled-akto-mini-testing
 
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
-      tag: latest
+      tag: 1.59.3_local
     imagePullPolicy: Always
     resources:
       requests:
@@ -79,7 +88,7 @@ testing:
   aktoApiSecurityPuppeteerReplay:
     image:
       repository: public.ecr.aws/aktosecurity/akto-puppeteer-replay
-      tag: latest
+      tag: 1.48.0_latest
     imagePullPolicy: Always
     resources:
       requests:
@@ -155,7 +164,7 @@ keel:
       webhookEndpoint: ""
     image:
       repository: public.ecr.aws/aktosecurity/keelhq-keel
-      tag: latest
+      tag: akto_v1.0.0
     imagePullPolicy: Always
     resources:
       limits:

@@ -3,53 +3,18 @@ mongo:
 
 kubernetesClusterDomain: cluster.local
 
-# Busybox image for init containers
-busybox:
-  image:
-    repository: busybox
-    digest: sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f
-
-# Node scheduling configuration
 nodeSelector: {}
-  # Example usage:
-  # nodetype: coreservices
 
 tolerations: []
-  # Example usage:
-  # - key: nodetype
-  #   operator: Equal
-  #   value: coreservices
-  #   effect: NoSchedule
 
 affinity: {}
-  # Example usage:
-  # nodeAffinity:
-  #   requiredDuringSchedulingIgnoredDuringExecution:
-  #     nodeSelectorTerms:
-  #     - matchExpressions:
-  #       - key: nodetype
-  #         operator: In
-  #         values:
-  #         - coreservices
 
 mini_runtime:
-  # External Kafka Configuration
-  # Set useExternalKafka to true to use an existing Kafka cluster
-  # When enabled, the internal Kafka container will not be deployed
   useExternalKafka: false
   externalKafka:
-    # Kafka broker URL (e.g., kafka.example.com:9092 or kafka1:9092,kafka2:9092,kafka3:9092)
     brokerUrl: ""
-    # SASL authentication (leave empty for no authentication)
     username: ""
     password: ""
-    # SASL mechanism for external Kafka: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
-    saslMechanism: "SCRAM-SHA-256"
-    # SSL/TLS configuration for external Kafka
-    # Set to true if connecting via SSL/TLS (e.g., MSK with TLS)
-    useSsl: false
-    # Security protocol: PLAINTEXT, SASL_PLAINTEXT, SASL_SSL, SSL
-    securityProtocol: "SASL_SSL"
 
   aktoApiSecurityRuntime:
     env:
@@ -64,23 +29,17 @@ mini_runtime:
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
       aktoLogLevel: WARN
-      aktoRunMcpJobs: "true"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://cyborg.akto.io
-      # If you want to use secrets to store database abstractor token. default: false
       useSecretsForDatabaseAbstractorToken: false
-      # If not using secrets, place token here.
       databaseAbstractorToken: ""
-      # If using secrets, place token here.
       databaseAbstractorTokenSecrets: 
-        # Name of an existing secret containing the Database Abstractor Token
         existingSecret: ""
-        # Token to use if existingSecret is not provided
         token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: 1.61.2_local
+      tag: 1.54.4_local
     imagePullPolicy: Always
     resources:
       requests:
@@ -91,7 +50,6 @@ mini_runtime:
         memory: "4Gi"
   kafka1:
     env:
-      # add advertised listeners if you want to override the default listeners
       kafkaAdvertisedListeners: ""
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
@@ -122,24 +80,14 @@ mini_runtime:
       sslTruststorePassword: "password"
       sslBaseMountPath: "/etc/kafka/ssl/secrets"
       sslSecretName: "kafka-certs"
-      useSecretsForSaslCredentials: false
-      saslCredentialsSecrets:
-        existingSecret: ""
-        username: ""
-        password: ""
       saslUsername: ""
       saslPassword: ""
-      # SASL mechanism: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
-      saslMechanism: "SCRAM-SHA-512"
+      saslJaasConfigPath: "/etc/kafka/config/kafka_jaas.conf"
     useTls: false
     useSasl: false
-    # Auto-format storage with SCRAM on first deployment (single helm install)
-    # When enabled, Kafka will format storage with SCRAM user on first run
-    # Requires persistence.enabled: true
-    autoFormatWithScram: false
     image:
       repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
-      tag: 8.1.1-1-ubi9
+      tag: 8.1.0-1-ubi9
     resources:
       requests:
         cpu: 1.5
@@ -147,8 +95,26 @@ mini_runtime:
         ephemeral-storage: "500Mi"
       limits:
         cpu: 1.5
-        memory: "4Gi"
+        memory: "8Gi"
         ephemeral-storage: "11Gi"
+  ports:
+    default:
+      - port: 9092
+        targetPort: 9092
+    tls:
+      - name: plaintext
+        port: 9092
+        targetPort: 9092
+      - name: ssl
+        port: 9093
+        targetPort: 9093
+    sasl:
+      - name: sasl-plaintext
+        port: 9092
+        targetPort: 9092
+      - name: sasl-ssl
+        port: 9093
+        targetPort: 9093
 
   replicas: 1
   type: ClusterIP
@@ -173,7 +139,7 @@ keel:
       webhookEndpoint: ""
     image:
       repository: public.ecr.aws/aktosecurity/keelhq-keel
-      digest: sha256:1eb61443d68eff7efe1dc5607e8b3054a518c4abba0aa840ffb6a19456b04507
+      tag: akto_v1.0.0
     imagePullPolicy: IfNotPresent
     enabled: true
     resources:
@@ -194,9 +160,43 @@ keel:
     annotations: {}
   type: LoadBalancer
 
+dataIngestionService:
+  image:
+    repository: aktosecurity/data-ingestion-service
+    tag: latest
+  imagePullPolicy: Always
+
+  env:
+    aktoTrafficBatchSize: "100"
+    aktoTrafficBatchTimeSecs: "10"
+    aktoKafkaBrokerUrl: akto-mrs-runtime-combined-mini-runtime:9092
+    aktoKafkaProducerBatchSize: "10"
+    aktoKafkaProducerLingerMs: "10"
+    aktoKafkaTopicName: "akto.api.logs"
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: "512Mi"
+    limits:
+      cpu: 1
+      memory: "1Gi"
+
+  replicas: 1
+
+  service:
+    type: LoadBalancer
+    port: 8080
+    targetPort: 8080
+    internal: true
+    subnets: ""
+
+  restartPolicy: Always
+
+
 ports:
   default:
-    - port: 9092 # Over-ride this to change kafka service exposed port
+    - port: 9092
       targetPort: 9092
   tls:
     - name: plaintext
@@ -212,72 +212,3 @@ ports:
     - name: sasl-ssl
       port: 9093
       targetPort: 9093
-
-threat_client:
-  replicas: 1
-  aktoApiSecurityThreatClient:
-    env:
-      enabled: true
-      aggregationRulesEnabled: true
-      postgresUrl: jdbc:postgresql://postgres.default.svc.cluster.local:5432/akto
-      postgresUser: akto
-      postgresPassword: akto
-      aktoAccountName: Helios
-      aktoConfigName: staging
-      aktoInstanceType: DASHBOARD
-      backendUrl: https://tbs.akto.io
-      aktoLogLevel: INFO
-      useHostName: true
-    image:
-      repository: public.ecr.aws/aktosecurity/akto-threat-detection
-      tag: 1.12.4
-    imagePullPolicy: Always
-    resources:
-      requests:
-        cpu: 1.5
-        memory: "2Gi"
-      limits:
-        cpu: 1.5
-        memory: "2.5Gi"
-
-redis:
-  image:
-    repository: public.ecr.aws/aktosecurity/redis
-    digest: sha256:47200b04138293fae39737e50878a238b13ec0781083126b1b0c63cf5d992e8d
-    pullPolicy: IfNotPresent
-  resources:
-    requests:
-      cpu: "500m"
-      memory: "500Mi"
-    limits:
-      cpu: "900m"
-      memory: "1Gi"
-  persistence:
-    enabled: false
-    size: "2Gi"
-    storageClass: ""
-
-fluent_bit:
-  enabled: false
-  
-  image:
-    repository: public.ecr.aws/aktosecurity/akto-logging-sidecar
-    digest: sha256:7d727245767ae632eb296c2ff4d206bf2e205b5f244c1f37b8fdd61f9fb33985
-    pullPolicy: IfNotPresent
-
-  resources:
-    limits:
-      cpu: 100m
-      memory: 128Mi
-    requests:
-      cpu: 50m
-      memory: 64Mi
-
-  flush: 5
-  metricsPort: 2020
-  logLevel: info
-  # default values 
-  logStorage:
-    sizeLimit: "1Gi"
-  stateStorage:
-    sizeLimit: "500Mi"

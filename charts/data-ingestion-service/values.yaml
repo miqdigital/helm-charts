@@ -1,9 +1,38 @@
 kubernetesClusterDomain: cluster.local
 
+# Busybox image for init containers
+busybox:
+  image:
+    repository: busybox
+    digest: sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f
+
+# Node scheduling configuration
+nodeSelector: {}
+  # Example usage:
+  # nodetype: coreservices
+
+tolerations: []
+  # Example usage:
+  # - key: nodetype
+  #   operator: Equal
+  #   value: coreservices
+  #   effect: NoSchedule
+
+affinity: {}
+  # Example usage:
+  # nodeAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     nodeSelectorTerms:
+  #     - matchExpressions:
+  #       - key: nodetype
+  #         operator: In
+  #         values:
+  #         - coreservices
+
 dataIngestionService:
   image:
     repository: aktosecurity/data-ingestion-service
-    tag: latest
+    digest: "sha256:213aded7adc54b809bbd887d85dfc028eaca95fe296190d8f9d1926395631f2b"
   imagePullPolicy: Always
 
   env:
@@ -13,6 +42,7 @@ dataIngestionService:
     aktoKafkaProducerBatchSize: "10"
     aktoKafkaProducerLingerMs: "10"
     aktoKafkaTopicName: "akto.api.logs"
+    aktoLogLevel: "WARN"
 
   resources:
     requests:
@@ -33,3 +63,16 @@ dataIngestionService:
     subnets: ""
 
   restartPolicy: Always
+
+  # Kafka SASL Authentication
+  useSasl: false  # Set to true to enable SASL authentication
+
+  kafka:
+    saslUsername: ""
+    saslPassword: ""
+
+    useSecretsForSaslCredentials: false
+    saslCredentialsSecrets:
+      existingSecret: "akto-mini-runtime-mini-runtime-sasl"  # Name of existing secret of mini-runtime (e.g., "akto-kafka-sasl")
+      username: ""  
+      password: ""  
