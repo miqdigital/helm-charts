@@ -80,7 +80,7 @@ mini_runtime:
         token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      tag: 1.61.2_local
+      digest: sha256:d3ea8ad271d004f73ac29eadf4a1881ab9e3d654b18d1969f432652a009c81ce
     imagePullPolicy: Always
     resources:
       requests:
@@ -139,7 +139,7 @@ mini_runtime:
     autoFormatWithScram: false
     image:
       repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
-      tag: 8.1.1-1-ubi9
+      digest: sha256:d20bd62f01826c454e88530efc6d73654cb4697182f37206742b96c7b947236e
     resources:
       requests:
         cpu: 1.5
