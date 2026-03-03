@@ -230,7 +230,7 @@ threat_client:
       useHostName: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-threat-detection
-      digest: sha256:61a301e9cfe7d35f15655f148dc88bd01ffe33a771422d507c3c15ac642a1d3d
+      digest: sha256:482524bf61f04fec2a2f15a657b46785287301c3f66ffc4ba0b07f93add322b9
     imagePullPolicy: Always
     resources:
       requests:
