@@ -662,10 +662,24 @@ spec:
             secretKeyRef:
               name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
               key: password
+        - name: AKTO_KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: username
+        - name: AKTO_KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mini_runtime.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-runtime-sasl" (include "akto.fullname" .)) }}
+              key: password
         {{- else }}
         - name: KAFKA_USERNAME
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.username }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslUsername }}{{ end }}
         - name: KAFKA_PASSWORD
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.password }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}
+        - name: AKTO_KAFKA_USERNAME
+          value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.username }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslUsername }}{{ end }}
+        - name: AKTO_KAFKA_PASSWORD
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.password }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslPassword }}{{ end }}
         {{- end }}
         {{- end}}
