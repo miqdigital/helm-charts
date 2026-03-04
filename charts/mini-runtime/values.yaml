@@ -65,6 +65,8 @@ mini_runtime:
       aktoTrafficBatchTimeSecs: "10"
       aktoLogLevel: WARN
       aktoRunMcpJobs: "true"
+      # Enable sending traffic to threat detection (runtime reads SEND_TO_THREAT_ENABLED env)
+      sendToThreatEnabled: "true"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://cyborg.akto.io
@@ -230,7 +232,7 @@ threat_client:
       useHostName: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-threat-detection
-      digest: sha256:482524bf61f04fec2a2f15a657b46785287301c3f66ffc4ba0b07f93add322b9
+      digest: sha256:f34ba4c392686054834d9f30d6ccd96e0714271a248a344e11a58b1b5cb081f3
     imagePullPolicy: Always
     resources:
       requests:
