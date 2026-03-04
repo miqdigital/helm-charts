@@ -232,7 +232,7 @@ threat_client:
       useHostName: true
     image:
       # AWS ECR public: https://us-east-1.console.aws.amazon.com/ecr/repositories/public/888570865705/akto-threat-detection
-      repository: public.ecr.aws/888570865705/akto-threat-detection
+      repository: public.ecr.aws/aktosecurity/akto-threat-detection
       digest: sha256:482524bf61f04fec2a2f15a657b46785287301c3f66ffc4ba0b07f93add322b9
     imagePullPolicy: Always
     resources:
