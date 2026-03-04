@@ -138,6 +138,8 @@ spec:
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoLogLevel }}
         - name: AKTO_RUN_MCP_JOBS
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.aktoRunMcpJobs }}
+        - name: SEND_TO_THREAT_ENABLED
+          value: {{ quote (.Values.mini_runtime.aktoApiSecurityRuntime.env.sendToThreatEnabled | default "true") }}
         - name: AKTO_MONGO_CONN
           value: {{ quote .Values.mongo.aktoMongoConn }}
         - name: USE_HOSTNAME
