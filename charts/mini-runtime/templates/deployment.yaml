@@ -647,6 +647,10 @@ spec:
           value: {{ if .Values.mini_runtime.useExternalKafka }}{{ quote .Values.mini_runtime.externalKafka.saslMechanism }}{{ else }}{{ quote .Values.mini_runtime.kafka1.env.saslMechanism }}{{ end }}
         - name: KAFKA_AUTH_ENABLED
           value: "true"
+        {{- if .Values.mini_runtime.useExternalKafka }}
+        - name: AKTO_KAFKA_SECURITY_PROTOCOL
+          value: {{ quote .Values.mini_runtime.externalKafka.securityProtocol }}
+        {{- end }}
         {{- if and .Values.mini_runtime.kafka1.useSasl .Values.mini_runtime.kafka1.env.useSecretsForSaslCredentials }}
         - name: KAFKA_USERNAME
           valueFrom:
