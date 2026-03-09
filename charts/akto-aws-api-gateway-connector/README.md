@@ -143,11 +143,11 @@ git checkout aws_apig_helm_chart
 
 ```bash
 helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n <your-namespace> \
-  --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME \
-  --set env.AWS_REGION=ap-south-1 \
-  --set env.LOG_GROUP_NAME="your-log-group-name" \
-  --set env.AKTO_KAFKA_BROKER_MAL="kafka-broker:9092" \
-  --set env.DATABASE_ABSTRACTOR_TOKEN="your-token"
+  --set serviceAccount.roleArn=<your-role-arn> \
+  --set env.AWS_REGION=<your-aws-region> \
+  --set env.LOG_GROUP_NAME=<your-log-group-name> \
+  --set env.AKTO_KAFKA_BROKER_MAL=<your-kafka-broker> \
+  --set env.DATABASE_ABSTRACTOR_TOKEN=<your-token>
 ```
 
 **Option B — Install from Helm repo**
@@ -157,11 +157,11 @@ helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connec
 
 ```bash
 helm install akto-aws-api-gateway-connector akto/akto-aws-api-gateway-connector -n <your-namespace> \
-  --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME \
-  --set env.AWS_REGION=ap-south-1 \
-  --set env.LOG_GROUP_NAME="your-log-group-name" \
-  --set env.AKTO_KAFKA_BROKER_MAL="kafka-broker:9092" \
-  --set env.DATABASE_ABSTRACTOR_TOKEN="your-token"
+  --set serviceAccount.roleArn=<your-role-arn> \
+  --set env.AWS_REGION=<your-aws-region> \
+  --set env.LOG_GROUP_NAME=<your-log-group-name> \
+  --set env.AKTO_KAFKA_BROKER_MAL=<your-kafka-broker> \
+  --set env.DATABASE_ABSTRACTOR_TOKEN=<your-token>
 ```
 
 **Alternative: install using values.yaml**
@@ -199,11 +199,11 @@ kubectl logs -f deployment/api-gateway-logging -n <your-namespace>
 
 ```bash
 helm upgrade akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n <your-namespace> \
-  --set serviceAccount.roleArn=... \
-  --set env.AWS_REGION=... \
-  --set env.LOG_GROUP_NAME=... \
-  --set env.AKTO_KAFKA_BROKER_MAL=... \
-  --set env.DATABASE_ABSTRACTOR_TOKEN=...
+  --set serviceAccount.roleArn=<your-role-arn> \
+  --set env.AWS_REGION=<your-aws-region> \
+  --set env.LOG_GROUP_NAME=<your-log-group-name> \
+  --set env.AKTO_KAFKA_BROKER_MAL=<your-kafka-broker> \
+  --set env.DATABASE_ABSTRACTOR_TOKEN=<your-token>
 ```
 
 **Uninstall:**
