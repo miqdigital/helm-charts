@@ -1,0 +1,23 @@
+image:
+  repository: aktosecurity/mirror-api-logging
+  tag: api-gateway-logging-multi-logging
+  pullPolicy: Always
+
+replicas: 1
+
+# IRSA: IAM role ARN for the ServiceAccount (required at install: --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT:role/ROLE_NAME)
+serviceAccount:
+  roleArn: ""
+
+# Override at install time via --set or -f if needed
+env:
+  AWS_REGION: ""
+  LOG_GROUP_NAME: ""
+  AKTO_KAFKA_BROKER_MAL: ""
+  DATABASE_ABSTRACTOR_TOKEN: ""
+  AKTO_BYTES_IN_THRESHOLD: "100"
+  AKTO_TRAFFIC_BATCH_TIME_SECS: "10"
+  AKTO_TRAFFIC_BATCH_SIZE: "100"
+  CLOUDWATCH_READ_BATCH_SIZE: "5"
+  DISCOVER_OPENAPI_SPEC: "true"
+  OPENAPI_DISCOVERY_INTERVAL_MINUTES: "15"
