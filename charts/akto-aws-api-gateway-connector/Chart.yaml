@@ -1,0 +1,5 @@
+apiVersion: v2
+name: api-gateway-connector
+description: Akto API Gateway connector for EKS
+version: 0.1.0
+appVersion: "1.0"

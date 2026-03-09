@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-logging
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway-logging
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api-gateway-logging
+    spec:
+      serviceAccountName: service-account-eks
+      containers:
+        - name: api-gateway-logging
+          image: aktosecurity/mirror-api-logging:api-gateway-logging-multi-logging
+          imagePullPolicy: Always
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.env.AWS_REGION | quote }}
+            - name: LOG_GROUP_NAME
+              value: {{ .Values.env.LOG_GROUP_NAME | quote }}
+            - name: AKTO_KAFKA_BROKER_MAL
+              value: {{ .Values.env.AKTO_KAFKA_BROKER_MAL | quote }}
+            - name: DATABASE_ABSTRACTOR_TOKEN
+              value: {{ .Values.env.DATABASE_ABSTRACTOR_TOKEN | quote }}
+            - name: AKTO_BYTES_IN_THRESHOLD
+              value: {{ .Values.env.AKTO_BYTES_IN_THRESHOLD | quote }}
+            - name: AKTO_TRAFFIC_BATCH_TIME_SECS
+              value: {{ .Values.env.AKTO_TRAFFIC_BATCH_TIME_SECS | quote }}
+            - name: AKTO_TRAFFIC_BATCH_SIZE
+              value: {{ .Values.env.AKTO_TRAFFIC_BATCH_SIZE | quote }}
+            - name: CLOUDWATCH_READ_BATCH_SIZE
+              value: {{ .Values.env.CLOUDWATCH_READ_BATCH_SIZE | quote }}
+            - name: DISCOVER_OPENAPI_SPEC
+              value: {{ .Values.env.DISCOVER_OPENAPI_SPEC | quote }}
+            - name: OPENAPI_DISCOVERY_INTERVAL_MINUTES
+              value: {{ .Values.env.OPENAPI_DISCOVERY_INTERVAL_MINUTES | quote }}
