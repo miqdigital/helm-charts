@@ -1,144 +1,45 @@
-# API Gateway Connector – Helm Chart
+# Akto AWS API Gateway Connector
 
-This chart runs the **Akto API Gateway connector** on your EKS cluster. The connector reads API Gateway traffic from AWS CloudWatch Logs and sends it to Akto (via Kafka and Cyborg). Below is a minimal-Kubernetes overview and how the pieces fit together.
+Helm chart to run the **Akto API Gateway connector** on EKS. The connector reads API Gateway traffic from AWS CloudWatch Logs and sends it to Akto (Kafka + Cyborg).
 
----
-
-## Minimal Kubernetes concepts
-
-| Term | What it means |
-|------|----------------|
-| **Cluster** | The Kubernetes “cluster” is the set of machines (nodes) and the control plane that run your workloads. On AWS this is EKS. |
-| **Namespace** | A namespace is a folder inside the cluster. Resources (pods, deployments, etc.) live in a namespace (e.g. `akto`). |
-| **Pod** | A pod is one or more containers running together on a node. Your app runs inside a container inside a pod. |
-| **Deployment** | A Deployment is a recipe that says “run this many pods with this image and this config.” Kubernetes keeps that number of pods running (restarts them if they crash). |
-| **ServiceAccount** | A ServiceAccount is an identity for pods. On EKS, we attach an AWS IAM role to it (IRSA) so the pod can call AWS APIs (CloudWatch, API Gateway) without storing access keys. |
-| **Helm** | Helm is a tool that installs/upgrades “charts” (a set of YAML templates + default values) into the cluster. When you run `helm install`, it creates the resources defined in the chart. |
+**Prerequisites:** EKS cluster, `kubectl` and `helm` installed, AWS CLI configured.
 
 ---
 
-## What this chart contains
+## Step 1: Choose or create a namespace
 
-The chart has two templates that create two Kubernetes resources:
+- **Use the same namespace as mini-runtime**  
+  If Akto mini-runtime is already running in a namespace (e.g. `akto`), use that namespace when installing the chart so the connector can reach Kafka in the same namespace. No need to create it.
 
-1. **ServiceAccount** (`templates/serviceaccount.yaml`)  
-   - Name: `service-account-eks`  
-   - You must set the annotation `eks.amazonaws.com/role-arn` to your IAM role ARN (IRSA).  
-   - That role must have permissions for CloudWatch Logs and API Gateway (read).  
-   - The Deployment’s pods use this ServiceAccount so the app can call AWS without keys.
+- **Use a new namespace**  
+  Create it before installing:
 
-2. **Deployment** (`templates/deployment.yaml`)  
-   - Name: `api-gateway-logging`  
-   - Runs **one pod** with **one container**: the connector image.  
-   - The pod uses the ServiceAccount above.  
-   - You must fill in the env vars (see below) so the app knows which log groups, region, Kafka, and token to use.
+  ```bash
+  kubectl create namespace akto
+  ```
 
-So: **one identity (ServiceAccount + IAM role) and one workload (Deployment → Pod → Container).**
+  Replace `akto` with the namespace you want. Use this same namespace in Step 2 (IAM trust policy) and Step 3 (Helm install). If you use an existing namespace (e.g. where mini-runtime runs), use that name in the IAM trust policy and in the install command.
 
 ---
 
-## High-level flow (what the connector does)
+## Step 2: Create IAM role and policy (IRSA)
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         CUSTOMER'S AWS ACCOUNT                                    │
-│                                                                                   │
-│  ┌──────────────────┐         ┌─────────────────────────────────────────────┐   │
-│  │ API Gateway      │         │ EKS CLUSTER                                  │   │
-│  │ (REST/HTTP APIs) │         │                                              │   │
-│  │                  │  logs   │  ┌─────────────────────────────────────┐    │   │
-│  │  → requests      │ ──────► │  │ CloudWatch Logs                      │    │   │
-│  │  → responses    │         │  │ (log groups you configure)            │    │   │
-│  └────────┬────────┘         │  └──────────────────┬────────────────────┘    │   │
-│           │                   │                     │                         │   │
-│           │                   │                     │ read (IAM role)          │   │
-│           │                   │                     ▼                         │   │
-│           │                   │  ┌─────────────────────────────────────┐    │   │
-│           │                   │  │ Pod (api-gateway-logging)            │    │   │
-│           │                   │  │  ┌───────────────────────────────┐  │    │   │
-│           │                   │  │  │ Container: connector app     │  │    │   │
-│           │                   │  │  │ - reads CloudWatch log groups │  │    │   │
-│           │                   │  │  │ - optional: API Gateway APIs │  │    │   │
-│           │                   │  │  │ - sends to Kafka + Cyborg     │  │    │   │
-│           │                   │  │  └───────────────┬───────────────┘  │    │   │
-│           │                   │  │                  │                  │    │   │
-│           │                   │  │  ServiceAccount: service-account-eks│   │   │
-│           │                   │  │  (→ IAM role for AWS APIs)          │    │   │
-│           │                   │  └──────────────────┬──────────────────┘    │   │
-│           │                   │                     │                         │   │
-│           │                   └─────────────────────┼─────────────────────────┘   │
-│           │                                         │                             │
-└───────────┼─────────────────────────────────────────┼─────────────────────────────┘
-            │                                         │
-            │                                         │ 1) traffic + metadata → Kafka
-            │                                         │ 2) logs → Cyborg (HTTPS)
-            │                                         ▼
-            │                              ┌──────────────────────┐
-            │                              │ Akto (Kafka + Cyborg) │
-            │                              │ (your mini-runtime / │
-            │                              │  SaaS endpoints)      │
-            │                              └──────────────────────┘
-```
+Do this once in your AWS account. The connector pod uses this role to read CloudWatch Logs and call API Gateway (OpenAPI discovery).
 
-- **API Gateway** sends access logs to **CloudWatch Logs** (log groups).  
-- The **connector** runs in a **pod** on EKS, uses the **ServiceAccount** (and thus the IAM role) to **read** those log groups and optionally call **API Gateway** for OpenAPI discovery.  
-- The connector **sends** data to **Kafka** (traffic) and **Cyborg** (logs) using the endpoints and token you configure via env vars.
+### 2.1 Get EKS OIDC provider ID
 
-So the Helm chart is only “run this one Deployment with this one ServiceAccount”; the architecture above is what that Deployment does in your and Akto’s infrastructure.
+1. In **AWS Console** → **EKS** → your cluster → **Overview** → **Details**.
+2. Copy the **OpenID Connect provider URL** (e.g. `https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716EXAMPLE`).
+3. The **OIDC provider ID** is the part after `/id/` (e.g. `EXAMPLED539D4633E53DE1B716EXAMPLE`).
 
----
+Note your **AWS Region**, **AWS Account ID**, and the **namespace** you will use for the chart (e.g. `akto`).
 
-## Architecture diagram (Mermaid)
-
-You can paste this into a Markdown viewer (e.g. GitHub, GitLab, or [Mermaid Live](https://mermaid.live)) to see the diagram.
-
-```mermaid
-flowchart TB
-    subgraph AWS["Customer AWS Account"]
-        APIGW["API Gateway\n(REST/HTTP APIs)"]
-        CWL["CloudWatch Logs\n(log groups)"]
-        subgraph EKS["EKS Cluster"]
-            SA["ServiceAccount\nservice-account-eks\n+ IAM role ARN"]
-            subgraph Pod["Pod: api-gateway-logging"]
-                App["Connector container\n• Read CloudWatch\n• Optional: API Gateway\n• Send to Kafka/Cyborg"]
-            end
-            SA --> Pod
-        end
-        APIGW -->|"logs"| CWL
-        CWL -->|"read (via IAM)"| App
-    end
-
-    App -->|"traffic"| Kafka["Kafka\n(Akto)"]
-    App -->|"logs"| Cyborg["Cyborg API\n(Akto)"]
-
-    style Pod fill:#e1f5fe
-    style SA fill:#fff3e0
-```
-
----
-
-## Steps to create the IAM role and attach it to the ServiceAccount
-
-Do these steps once in your AWS account. Replace placeholders with your values.
-
-### 1. Get your EKS OIDC provider ID
-
-- In **AWS Console** → **EKS** → your cluster → **Overview** → **Details**.
-- Copy the **OpenID Connect provider URL**, e.g. `https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716EXAMPLE`.
-- The **OIDC provider ID** is the part after `/id/` (e.g. `EXAMPLED539D4633E53DE1B716EXAMPLE`). You need this for the trust policy.
-
-You also need: **AWS Region** (e.g. `us-east-1`), **AWS Account ID** (e.g. `123456789012`), and the **namespace** where you will install the chart (e.g. `akto`).
-
----
-
-### 2. Create an IAM policy (permissions for the connector)
+### 2.2 Create IAM policy
 
 1. Go to **IAM** → **Policies** → **Create policy**.
-2. Open the **JSON** tab and paste the policy below.
-3. Replace `REGION` and `ACCOUNT_ID` with your AWS region and account ID. For `Resource` under CloudWatch Logs you can use `arn:aws:logs:REGION:ACCOUNT_ID:log-group:*` to allow all log groups, or restrict to specific log group ARNs (e.g. `arn:aws:logs:REGION:ACCOUNT_ID:log-group:/aws/apigateway/my-api:*`).
-4. Click **Next**, name the policy (e.g. `ApiGatewayConnectorPolicy`), then **Create policy**.
-
-**Policy JSON:**
+2. **JSON** tab, paste the policy below.
+3. Replace `REGION` and `ACCOUNT_ID` with your region and account ID. For CloudWatch you can use `arn:aws:logs:REGION:ACCOUNT_ID:log-group:*` or restrict to specific log group ARNs.
+4. **Next** → name the policy (e.g. `ApiGatewayConnectorPolicy`) → **Create policy**.
 
 ```json
 {
@@ -156,9 +57,7 @@ You also need: **AWS Region** (e.g. `us-east-1`), **AWS Account ID** (e.g. `1234
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "apigateway:GET"
-      ],
+      "Action": ["apigateway:GET"],
       "Resource": [
         "arn:aws:apigateway:REGION::/restapis",
         "arn:aws:apigateway:REGION::/restapis/*",
@@ -170,29 +69,24 @@ You also need: **AWS Region** (e.g. `us-east-1`), **AWS Account ID** (e.g. `1234
 }
 ```
 
----
-
-### 3. Create the IAM role (trust policy for EKS)
+### 2.3 Create IAM role
 
 1. Go to **IAM** → **Roles** → **Create role**.
 2. **Trusted entity type:** Web identity.
-3. **Identity provider:** Choose your EKS OIDC provider (e.g. `oidc.eks.REGION.amazonaws.com/id/OIDC_ID`).
-4. **Audience:** `sts.amazonaws.com`.
-5. Click **Next**.
-6. Attach the policy you created in step 2 (e.g. `ApiGatewayConnectorPolicy`). Click **Next**.
-7. Name the role (e.g. `api-gateway-connector-eks-role`). Click **Create role**.
+3. **Identity provider:** your EKS OIDC provider (e.g. `oidc.eks.REGION.amazonaws.com/id/OIDC_ID`).
+4. **Audience:** `sts.amazonaws.com` → **Next**.
+5. Attach the policy from 2.2 (e.g. `ApiGatewayConnectorPolicy`) → **Next**.
+6. Name the role (e.g. `akto-api-gateway-connector-eks-role`) → **Create role**.
 
-Then update the **trust policy** so only your ServiceAccount can assume the role:
+### 2.4 Update role trust policy
 
 1. Open the role → **Trust relationships** → **Edit**.
-2. Replace the policy with the one below. Replace:
-   - `ACCOUNT_ID` – your AWS account ID
-   - `REGION` – your EKS region (e.g. `us-east-1`)
-   - `OIDC_ID` – the OIDC provider ID from step 1
-   - `NAMESPACE` – the Kubernetes namespace where you will install the chart (e.g. `akto`)
-3. Save.
-
-**Trust policy JSON:**
+2. Replace with the JSON below. Replace:
+   - `ACCOUNT_ID` – your AWS account ID  
+   - `REGION` – EKS region (e.g. `us-east-1`)  
+   - `OIDC_ID` – OIDC provider ID from 2.1  
+   - `NAMESPACE` – namespace where you will install the chart (e.g. `akto`)
+3. **Save**.
 
 ```json
 {
@@ -215,60 +109,79 @@ Then update the **trust policy** so only your ServiceAccount can assume the role
 }
 ```
 
+4. Copy the **role ARN** (e.g. `arn:aws:iam::123456789012:role/akto-api-gateway-connector-eks-role`). You need it for the Helm install.
+
 ---
 
-### 4. Attach the role to the ServiceAccount
+## Step 3: Deploy the Helm chart
 
-Copy the **role ARN** from IAM (e.g. `arn:aws:iam::123456789012:role/api-gateway-connector-eks-role`).
-
-**Option A – Edit the chart before install**
-
-In `templates/serviceaccount.yaml`, set the annotation:
-
-```yaml
-annotations:
-  eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME"
-```
-
-**Option B – Annotate after install**
-
-Install the chart, then run (replace the ARN and namespace):
+### 3.1 Add the Helm repo (if installing from repo)
 
 ```bash
-kubectl annotate serviceaccount service-account-eks -n NAMESPACE \
-  eks.amazonaws.com/role-arn=arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME --overwrite
+helm repo add akto https://akto-api-security.github.io/helm-charts/
+helm repo update
 ```
 
-Existing pods must be restarted to pick up the new role (e.g. `kubectl rollout restart deployment api-gateway-logging -n NAMESPACE`).
+### 3.2 Install with required values
 
-After install, the pod will use this ServiceAccount and receive temporary AWS credentials for the role, so the connector can read CloudWatch Logs and call API Gateway.
+Replace the placeholders and run from the repo root (or use the chart path you have):
 
----
-
-## What you must configure before install
-
-1. **IAM role and ServiceAccount** – Follow the steps above to create the role and set `eks.amazonaws.com/role-arn` on the ServiceAccount.
-2. **Deployment env vars** – In `templates/deployment.yaml` (or via `--set`), set:
-   - `AWS_REGION`
-   - `LOG_GROUP_NAME` (comma-separated)
-   - `AKTO_KAFKA_BROKER_MAL`
-   - `DATABASE_ABSTRACTOR_TOKEN`
-
-Then install (example):
+**From local chart directory:**
 
 ```bash
-helm install api-gateway-connector ./api-gateway-connector -n akto --create-namespace
+helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n akto --create-namespace \
+  --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME \
+  --set env.AWS_REGION=ap-south-1 \
+  --set env.LOG_GROUP_NAME="your-log-group-name" \
+  --set env.AKTO_KAFKA_BROKER_MAL="kafka-broker:9092" \
+  --set env.DATABASE_ABSTRACTOR_TOKEN="your-token"
 ```
 
----
+**From Helm repo:**
 
-## Summary
+```bash
+helm install akto-aws-api-gateway-connector akto/akto-aws-api-gateway-connector -n akto --create-namespace \
+  --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME \
+  --set env.AWS_REGION=ap-south-1 \
+  --set env.LOG_GROUP_NAME="your-log-group-name" \
+  --set env.AKTO_KAFKA_BROKER_MAL="kafka-broker:9092" \
+  --set env.DATABASE_ABSTRACTOR_TOKEN="your-token"
+```
 
-| Piece | Role |
-|-------|------|
-| **Chart** | Defines the ServiceAccount and the Deployment (one pod, one container). |
-| **ServiceAccount** | Pod identity; you attach one IAM role via the annotation so the app can call AWS. |
-| **Deployment** | Keeps one pod running with the connector image and env (region, log groups, Kafka, token). |
-| **Connector** | Reads CloudWatch (and optionally API Gateway), sends data to Kafka and Cyborg. |
+**Required values:**
 
-No Watchtower: image updates are done by the customer (e.g. `kubectl rollout restart` or a tool like Keel) when you publish a new image.
+| Value | Description |
+|-------|-------------|
+| `serviceAccount.roleArn` | IAM role ARN from Step 1 (IRSA). |
+| `env.AWS_REGION` | AWS region (e.g. `ap-south-1`, `us-east-1`). |
+| `env.LOG_GROUP_NAME` | CloudWatch log group name (or comma-separated names). |
+| `env.AKTO_KAFKA_BROKER_MAL` | Kafka broker address (e.g. from Akto mini-runtime). |
+| `env.DATABASE_ABSTRACTOR_TOKEN` | Token from Akto dashboard (for Cyborg / OpenAPI discovery). |
+
+Other env vars (batch sizes, intervals, etc.) have defaults in `values.yaml`; override with `--set` or a custom values file if needed.
+
+### 3.3 Verify
+
+```bash
+kubectl get pods -n akto
+kubectl logs -f deployment/api-gateway-logging -n akto
+```
+
+### 3.4 Upgrade or uninstall
+
+**Upgrade (after changing values or chart):**
+
+```bash
+helm upgrade akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n akto \
+  --set serviceAccount.roleArn=... \
+  --set env.AWS_REGION=... \
+  --set env.LOG_GROUP_NAME=... \
+  --set env.AKTO_KAFKA_BROKER_MAL=... \
+  --set env.DATABASE_ABSTRACTOR_TOKEN=...
+```
+
+**Uninstall:**
+
+```bash
+helm uninstall akto-aws-api-gateway-connector -n akto
+```
