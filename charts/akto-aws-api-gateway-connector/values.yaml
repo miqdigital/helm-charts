@@ -1,3 +1,10 @@
+image:
+  repository: aktosecurity/mirror-api-logging
+  tag: api-gateway-logging-multi-logging
+  pullPolicy: Always
+
+replicas: 1
+
 # IRSA: IAM role ARN for the ServiceAccount (required at install: --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT:role/ROLE_NAME)
 serviceAccount:
   roleArn: ""

@@ -4,7 +4,7 @@ metadata:
   name: api-gateway-logging
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: api-gateway-logging
@@ -16,8 +16,8 @@ spec:
       serviceAccountName: service-account-eks
       containers:
         - name: api-gateway-logging
-          image: aktosecurity/mirror-api-logging:api-gateway-logging-multi-logging
-          imagePullPolicy: Always
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: AWS_REGION
               value: {{ .Values.env.AWS_REGION | quote }}
