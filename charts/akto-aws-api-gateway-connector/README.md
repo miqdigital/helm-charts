@@ -127,12 +127,20 @@ helm repo update
 
 ### 3.2 Install with required values
 
-Replace the placeholders and run from the repo root (or use the chart path you have):
+**If you are not using the Helm repo** (install from source):
 
-**From local chart directory:**
+- Clone the repo and checkout the branch that contains this chart. Then run `helm install` from the repo root.
 
 ```bash
-helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n akto --create-namespace \
+git clone https://github.com/akto-api-security/helm-charts.git
+cd helm-charts
+git checkout aws_apig_helm_chart
+```
+
+- Install the chart (replace placeholders). Run from the repo root so the path `./charts/akto-aws-api-gateway-connector` is correct:
+
+```bash
+helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n akto \
   --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME \
   --set env.AWS_REGION=ap-south-1 \
   --set env.LOG_GROUP_NAME="your-log-group-name" \
@@ -142,13 +150,23 @@ helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connec
 
 **From Helm repo:**
 
+- Add the repo and update (if not already done). Use this when the chart is published to the Helm repo.
+
 ```bash
-helm install akto-aws-api-gateway-connector akto/akto-aws-api-gateway-connector -n akto --create-namespace \
+helm install akto-aws-api-gateway-connector akto/akto-aws-api-gateway-connector -n akto \
   --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME \
   --set env.AWS_REGION=ap-south-1 \
   --set env.LOG_GROUP_NAME="your-log-group-name" \
   --set env.AKTO_KAFKA_BROKER_MAL="kafka-broker:9092" \
   --set env.DATABASE_ABSTRACTOR_TOKEN="your-token"
+```
+
+**Using values.yaml:**
+
+- Modify `values.yaml` with your values (role ARN, region, log group, Kafka broker, token). Then from the chart directory:
+
+```bash
+helm install akto-aws-api-gateway-connector . -n akto -f values.yaml
 ```
 
 **Required values:**
@@ -159,7 +177,11 @@ helm install akto-aws-api-gateway-connector akto/akto-aws-api-gateway-connector 
 - `env.AKTO_KAFKA_BROKER_MAL` – Kafka broker address (e.g. from Akto mini-runtime).
 - `env.DATABASE_ABSTRACTOR_TOKEN` – Token from Akto dashboard (for Cyborg / OpenAPI discovery).
 
-Other env vars (batch sizes, intervals, etc.) have defaults in `values.yaml`; override with `--set` or a custom values file if needed.
+**Multiple log groups with `--set`:** If `LOG_GROUP_NAME` contains commas (e.g. `log-group-1,log-group-2`), Helm treats commas as separators and fails. Escape each comma with a backslash: use `\,` inside the value. Example:
+
+```bash
+--set 'env.LOG_GROUP_NAME=API-Gateway-Execution-Logs_abc/demo\,API-Gateway-Execution-Logs_xyz/prod'
+```
 
 ### 3.3 Verify
 
