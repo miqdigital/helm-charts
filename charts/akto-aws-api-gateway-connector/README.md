@@ -127,9 +127,11 @@ helm repo update
 
 ### 3.2 Install with required values
 
-**If you are not using the Helm repo** (install from source):
+Choose one of the following. Replace placeholders (role ARN, region, log group, Kafka broker, token) with your values.
 
-- Clone the repo and checkout the branch that contains this chart. Then run `helm install` from the repo root.
+**Option A — Install from chart source (clone the repo)**
+
+1. Clone the repo and switch to the branch that contains this chart:
 
 ```bash
 git clone https://github.com/akto-api-security/helm-charts.git
@@ -137,10 +139,10 @@ cd helm-charts
 git checkout aws_apig_helm_chart
 ```
 
-- Install the chart (replace placeholders). Run from the repo root so the path `./charts/akto-aws-api-gateway-connector` is correct:
+2. From the repo root, install the chart:
 
 ```bash
-helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n akto \
+helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n <your-namespace> \
   --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME \
   --set env.AWS_REGION=ap-south-1 \
   --set env.LOG_GROUP_NAME="your-log-group-name" \
@@ -148,12 +150,13 @@ helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connec
   --set env.DATABASE_ABSTRACTOR_TOKEN="your-token"
 ```
 
-**From Helm repo:**
+**Option B — Install from Helm repo**
 
-- Add the repo and update (if not already done). Use this when the chart is published to the Helm repo.
+1. Add the repo and update (see 3.1 if needed).
+2. Install the chart:
 
 ```bash
-helm install akto-aws-api-gateway-connector akto/akto-aws-api-gateway-connector -n akto \
+helm install akto-aws-api-gateway-connector akto/akto-aws-api-gateway-connector -n <your-namespace> \
   --set serviceAccount.roleArn=arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME \
   --set env.AWS_REGION=ap-south-1 \
   --set env.LOG_GROUP_NAME="your-log-group-name" \
@@ -161,33 +164,33 @@ helm install akto-aws-api-gateway-connector akto/akto-aws-api-gateway-connector 
   --set env.DATABASE_ABSTRACTOR_TOKEN="your-token"
 ```
 
-**Using values.yaml:**
+**Alternative: install using values.yaml**
 
-- Modify `values.yaml` with your values (role ARN, region, log group, Kafka broker, token). Then from the chart directory:
-
-```bash
-helm install akto-aws-api-gateway-connector . -n akto -f values.yaml
-```
-
-**Required values:**
-
-- `serviceAccount.roleArn` – IAM role ARN from Step 2 (IRSA).
-- `env.AWS_REGION` – AWS region (e.g. `ap-south-1`, `us-east-1`).
-- `env.LOG_GROUP_NAME` – CloudWatch log group name (or comma-separated names).
-- `env.AKTO_KAFKA_BROKER_MAL` – Kafka broker address (e.g. from Akto mini-runtime).
-- `env.DATABASE_ABSTRACTOR_TOKEN` – Token from Akto dashboard (for Cyborg / OpenAPI discovery).
-
-**Multiple log groups with `--set`:** If `LOG_GROUP_NAME` contains commas (e.g. `log-group-1,log-group-2`), Helm treats commas as separators and fails. Escape each comma with a backslash: use `\,` inside the value. Example:
+Instead of `--set`, edit `values.yaml` with your values, then run (from the chart directory when using Option A, or from any directory when using Option B):
 
 ```bash
---set 'env.LOG_GROUP_NAME=API-Gateway-Execution-Logs_abc/demo\,API-Gateway-Execution-Logs_xyz/prod'
+helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n <your-namespace> -f values.yaml
 ```
+
+(or with `akto/akto-aws-api-gateway-connector` when using the Helm repo).
+
+**Required values (reference)**
+
+| Value | Description |
+|-------|-------------|
+| `serviceAccount.roleArn` | IAM role ARN from Step 2 (IRSA). |
+| `env.AWS_REGION` | AWS region (e.g. `ap-south-1`, `us-east-1`). |
+| `env.LOG_GROUP_NAME` | CloudWatch log group name (or comma-separated names). |
+| `env.AKTO_KAFKA_BROKER_MAL` | Kafka broker address (e.g. from Akto mini-runtime). |
+| `env.DATABASE_ABSTRACTOR_TOKEN` | Token from Akto dashboard (for Cyborg / OpenAPI discovery). |
+
+**Note:** If `LOG_GROUP_NAME` contains commas (e.g. multiple log groups), Helm treats commas as separators. Escape each comma with a backslash: `\,`. Example: `--set 'env.LOG_GROUP_NAME=log-group-1\,log-group-2'`.
 
 ### 3.3 Verify
 
 ```bash
-kubectl get pods -n akto
-kubectl logs -f deployment/api-gateway-logging -n akto
+kubectl get pods -n <your-namespace>
+kubectl logs -f deployment/api-gateway-logging -n <your-namespace>
 ```
 
 ### 3.4 Upgrade or uninstall
@@ -195,7 +198,7 @@ kubectl logs -f deployment/api-gateway-logging -n akto
 **Upgrade (after changing values or chart):**
 
 ```bash
-helm upgrade akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n akto \
+helm upgrade akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n <your-namespace> \
   --set serviceAccount.roleArn=... \
   --set env.AWS_REGION=... \
   --set env.LOG_GROUP_NAME=... \
@@ -206,5 +209,5 @@ helm upgrade akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connec
 **Uninstall:**
 
 ```bash
-helm uninstall akto-aws-api-gateway-connector -n akto
+helm uninstall akto-aws-api-gateway-connector -n <your-namespace>
 ```
