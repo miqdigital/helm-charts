@@ -20,22 +20,29 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: AWS_REGION
-              value: {{ .Values.env.AWS_REGION | quote }}
+              value: {{ .Values.env.awsRegion | quote }}
             - name: LOG_GROUP_NAME
-              value: {{ .Values.env.LOG_GROUP_NAME | quote }}
+              value: {{ .Values.env.logGroupName | quote }}
             - name: AKTO_KAFKA_BROKER_MAL
-              value: {{ .Values.env.AKTO_KAFKA_BROKER_MAL | quote }}
+              value: {{ .Values.env.aktoKafkaBrokerMal | quote }}
             - name: DATABASE_ABSTRACTOR_TOKEN
-              value: {{ .Values.env.DATABASE_ABSTRACTOR_TOKEN | quote }}
+              {{- if .Values.env.useSecretsForDatabaseAbstractorToken }}
+              valueFrom:
+                secretKeyRef:
+                  key: token
+                  name: {{ .Values.env.databaseAbstractorTokenSecrets.existingSecret | default (printf "%s-db-token" .Release.Name) }}
+              {{- else }}
+              value: {{ .Values.env.databaseAbstractorToken | quote }}
+              {{- end }}
             - name: AKTO_BYTES_IN_THRESHOLD
-              value: {{ .Values.env.AKTO_BYTES_IN_THRESHOLD | quote }}
+              value: {{ .Values.env.aktoBytesInThreshold | quote }}
             - name: AKTO_TRAFFIC_BATCH_TIME_SECS
-              value: {{ .Values.env.AKTO_TRAFFIC_BATCH_TIME_SECS | quote }}
+              value: {{ .Values.env.aktoTrafficBatchTimeSecs | quote }}
             - name: AKTO_TRAFFIC_BATCH_SIZE
-              value: {{ .Values.env.AKTO_TRAFFIC_BATCH_SIZE | quote }}
+              value: {{ .Values.env.aktoTrafficBatchSize | quote }}
             - name: CLOUDWATCH_READ_BATCH_SIZE
-              value: {{ .Values.env.CLOUDWATCH_READ_BATCH_SIZE | quote }}
+              value: {{ .Values.env.cloudwatchReadBatchSize | quote }}
             - name: DISCOVER_OPENAPI_SPEC
-              value: {{ .Values.env.DISCOVER_OPENAPI_SPEC | quote }}
+              value: {{ .Values.env.discoverOpenApiSpec | quote }}
             - name: OPENAPI_DISCOVERY_INTERVAL_MINUTES
-              value: {{ .Values.env.OPENAPI_DISCOVERY_INTERVAL_MINUTES | quote }}
+              value: {{ .Values.env.openApiDiscoveryIntervalMinutes | quote }}
