@@ -9,15 +9,23 @@ replicas: 1
 serviceAccount:
   roleArn: ""
 
-# Override at install time via --set or -f if needed
+# Override at install time via --set or -f if needed (keys are camelCase)
 env:
-  AWS_REGION: ""
-  LOG_GROUP_NAME: ""
-  AKTO_KAFKA_BROKER_MAL: ""
-  DATABASE_ABSTRACTOR_TOKEN: ""
-  AKTO_BYTES_IN_THRESHOLD: "100"
-  AKTO_TRAFFIC_BATCH_TIME_SECS: "10"
-  AKTO_TRAFFIC_BATCH_SIZE: "100"
-  CLOUDWATCH_READ_BATCH_SIZE: "5"
-  DISCOVER_OPENAPI_SPEC: "true"
-  OPENAPI_DISCOVERY_INTERVAL_MINUTES: "15"
+  awsRegion: ""
+  logGroupName: ""
+  aktoKafkaBrokerMal: ""
+  # Database abstractor token: use direct value (below) or secrets (see databaseAbstractorTokenSecrets). Default: from secrets.
+  databaseAbstractorToken: ""
+  # If true (default), token is read from a Kubernetes Secret (created by Helm or existing)
+  useSecretsForDatabaseAbstractorToken: true
+  databaseAbstractorTokenSecrets:
+    # Name of an existing secret containing the token (key: token)
+    existingSecret: ""
+    # Token value when Helm creates the secret (used when existingSecret is not set)
+    token: ""
+  aktoBytesInThreshold: "100"
+  aktoTrafficBatchTimeSecs: "10"
+  aktoTrafficBatchSize: "100"
+  cloudwatchReadBatchSize: "5"
+  discoverOpenApiSpec: "true"
+  openApiDiscoveryIntervalMinutes: "15"

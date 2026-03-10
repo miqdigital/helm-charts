@@ -139,30 +139,32 @@ cd helm-charts
 git checkout aws_apig_helm_chart
 ```
 
-2. From the repo root, install the chart:
+2. From the repo root, install the chart (token is read from a secret by default):
 
 ```bash
 helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n <your-namespace> \
   --set serviceAccount.roleArn=<your-role-arn> \
-  --set env.AWS_REGION=<your-aws-region> \
-  --set env.LOG_GROUP_NAME=<your-log-group-name> \
-  --set env.AKTO_KAFKA_BROKER_MAL=<your-kafka-broker> \
-  --set env.DATABASE_ABSTRACTOR_TOKEN=<your-token>
+  --set env.awsRegion=<your-aws-region> \
+  --set env.logGroupName=<your-log-group-name> \
+  --set env.aktoKafkaBrokerMal=<your-kafka-broker> \
+  --set env.databaseAbstractorTokenSecrets.token="<your-token>"
 ```
 
 **Option B — Install from Helm repo**
 
 1. Add the repo and update (see 3.1 if needed).
-2. Install the chart:
+2. Install the chart (token is read from a secret by default):
 
 ```bash
 helm install akto-aws-api-gateway-connector akto/akto-aws-api-gateway-connector -n <your-namespace> \
   --set serviceAccount.roleArn=<your-role-arn> \
-  --set env.AWS_REGION=<your-aws-region> \
-  --set env.LOG_GROUP_NAME=<your-log-group-name> \
-  --set env.AKTO_KAFKA_BROKER_MAL=<your-kafka-broker> \
-  --set env.DATABASE_ABSTRACTOR_TOKEN=<your-token>
+  --set env.awsRegion=<your-aws-region> \
+  --set env.logGroupName=<your-log-group-name> \
+  --set env.aktoKafkaBrokerMal=<your-kafka-broker> \
+  --set env.databaseAbstractorTokenSecrets.token="<your-token>"
 ```
+
+To use an existing secret instead: add `--set env.databaseAbstractorTokenSecrets.existingSecret="<secret-name>"` (secret must have key `token`).
 
 **Alternative: install using values.yaml**
 
@@ -179,12 +181,56 @@ helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connec
 | Value | Description |
 |-------|-------------|
 | `serviceAccount.roleArn` | IAM role ARN from Step 2 (IRSA). |
-| `env.AWS_REGION` | AWS region (e.g. `ap-south-1`, `us-east-1`). |
-| `env.LOG_GROUP_NAME` | CloudWatch log group name (or comma-separated names). |
-| `env.AKTO_KAFKA_BROKER_MAL` | Kafka broker address (e.g. from Akto mini-runtime). |
-| `env.DATABASE_ABSTRACTOR_TOKEN` | Token from Akto dashboard (for Cyborg / OpenAPI discovery). |
+| `env.awsRegion` | AWS region (e.g. `ap-south-1`, `us-east-1`). |
+| `env.logGroupName` | CloudWatch log group name (or comma-separated names). |
+| `env.aktoKafkaBrokerMal` | Kafka broker address (e.g. from Akto mini-runtime). |
+| `env.databaseAbstractorToken` | Token (when using direct value). By default the token is read from a secret; see below. |
 
-**Note:** If `LOG_GROUP_NAME` contains commas (e.g. multiple log groups), Helm treats commas as separators. Escape each comma with a backslash: `\,`. Example: `--set 'env.LOG_GROUP_NAME=log-group-1\,log-group-2'`.
+**Database abstractor token (default: from secrets)**
+
+By default the token is read from a Kubernetes Secret (`env.useSecretsForDatabaseAbstractorToken: true`). You must provide either:
+
+- **Helm creates the secret:** Set `env.databaseAbstractorTokenSecrets.token` to the token value. Helm will create a Secret named `<release-name>-db-token` with key `token`, and the pod will read from it.
+- **Use an existing secret:** Set `env.databaseAbstractorTokenSecrets.existingSecret` to the name of an existing Secret in the same namespace. That secret must have a key named `token` containing the database abstractor token.
+
+Example (Helm-managed secret, default):
+
+```bash
+--set env.databaseAbstractorTokenSecrets.token="<your-token>"
+```
+
+Example (existing secret):
+
+```bash
+--set env.databaseAbstractorTokenSecrets.existingSecret="my-db-token-secret"
+```
+
+**You can also Create the secret separately, then use it in the main chart**
+
+Create the secret in the same namespace with kubectl, then install the connector chart and point it at that secret.
+
+1. **Create the secret** (secret must have key `token`):
+
+   ```bash
+   kubectl create secret generic my-db-token -n <your-namespace> --from-literal=token="<your-token>"
+   ```
+
+2. **Install the connector chart** and reference that secret:
+
+   ```bash
+   helm install akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n <your-namespace> \
+     --set serviceAccount.roleArn=... \
+     --set env.awsRegion=... \
+     --set env.logGroupName=... \
+     --set env.aktoKafkaBrokerMal=... \
+     --set env.databaseAbstractorTokenSecrets.existingSecret="my-db-token"
+   ```
+
+   The secret must have a key named `token`; the connector deployment will use `secretKeyRef.key: token`.
+
+**Optional — direct value instead of secret:** Set `env.useSecretsForDatabaseAbstractorToken=false` and `env.databaseAbstractorToken=<your-token>`. The token is then stored in the Deployment as a plain env var.
+
+**Note:** If `logGroupName` contains commas (e.g. multiple log groups), Helm treats commas as separators. Escape each comma with a backslash: `\,`. Example: `--set 'env.logGroupName=log-group-1\,log-group-2'`.
 
 ### 3.3 Verify
 
@@ -200,10 +246,10 @@ kubectl logs -f deployment/api-gateway-logging -n <your-namespace>
 ```bash
 helm upgrade akto-aws-api-gateway-connector ./charts/akto-aws-api-gateway-connector -n <your-namespace> \
   --set serviceAccount.roleArn=<your-role-arn> \
-  --set env.AWS_REGION=<your-aws-region> \
-  --set env.LOG_GROUP_NAME=<your-log-group-name> \
-  --set env.AKTO_KAFKA_BROKER_MAL=<your-kafka-broker> \
-  --set env.DATABASE_ABSTRACTOR_TOKEN=<your-token>
+  --set env.awsRegion=<your-aws-region> \
+  --set env.logGroupName=<your-log-group-name> \
+  --set env.aktoKafkaBrokerMal=<your-kafka-broker> \
+  --set env.databaseAbstractorTokenSecrets.token="<your-token>"
 ```
 
 **Uninstall:**
