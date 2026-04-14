@@ -1,0 +1,18 @@
+apiVersion: v2
+name: akto-k8s-ebpf-openshift
+description: Akto eBPF DaemonSet for OpenShift with reduced SCC (BPF/PERFMON/SYS_PTRACE, hostNetwork, scoped hostPath)
+type: application
+version: 0.1.0
+appVersion: "k8s_ebpf_core_imp"
+keywords:
+  - akto
+  - openshift
+  - scc
+  - ebpf
+  - security
+home: "https://www.akto.io"
+sources:
+  - "https://github.com/akto-api-security/helm-charts"
+maintainers:
+  - name: Akto
+    url: "https://www.akto.io"

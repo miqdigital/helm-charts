@@ -1,0 +1,82 @@
+daemonset:
+  enabled: true
+
+image:
+  repository: public.ecr.aws/aktosecurity/mirror-api-logging
+  tag: k8s_ebpf_core_imp
+  pullPolicy: Always
+
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+hostPID: false
+
+podAnnotations: {}
+podLabels: {}
+
+tolerations: []
+nodeSelector: {}
+affinity: {}
+
+# Service account for the DaemonSet (SCC grant targets the same account).
+serviceAccount:
+  create: true
+  name: pod-watcher
+  annotations: {}
+  sccAnnotation: true
+
+# ClusterRole for in-cluster pod metadata (same scope as akto-k8s-ebpf).
+rbac:
+  create: true
+
+# Cluster-scoped SecurityContextConstraints (OpenShift only). Requires cluster-admin install.
+scc:
+  create: true
+  name: akto-k8s-ebpf-openshift-scc
+  description: "Reduced-privilege eBPF SCC for Akto on OpenShift (BPF, PERFMON, SYS_PTRACE; hostNetwork; scoped hostPath)"
+  grantWithClusterRoleBinding: true
+  priority: 10
+  extraUsers: []
+
+env:
+  AKTO_TRAFFIC_BATCH_TIME_SECS: "10"
+  AKTO_TRAFFIC_BATCH_SIZE: "100"
+  AKTO_KAFKA_BROKER_MAL: "akto-mini-runtime-mini-runtime.default.svc.cluster.local:9092"
+  HOST_PROC: "/host/proc"
+
+securityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - BPF
+      - PERFMON
+      - SYS_PTRACE
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 50m
+    memory: 50Mi
+
+volumes:
+  sysKernelBtf:
+    hostPath: /sys/kernel/btf
+    type: Directory
+  hostProc:
+    hostPath: /proc
+    type: Directory
+
+volumeMounts:
+  sysKernelBtf:
+    mountPath: /sys/kernel/btf
+    readOnly: true
+  hostProc:
+    mountPath: /host/proc
+    readOnly: true
+
+nameOverride: ""
+fullnameOverride: ""

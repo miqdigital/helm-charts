@@ -1,0 +1,53 @@
+{{- if .Values.scc.create }}
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: {{ .Values.scc.name }}
+  labels:
+    {{- include "akto-k8s-ebpf-openshift.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/description: {{ .Values.scc.description | quote }}
+allowHostDirVolumePlugin: true
+allowHostIPC: false
+allowHostNetwork: true
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+allowedCapabilities:
+  - BPF
+  - PERFMON
+  - SYS_PTRACE
+defaultAddCapabilities: []
+requiredDropCapabilities:
+  - ALL
+readOnlyRootFilesystem: false
+runAsUser:
+  type: MustRunAsRange
+  uidRangeMin: 100000
+  uidRangeMax: 2147483647
+seLinuxContext:
+  type: MustRunAs
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+{{- if not .Values.scc.grantWithClusterRoleBinding }}
+users:
+  - system:serviceaccount:{{ .Release.Namespace }}:{{ .Values.serviceAccount.name }}
+  {{- range .Values.scc.extraUsers }}
+  - {{ . }}
+  {{- end }}
+{{- else if .Values.scc.extraUsers }}
+users:
+  {{- range .Values.scc.extraUsers }}
+  - {{ . }}
+  {{- end }}
+{{- end }}
+volumes:
+  - configMap
+  - secret
+  - emptyDir
+  - projected
+  - hostPath
+priority: {{ .Values.scc.priority }}
+{{- end }}

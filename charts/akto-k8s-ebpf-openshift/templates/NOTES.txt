@@ -1,0 +1,24 @@
+Akto OpenShift eBPF DaemonSet has been installed in namespace "{{ .Release.Namespace }}".
+
+Documentation: https://docs.akto.io/getting-started/quick-start-with-akto-self-hosted/openshift-deploy
+
+This chart uses a reduced SecurityContextConstraints (no privileged container, no SYS_ADMIN,
+no host PID/IPC) aligned with the mirror-api-logging workload: capabilities BPF, PERFMON,
+SYS_PTRACE; hostNetwork; read-only hostPath mounts for /sys/kernel/btf and /proc.
+
+The SCC grant uses a Helm post-install/post-upgrade hook so the OpenShift-generated
+ClusterRole system:openshift:scc:{{ .Values.scc.name }} exists before the SCC ClusterRoleBinding
+is created.
+
+1. Deploy the rest of Akto with Helm as described in the Akto Helm deploy guide.
+
+2. Ensure AKTO_KAFKA_BROKER_MAL points at your mini-runtime Kafka service in this cluster.
+
+3. If some clusters block capture on all interfaces, follow Akto guidance for a dedicated
+   interface (for example br-ex).
+
+{{- if not .Values.scc.grantWithClusterRoleBinding }}
+
+4. Grant the SCC to the ServiceAccount (cluster admin), for example:
+     oc adm policy add-scc-to-user {{ .Values.scc.name }} -z {{ .Values.serviceAccount.name }} -n {{ .Release.Namespace }}
+{{- end }}
