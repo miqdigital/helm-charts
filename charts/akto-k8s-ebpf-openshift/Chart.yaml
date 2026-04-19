@@ -1,6 +1,6 @@
 apiVersion: v2
 name: akto-k8s-ebpf-openshift
-description: Akto eBPF DaemonSet for OpenShift with reduced SCC (BPF/PERFMON/SYS_PTRACE, hostNetwork, scoped hostPath)
+description: Akto eBPF DaemonSet for OpenShift (configurable SCC, hostNetwork, BTF + host /proc mounts)
 type: application
 version: 0.1.0
 appVersion: "k8s_ebpf_core_imp"

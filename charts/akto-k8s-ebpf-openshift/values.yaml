@@ -13,11 +13,18 @@ hostPID: false
 podAnnotations: {}
 podLabels: {}
 
+# Pod-level securityContext (spec.securityContext). Matches openshift-local-deployments/daemonset.yaml.
+podSecurityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  runAsNonRoot: false
+
 tolerations: []
 nodeSelector: {}
 affinity: {}
 
-# Service account for the DaemonSet (SCC grant targets the same account).
+# Service account for the DaemonSet (SCC grant + optional scc.openshift.io/scc annotation).
+# Override name (e.g. akto-daemonset-serviceaccount) if you must match flat OpenShift YAMLs.
 serviceAccount:
   create: true
   name: pod-watcher
@@ -29,13 +36,28 @@ rbac:
   create: true
 
 # Cluster-scoped SecurityContextConstraints (OpenShift only). Requires cluster-admin install.
+# SCC policy fields default to the same shape as openshift-local-deployments/security-context-constraints.yaml;
+# override scc.name (e.g. akto-ebpf-scc) only if you need that exact resource name.
 scc:
   create: true
   name: akto-k8s-ebpf-openshift-scc
-  description: "Reduced-privilege eBPF SCC for Akto on OpenShift (BPF, PERFMON, SYS_PTRACE; hostNetwork; scoped hostPath)"
+  description: "eBPF SCC for Akto on OpenShift (hostNetwork, hostPath; capabilities per values)"
   grantWithClusterRoleBinding: true
   priority: 10
-  extraUsers: []
+  allowHostIPC: true
+  allowHostPID: true
+  allowPrivilegedContainer: true
+  allowedCapabilities:
+    - BPF
+    - PERFMON
+    - SYS_PTRACE
+    - SYS_ADMIN
+  runAsUser:
+    type: RunAsAny
+    uidRangeMin: 100000
+    uidRangeMax: 2147483647
+  extraUsers:
+    - system:serviceaccount:akto:pod-watcher
 
 env:
   AKTO_TRAFFIC_BATCH_TIME_SECS: "10"
@@ -43,7 +65,11 @@ env:
   AKTO_KAFKA_BROKER_MAL: "akto-mini-runtime-mini-runtime.default.svc.cluster.local:9092"
   HOST_PROC: "/host/proc"
 
+# Container securityContext (mirror-api-logging). Matches openshift-local-deployments/daemonset.yaml.
 securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  runAsNonRoot: false
   allowPrivilegeEscalation: false
   privileged: false
   capabilities:

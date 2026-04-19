@@ -8,41 +8,37 @@ metadata:
   annotations:
     kubernetes.io/description: {{ .Values.scc.description | quote }}
 allowHostDirVolumePlugin: true
-allowHostIPC: false
+allowHostIPC: {{ .Values.scc.allowHostIPC }}
 allowHostNetwork: true
-allowHostPID: false
+allowHostPID: {{ .Values.scc.allowHostPID }}
 allowHostPorts: false
-allowPrivilegedContainer: false
+allowPrivilegedContainer: {{ .Values.scc.allowPrivilegedContainer }}
 allowedCapabilities:
-  - BPF
-  - PERFMON
-  - SYS_PTRACE
+  {{- toYaml .Values.scc.allowedCapabilities | nindent 2 }}
 defaultAddCapabilities: []
 requiredDropCapabilities:
   - ALL
 readOnlyRootFilesystem: false
+{{- if eq .Values.scc.runAsUser.type "RunAsAny" }}
+runAsUser:
+  type: RunAsAny
+{{- else }}
 runAsUser:
   type: MustRunAsRange
-  uidRangeMin: 100000
-  uidRangeMax: 2147483647
+  uidRangeMin: {{ .Values.scc.runAsUser.uidRangeMin }}
+  uidRangeMax: {{ .Values.scc.runAsUser.uidRangeMax }}
+{{- end }}
 seLinuxContext:
   type: MustRunAs
 fsGroup:
   type: RunAsAny
 supplementalGroups:
   type: RunAsAny
-{{- if not .Values.scc.grantWithClusterRoleBinding }}
 users:
   - system:serviceaccount:{{ .Release.Namespace }}:{{ .Values.serviceAccount.name }}
   {{- range .Values.scc.extraUsers }}
   - {{ . }}
   {{- end }}
-{{- else if .Values.scc.extraUsers }}
-users:
-  {{- range .Values.scc.extraUsers }}
-  - {{ . }}
-  {{- end }}
-{{- end }}
 volumes:
   - configMap
   - secret
