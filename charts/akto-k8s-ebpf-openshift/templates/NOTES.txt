@@ -23,8 +23,16 @@ is created.
 4. If some clusters block capture on all interfaces, follow Akto guidance for a dedicated
    interface (for example br-ex).
 
+5. SCC hardening experiments: under examples/scc-profiles/, use isolate-*.yaml (one knob each) or
+   cumulative-minimal.yaml. After changing SCC, pods must restart to re-admit:
+     chmod +x examples/scc-profiles/rollout-test.sh
+     ./examples/scc-profiles/rollout-test.sh {{ .Release.Namespace }} {{ .Release.Name }} examples/scc-profiles/isolate-drop-SYS_ADMIN.yaml
+   isolate-allowHostNetwork-false / isolate-allowHostDirVolumePlugin-false are expected to fail with the current DaemonSet.
+   On failure: helm rollback {{ .Release.Name }} -n {{ .Release.Namespace }} or re-apply a looser -f profile.
+   Do not use helm upgrade --reuse-values with these fragments alone; use rollout-test.sh (merges prior values + profile).
+
 {{- if not .Values.scc.grantWithClusterRoleBinding }}
 
-5. Grant the SCC to the ServiceAccount (cluster admin), for example:
+6. Grant the SCC to the ServiceAccount (cluster admin), for example:
      oc adm policy add-scc-to-user {{ .Values.scc.name }} -z {{ .Values.serviceAccount.name }} -n {{ .Release.Namespace }}
 {{- end }}

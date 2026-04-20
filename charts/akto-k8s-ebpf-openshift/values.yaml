@@ -36,22 +36,26 @@ rbac:
   create: true
 
 # Cluster-scoped SecurityContextConstraints (OpenShift only). Requires cluster-admin install.
-# SCC policy fields default to the same shape as openshift-local-deployments/security-context-constraints.yaml;
-# override scc.name (e.g. akto-ebpf-scc) only if you need that exact resource name.
+# Defaults: minimal SCC verified on ARO for mirror-api-logging:k8s_ebpf_core_imp (hostNetwork + hostPath
+# + BPF/PERFMON/SYS_PTRACE; no SYS_ADMIN; no host PID/IPC; no privileged SCC).
+# Tighten further with examples/scc-profiles/*.yaml; override scc.name if you need a fixed resource name.
 scc:
   create: true
   name: akto-k8s-ebpf-openshift-scc
   description: "eBPF SCC for Akto on OpenShift (hostNetwork, hostPath; capabilities per values)"
   grantWithClusterRoleBinding: true
   priority: 10
-  allowHostIPC: true
-  allowHostPID: true
-  allowPrivilegedContainer: true
+  allowHostDirVolumePlugin: true
+  allowHostNetwork: true
+  allowHostIPC: false
+  allowHostPID: false
+  allowHostPorts: false
+  allowPrivilegedContainer: false
+  readOnlyRootFilesystem: false
   allowedCapabilities:
     - BPF
     - PERFMON
     - SYS_PTRACE
-    - SYS_ADMIN
   runAsUser:
     type: RunAsAny
     uidRangeMin: 100000

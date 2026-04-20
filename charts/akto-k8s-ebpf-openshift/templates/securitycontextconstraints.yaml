@@ -7,18 +7,18 @@ metadata:
     {{- include "akto-k8s-ebpf-openshift.labels" . | nindent 4 }}
   annotations:
     kubernetes.io/description: {{ .Values.scc.description | quote }}
-allowHostDirVolumePlugin: true
+allowHostDirVolumePlugin: {{ .Values.scc.allowHostDirVolumePlugin }}
 allowHostIPC: {{ .Values.scc.allowHostIPC }}
-allowHostNetwork: true
+allowHostNetwork: {{ .Values.scc.allowHostNetwork }}
 allowHostPID: {{ .Values.scc.allowHostPID }}
-allowHostPorts: false
+allowHostPorts: {{ .Values.scc.allowHostPorts }}
 allowPrivilegedContainer: {{ .Values.scc.allowPrivilegedContainer }}
 allowedCapabilities:
   {{- toYaml .Values.scc.allowedCapabilities | nindent 2 }}
 defaultAddCapabilities: []
 requiredDropCapabilities:
   - ALL
-readOnlyRootFilesystem: false
+readOnlyRootFilesystem: {{ .Values.scc.readOnlyRootFilesystem }}
 {{- if eq .Values.scc.runAsUser.type "RunAsAny" }}
 runAsUser:
   type: RunAsAny
