@@ -82,7 +82,7 @@ mini_runtime:
         token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
-      digest: sha256:f2aec6045c82ab6f4c1ca22748c09e5a346ec9f0d4ce5c908704fd35d4eed6f2
+      tag: latest
     imagePullPolicy: Always
     resources:
       requests:
@@ -141,7 +141,7 @@ mini_runtime:
     autoFormatWithScram: false
     image:
       repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
-      digest: sha256:d20bd62f01826c454e88530efc6d73654cb4697182f37206742b96c7b947236e
+      tag: 8.2.0-1-ubi9
     resources:
       requests:
         cpu: 1.5
@@ -175,7 +175,7 @@ keel:
       webhookEndpoint: ""
     image:
       repository: public.ecr.aws/aktosecurity/keelhq-keel
-      digest: sha256:1eb61443d68eff7efe1dc5607e8b3054a518c4abba0aa840ffb6a19456b04507
+      tag: latest
     imagePullPolicy: IfNotPresent
     enabled: true
     resources:
@@ -264,7 +264,7 @@ fluent_bit:
   
   image:
     repository: public.ecr.aws/aktosecurity/akto-logging-sidecar
-    digest: sha256:7d727245767ae632eb296c2ff4d206bf2e205b5f244c1f37b8fdd61f9fb33985
+    tag: latest
     pullPolicy: IfNotPresent
 
   resources:
