@@ -119,7 +119,7 @@ spec:
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorUrl}}
         - name: AUTOMATED_AGENT_BASE_URL
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.automatedAgentBaseUrl}}
+          value: {{ if .Values.testing.aiAutomatedTesting.enabled }}{{ printf "http://localhost:%v" .Values.testing.aiAutomatedTesting.port | quote }}{{ else }}{{ quote .Values.testing.aktoApiSecurityTesting.env.automatedAgentBaseUrl }}{{ end }}
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
           {{- if .Values.testing.aktoApiSecurityTesting.env.useSecretsForDatabaseAbstractorToken }}
           valueFrom:
@@ -170,6 +170,24 @@ spec:
         ports:
           - containerPort: 3000
         resources: {{- toYaml .Values.testing.aktoApiSecurityPuppeteerReplay.resources |  nindent 10 }}
+    {{- if .Values.testing.aiAutomatedTesting.enabled }}
+      - name: ai-automated-testing
+        image: {{ .Values.testing.aiAutomatedTesting.image.repository }}:{{ .Values.testing.aiAutomatedTesting.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.testing.aiAutomatedTesting.imagePullPolicy }}
+        ports:
+          - containerPort: {{ .Values.testing.aiAutomatedTesting.port }}
+        env:
+        - name: ANTHROPIC_API_KEY
+          {{- if .Values.testing.aiAutomatedTesting.useSecretsforAnthropicApiKey }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ ( .Values.testing.aiAutomatedTesting.anthropicApiKeySecrets.existingSecret) | default (printf "%s-ai-automated-testing" (include "akto.fullname" .)) }}
+              key: {{ .Values.testing.aiAutomatedTesting.secretKey }}
+          {{- else }}
+          value: {{ quote .Values.testing.aiAutomatedTesting.anthropicApiKey }}
+          {{- end }}
+        resources: {{- toYaml .Values.testing.aiAutomatedTesting.resources | nindent 10 }}
+    {{- end }}
     {{ if eq .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled "true" }}
       - env:
         - name: ZOOKEEPER_CLIENT_PORT
