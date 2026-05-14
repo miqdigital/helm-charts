@@ -199,14 +199,7 @@ helm install akto-mini-testing akto/akto-mini-testing \
 
 **Option C: With AI Automated Testing**
 
-Enable the `ai-automated-testing` sidecar container in the mini-testing pod by setting `testing.aiAutomatedTesting.enabled` to `true` in `values.yaml`:
-
-```yaml
-aiAutomatedTesting:
-  enabled: true
-```
-
-Or pass it at install time:
+Enable the `ai-automated-testing` sidecar container in the mini-testing pod by setting `testing.aiAutomatedTesting.enabled=true` at install time:
 
 ```bash
 helm upgrade --install mini-testing ./charts/mini-testing \
