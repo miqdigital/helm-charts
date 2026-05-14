@@ -205,7 +205,7 @@ Enable the `ai-automated-testing` sidecar container in the mini-testing pod.
 helm upgrade --install mini-testing ./charts/mini-testing \
   --set testing.aktoApiSecurityTesting.env.databaseAbstractorToken="<AKTO_TOKEN>" \
   --set testing.aiAutomatedTesting.enabled=true \
-  --set testing.aiAutomatedTesting.anthropicApiKey='sk-ant-...'
+  --set testing.aiAutomatedTesting.modelApiKey='<MODEL_KEY>'
 ```
 
 **Note:** With AI automated testing enabled, the mini-testing pod runs an additional container (`ai-automated-testing`) on port `8000`.

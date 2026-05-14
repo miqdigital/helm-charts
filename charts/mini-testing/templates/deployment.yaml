@@ -177,14 +177,14 @@ spec:
         ports:
           - containerPort: {{ .Values.testing.aiAutomatedTesting.port }}
         env:
-        - name: ANTHROPIC_API_KEY
-          {{- if .Values.testing.aiAutomatedTesting.useSecretsforAnthropicApiKey }}
+        - name: MODEL_API_KEY
+          {{- if .Values.testing.aiAutomatedTesting.useSecretsforModelApiKey }}
           valueFrom:
             secretKeyRef:
-              name: {{ ( .Values.testing.aiAutomatedTesting.anthropicApiKeySecrets.existingSecret) | default (printf "%s-ai-automated-testing" (include "akto.fullname" .)) }}
+              name: {{ (tpl .Values.testing.aiAutomatedTesting.modelApiKeySecrets.existingSecret .) | default (printf "%s-ai-automated-testing" (include "akto.fullname" .)) }}
               key: {{ .Values.testing.aiAutomatedTesting.secretKey }}
           {{- else }}
-          value: {{ quote .Values.testing.aiAutomatedTesting.anthropicApiKey }}
+          value: {{ quote .Values.testing.aiAutomatedTesting.modelApiKey }}
           {{- end }}
         resources: {{- toYaml .Values.testing.aiAutomatedTesting.resources | nindent 10 }}
     {{- end }}

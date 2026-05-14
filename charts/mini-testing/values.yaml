@@ -106,12 +106,12 @@ testing:
       tag: latest
     imagePullPolicy: Always
     port: 8000
-    anthropicApiKey: ""
-    useSecretsforAnthropicApiKey: false
-    anthropicApiKeySecrets: 
+    modelApiKey: ""
+    useSecretsforModelApiKey: false
+    modelApiKeySecrets: 
       existingSecret: ""
       apiKey: ""
-    secretKey: anthropicApiKey
+    secretKey: modelApiKey
     resources:
       requests:
         cpu: "250m"
