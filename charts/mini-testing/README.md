@@ -197,19 +197,6 @@ helm install akto-mini-testing akto/akto-mini-testing \
 
 **Note:** For Grafana Cloud setup, contact Akto support for assistance with metrics collection and obtaining credentials.
 
-**Option C: With AI Automated Testing**
-
-Enable the `ai-automated-testing` sidecar container in the mini-testing pod.
-
-```bash
-helm upgrade --install mini-testing ./charts/mini-testing \
-  --set testing.aktoApiSecurityTesting.env.databaseAbstractorToken="<AKTO_TOKEN>" \
-  --set testing.aiAutomatedTesting.enabled=true \
-  --set testing.aiAutomatedTesting.anthropicApiKey='sk-ant-...'
-```
-
-**Note:** With AI automated testing enabled, the mini-testing pod runs an additional container (`ai-automated-testing`) on port `8000`.
-
 #### Verify Autoscaling
 
 ```bash
