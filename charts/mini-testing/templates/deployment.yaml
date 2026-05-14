@@ -176,16 +176,6 @@ spec:
         imagePullPolicy: {{ .Values.testing.aiAutomatedTesting.imagePullPolicy }}
         ports:
           - containerPort: {{ .Values.testing.aiAutomatedTesting.port }}
-        env:
-        - name: MODEL_API_KEY
-          {{- if .Values.testing.aiAutomatedTesting.useSecretsforModelApiKey }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ (tpl .Values.testing.aiAutomatedTesting.modelApiKeySecrets.existingSecret .) | default (printf "%s-ai-automated-testing" (include "akto.fullname" .)) }}
-              key: {{ .Values.testing.aiAutomatedTesting.secretKey }}
-          {{- else }}
-          value: {{ quote .Values.testing.aiAutomatedTesting.modelApiKey }}
-          {{- end }}
         resources: {{- toYaml .Values.testing.aiAutomatedTesting.resources | nindent 10 }}
     {{- end }}
     {{ if eq .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled "true" }}

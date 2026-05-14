@@ -106,12 +106,6 @@ testing:
       tag: latest
     imagePullPolicy: Always
     port: 8000
-    modelApiKey: ""
-    useSecretsforModelApiKey: false
-    modelApiKeySecrets: 
-      existingSecret: ""
-      apiKey: ""
-    secretKey: modelApiKey
     resources:
       requests:
         cpu: "250m"
