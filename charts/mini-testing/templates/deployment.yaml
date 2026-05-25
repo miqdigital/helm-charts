@@ -170,14 +170,12 @@ spec:
         ports:
           - containerPort: 3000
         resources: {{- toYaml .Values.testing.aktoApiSecurityPuppeteerReplay.resources |  nindent 10 }}
-    {{- if .Values.testing.aiAutomatedTesting.enabled }}
       - name: ai-automated-testing
         image: {{ .Values.testing.aiAutomatedTesting.image.repository }}:{{ .Values.testing.aiAutomatedTesting.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.testing.aiAutomatedTesting.imagePullPolicy }}
         ports:
           - containerPort: {{ .Values.testing.aiAutomatedTesting.port }}
         resources: {{- toYaml .Values.testing.aiAutomatedTesting.resources | nindent 10 }}
-    {{- end }}
     {{ if eq .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled "true" }}
       - env:
         - name: ZOOKEEPER_CLIENT_PORT
