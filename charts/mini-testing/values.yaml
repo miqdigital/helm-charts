@@ -100,7 +100,7 @@ testing:
         memory: "4Gi"
 
   aiAutomatedTesting:
-    enabled: false
+    enabled: true
     image:
       repository: public.ecr.aws/aktosecurity/akto-ai-automated-testing
       tag: latest
