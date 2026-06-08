@@ -176,6 +176,29 @@ spec:
         ports:
           - containerPort: {{ .Values.testing.aiAutomatedTesting.port }}
         resources: {{- toYaml .Values.testing.aiAutomatedTesting.resources | nindent 10 }}
+      {{- if .Values.testing.agentTesting.enabled }}
+      - name: agent-testing
+        image: {{ .Values.testing.agentTesting.image.repository }}:{{ .Values.testing.agentTesting.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.testing.agentTesting.imagePullPolicy }}
+        ports:
+          - containerPort: {{ .Values.testing.agentTesting.port }}
+        env:
+          - name: NODE_ENV
+            value: {{ quote .Values.testing.agentTesting.env.nodeEnv }}
+          - name: PORT
+            value: {{ quote .Values.testing.agentTesting.port }}
+          - name: AGENTIC_MODE
+            value: {{ quote .Values.testing.agentTesting.env.agenticMode }}
+          - name: NODE_TLS_REJECT_UNAUTHORIZED
+            value: {{ quote .Values.testing.agentTesting.env.nodeTlsRejectUnauthorized }}
+          - name: USE_SESSION_MANAGEMENT
+            value: {{ quote .Values.testing.agentTesting.env.useSessionManagement }}
+          - name: AKTO_UTILITY_SERVER 
+            value: {{ quote .Values.testing.agentTesting.env.aktoUtilityServer }}
+          - name: ANTHROPIC_API_KEY
+            value: {{ quote .Values.testing.agentTesting.env.anthropicApiKey }}
+        resources: {{- toYaml .Values.testing.agentTesting.resources | nindent 10 }}
+      {{- end }}
     {{ if eq .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled "true" }}
       - env:
         - name: ZOOKEEPER_CLIENT_PORT

@@ -29,7 +29,7 @@ testing:
 
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
-      tag: 1.68.1_local
+      tag: 1.68.6_local
     imagePullPolicy: Always
     resources:
       requests:
@@ -110,6 +110,28 @@ testing:
       requests:
         cpu: "250m"
         memory: "700Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+
+  agentTesting:
+    enabled: false
+    image:
+      repository: public.ecr.aws/aktosecurity/akto-agentic-testing
+      tag: latest
+    imagePullPolicy: Always
+    port: 5500
+    env:
+      nodeEnv: production
+      agenticMode: "false"
+      nodeTlsRejectUnauthorized: "0"
+      useSessionManagement: "true"
+      aktoUtilityServer: http://localhost:8001
+      anthropicApiKey: ""
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "500Mi"
       limits:
         cpu: "500m"
         memory: "1Gi"
