@@ -137,6 +137,8 @@ spec:
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.blockLogs }}
         - name: AKTO_LOG_LEVEL
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoLogLevel }}
+        - name: MINI_TESTING_NAME
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.miniTestingName }}
         - name: PROXY_URI
           value: {{ quote .Values.tokens.env.proxyUri}}
         - name: NO_PROXY
@@ -149,8 +151,6 @@ spec:
         - name: AUTO_SCALING_ENABLED
           value: {{ quote .Values.testing.autoScaling.enabled }}
         {{ if .Values.testing.autoScaling.enabled }}
-        - name: MINI_TESTING_NAME
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.miniTestingName }}
         - name: PROMETHEUS_SERVER_PORT
           value: {{ quote .Values.testing.prometheusServer.port }}
         {{ end }}
