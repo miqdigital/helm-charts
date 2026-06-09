@@ -25,7 +25,7 @@ testing:
         token: ""
       blockLogs: "false"
       aktoLogLevel: WARN
-      miniTestingName: System-auto-scaled-akto-mini-testing
+      miniTestingName: "akto-external-testing"
 
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
