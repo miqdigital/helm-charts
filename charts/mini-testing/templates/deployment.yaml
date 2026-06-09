@@ -167,6 +167,16 @@ spec:
       - name: akto-api-security-puppeteer-replay
         image: {{ .Values.testing.aktoApiSecurityPuppeteerReplay.image.repository }}:{{ .Values.testing.aktoApiSecurityPuppeteerReplay.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.testing.aktoApiSecurityPuppeteerReplay.imagePullPolicy }}
+        env:
+        - name: LOG_SENDER_API_KEY
+          {{- if .Values.testing.aktoApiSecurityPuppeteerReplay.env.useSecretsForLogSenderApiKey }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.testing.aktoApiSecurityPuppeteerReplay.env.logSenderApiKeySecrets.existingSecret .) | default (printf "%s-puppeteer-replay" (include "akto.fullname" .) ) }}
+          {{- else }}
+          value: {{ quote .Values.testing.aktoApiSecurityPuppeteerReplay.env.logSenderApiKey }}
+          {{- end }}
         ports:
           - containerPort: 3000
         resources: {{- toYaml .Values.testing.aktoApiSecurityPuppeteerReplay.resources |  nindent 10 }}
