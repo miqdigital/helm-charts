@@ -122,11 +122,11 @@ testing:
     imagePullPolicy: Always
     port: 5500
     env:
-      nodeEnv: production
-      agenticMode: "false"
+      nodeEnv: "production"
+      agenticMode: false
       nodeTlsRejectUnauthorized: "0"
-      useSessionManagement: "true"
-      aktoUtilityServer: http://localhost:8001
+      useSessionManagement: true
+      aktoUtilityServer: "http://localhost:8001"
       anthropicApiKey: ""
     resources:
       requests:
