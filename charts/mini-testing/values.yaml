@@ -87,6 +87,12 @@ testing:
           type: Value
 
   aktoApiSecurityPuppeteerReplay:
+    env:
+      useSecretsForLogSenderApiKey: false
+      logSenderApiKey: ""
+      logSenderApiKeySecrets:
+        existingSecret: ""
+        token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-puppeteer-replay
       tag: 1.48.0_latest
