@@ -95,7 +95,7 @@ testing:
         token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-puppeteer-replay
-      tag: 1.48.0_latest
+      tag: 1.49.4_latest
     imagePullPolicy: Always
     resources:
       requests:
