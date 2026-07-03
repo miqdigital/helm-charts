@@ -206,7 +206,14 @@ spec:
           - name: AKTO_UTILITY_SERVER 
             value: {{ quote .Values.testing.agentTesting.env.aktoUtilityServer }}
           - name: ANTHROPIC_API_KEY
+            {{- if .Values.testing.agentTesting.env.useSecretsForAnthropicApiKey }}
+            valueFrom:
+              secretKeyRef:
+                key: token
+                name: {{ (tpl .Values.testing.agentTesting.env.anthropicApiKeySecrets.existingSecret .) | default (printf "%s-agent-testing" (include "akto.fullname" .) ) }}
+            {{- else }}
             value: {{ quote .Values.testing.agentTesting.env.anthropicApiKey }}
+            {{- end }}
         resources: {{- toYaml .Values.testing.agentTesting.resources | nindent 10 }}
       {{- end }}
     {{ if eq .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled "true" }}
