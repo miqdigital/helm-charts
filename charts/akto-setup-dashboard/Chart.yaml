@@ -16,3 +16,12 @@ keywords:
 maintainers:
   - name: Ankush Jain
     email: ankush@akto.io
+dependencies:
+  - name: secrets-store-csi-driver
+    version: "1.4.x"
+    repository: "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
+    condition: csiDriver.install
+  - name: csi-secrets-store-provider-azure
+    version: "1.5.x"
+    repository: "https://azure.github.io/secrets-store-csi-driver-provider-azure/charts"
+    condition: csiDriver.install
