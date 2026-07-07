@@ -76,6 +76,8 @@ testing:
   replicas: 1
 
 keel:
+  # Set to true to also deploy Keel for auto image updates.
+  enabled: false
   keel:
     env:
       awsAccessKeyId: ""

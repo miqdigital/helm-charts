@@ -147,6 +147,7 @@ spec:
         resources: {{- toYaml .Values.testing.aktoApiSecurityTesting.resources | nindent 10 }}
       restartPolicy: Always
 {{- end }}
+{{- if .Values.keel.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -216,3 +217,4 @@ spec:
         - containerPort: 9300
         resources: {{- toYaml .Values.keel.keel.resources | nindent 10 }}
       serviceAccountName: {{ include "akto.fullname" . }}-keel
+{{- end }}
