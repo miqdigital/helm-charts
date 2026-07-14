@@ -48,6 +48,8 @@ spec:
           value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoTrafficBatchTimeSecs }}
         - name: PUPPETEER_REPLAY_SERVICE_URL
           value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.puppeteerReplayServiceUrl }}
+        - name: THREAT_DETECTION_BACKEND_URL
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.threatDetectionBackendUrl }}
         - name: AKTO_MONGO_CONN
           {{- if .Values.mongo.useKeyVault }}
           valueFrom:
