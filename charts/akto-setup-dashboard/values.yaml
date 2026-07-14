@@ -29,6 +29,9 @@ dashboard:
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+      # URL of the threat detection backend service. Override to point at a
+      # self-hosted akto-threat-backend deployment instead of Akto's SaaS backend.
+      threatDetectionBackendUrl: https://tbs.akto.io
     image:
       repository: aktosecurity/akto-api-security-dashboard
       tag: latest
