@@ -1,5 +1,11 @@
 mongo:
   aktoMongoConn: ""
+  # Set to true to read AKTO_MONGO_CONN from a K8s Secret synced via the
+  # Azure Key Vault CSI driver, instead of the plain aktoMongoConn value above.
+  useKeyVault: false
+  secretName: akto-secrets
+  secretKey: aktoMongoConn
+  secretProviderClass: akto-keyvault
 
 threat_protection_backend:
   kafka1:
