@@ -33,17 +33,6 @@ jobs:
             echo "Skipping digest validation — mini-runtime-sha chart not changed."
           fi
 
-      - name: Update chart dependencies
-        run: |
-          set -euo pipefail
-          for chart_yaml in charts/*/Chart.yaml; do
-            chart_dir="$(dirname "$chart_yaml")"
-            if grep -q '^dependencies:' "$chart_yaml"; then
-              echo "Resolving dependencies for $chart_dir"
-              helm dependency update "$chart_dir"
-            fi
-          done
-
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.5.0
         env:

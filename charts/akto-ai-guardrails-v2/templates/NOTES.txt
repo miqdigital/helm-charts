@@ -4,7 +4,7 @@ Your release is named {{ .Release.Name }}.
 
 Deployed components:
 {{- if .Values.ingestion.enabled }}
-  - Data Ingestion Service (subchart "data-ingestion-service", alias "ingestion" - run `helm get manifest {{ .Release.Name }}` for its exact resource names)
+  - Data Ingestion Service (subchart "data-ingestion-service", alias "ingestion" - run `helm get manifest {{ .Release.Name }} -n {{ .Release.Namespace }}` for its exact resource names)
 {{- end }}
 {{- if .Values.guardrailsService.http.enabled }}
   - Guardrails Service (HTTP): {{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-service-http:{{ .Values.guardrailsService.http.service.port }}
@@ -45,5 +45,5 @@ work until at least one is set via a custom values file or --set.
 
 To learn more about the release, try:
 
-  $ helm status {{ .Release.Name }}
-  $ helm get all {{ .Release.Name }}
+  $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
