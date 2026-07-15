@@ -59,8 +59,16 @@ credentials and Redis password overrides.
 | Value | Why |
 |---|---|
 | `agentGuard.secrets.*` | At least one LLM provider (Qwen3Guard, Gemma, Anthropic, or OpenAI-compatible) must be set for Agent Guard's model-backed scanners to work |
-| `guardrailsService.http.env.aktoApiToken` / `guardrailsService.kafka.env.aktoApiToken` | Auth token for talking back to the Akto dashboard |
+| `guardrailsService.http.env.databaseAbstractorServiceToken` / `guardrailsService.kafka.env.databaseAbstractorServiceToken` | Auth token guardrails-service uses to call the database abstractor |
 | `ingestion.dataIngestionService.env.aktoKafkaBrokerUrl` | Subchart values aren't templated, so this can't default to the bundled broker automatically - set it to the hostname printed in `NOTES.txt` after install, e.g. `<release>-akto-ai-guardrails-v2-guardrails-kafka:9092` |
+| `ingestion.dataIngestionService.env.guardrailsServiceUrl` | Same reason - set it to the guardrails-service-http hostname printed in `NOTES.txt` (guardrails forwarding is enabled by default via `enableGuardrails: "true"`) |
+
+Env var names for `guardrailsService` are verified directly against the Go
+source (`apps/guardrails-service/container/src/config.go`), not assumed from
+the older `akto-ai-guardrails` chart - notably `SCANNER_API_URL` (not
+`AKTO_AGENT_GUARD_URL`) is what points guardrails-service at Agent Guard's
+`/scan` endpoint, and the semantic cache vars (`CACHE_MODE`/`REDIS_URL`/
+`EMBEDDER_URL`) live on `guardrailsService`, not `agentGuard`.
 
 ### Bringing your own Kafka / Redis
 
@@ -93,21 +101,33 @@ agentGuard:
 guardrailsService:
   http:
     env:
-      useKeyVaultForApiToken: true
-      apiTokenSecretName: akto-guardrails-api-token
-      apiTokenSecretKey: AKTO_API_TOKEN
+      useKeyVaultForDbToken: true
+      dbTokenSecretName: akto-guardrails-db-abstractor-token
+      dbTokenSecretKey: DATABASE_ABSTRACTOR_SERVICE_TOKEN
   kafka:
     env:
-      useKeyVaultForApiToken: true
-      apiTokenSecretName: akto-guardrails-api-token
-      apiTokenSecretKey: AKTO_API_TOKEN
+      useKeyVaultForDbToken: true
+      dbTokenSecretName: akto-guardrails-db-abstractor-token
+      dbTokenSecretKey: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+
+# The bundled data-ingestion-service subchart supports the same pattern
+# independently (it doesn't read keyVault.secretProviderClass above, since it
+# needs to stay usable outside this stack too):
+ingestion:
+  dataIngestionService:
+    secrets:
+      useKeyVault: true
+      existingSecretName: akto-data-ingestion-secrets   # must contain DATABASE_ABSTRACTOR_SERVICE_TOKEN + AKTO_DI_REVOKED_TOKENS
+      secretProviderClass: akto-guardrails-keyvault
 ```
 
 When `agentGuard.secrets.useKeyVault: true`, the chart-managed
 `agent-guard-secrets` Secret is skipped entirely, so `existingSecretName` must
 already contain the same keys the chart would otherwise generate
 (`QWEN3GUARD_*`, `GEMMA_VERTEX_*`, `ANTHROPIC_*`, `OPENAI_*`,
-`DEFAULT_MODEL_CONFIG_JSON`).
+`DEFAULT_MODEL_CONFIG_JSON`). Same idea for `guardrailsService.*.env.dbTokenSecretName`
+(just `DATABASE_ABSTRACTOR_SERVICE_TOKEN`) and `ingestion...secrets.existingSecretName`
+(`DATABASE_ABSTRACTOR_SERVICE_TOKEN` + `AKTO_DI_REVOKED_TOKENS`).
 
 ## Notes on architecture drift
 

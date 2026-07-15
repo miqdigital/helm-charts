@@ -43,6 +43,39 @@ dataIngestionService:
     aktoKafkaProducerLingerMs: "10"
     aktoKafkaTopicName: "akto.api.logs"
     aktoLogLevel: "WARN"
+    # Guardrails integration - all optional, off by default so standalone
+    # (non-guardrails) deployments of this chart are unaffected.
+    enableGuardrails: "false"
+    # Blank = guardrails integration stays off regardless of enableGuardrails.
+    # When installed as part of akto-ai-guardrails-v2, this is set explicitly
+    # by that parent chart's values (subchart values aren't templated, so it
+    # can't be auto-defaulted here).
+    guardrailsServiceUrl: ""
+    guardrailsClientTimeoutMs: "5000"
+    databaseAbstractorServiceUrl: ""
+    runtimeMode: ""
+    aktoDiAuthenticate: "false"
+    # JWT verification key - optional, plain value (this is a PUBLIC key by
+    # design, not a credential).
+    rsaPublicKey: ""
+
+  # Sensitive fields, injected via a chart-managed Secret by default. Leave a
+  # field blank to skip it - never commit real values here, pass them with
+  # -f custom-values.yaml or --set at install time.
+  secrets:
+    # If true, skip creating the chart-managed Secret entirely and instead
+    # read the fields below from existingSecretName, which must already
+    # contain the same keys (DATABASE_ABSTRACTOR_SERVICE_TOKEN,
+    # AKTO_DI_REVOKED_TOKENS) - synced there by a SecretProviderClass (Azure
+    # Key Vault via the Secrets Store CSI Driver). This chart doesn't install
+    # the CSI driver itself - install it separately, or via the parent
+    # chart's csiDriver.install if using akto-ai-guardrails-v2.
+    useKeyVault: false
+    existingSecretName: "akto-data-ingestion-secrets"
+    secretProviderClass: "akto-guardrails-keyvault"
+    databaseAbstractorServiceToken: ""
+    # Comma-separated list of tokens that must never be allowed to authenticate.
+    aktoDiRevokedTokens: ""
 
   resources:
     requests:

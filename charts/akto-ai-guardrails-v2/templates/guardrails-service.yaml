@@ -33,34 +33,67 @@ spec:
           containerPort: {{ .Values.guardrailsService.http.service.targetPort }}
           protocol: TCP
         env:
-        {{- if .Values.guardrailsService.http.env.useKeyVaultForApiToken }}
-        - name: AKTO_API_TOKEN
+        - name: SERVER_PORT
+          value: {{ quote .Values.guardrailsService.http.service.targetPort }}
+        {{- if .Values.guardrailsService.http.env.useKeyVaultForDbToken }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.guardrailsService.http.env.apiTokenSecretName }}
-              key: {{ .Values.guardrailsService.http.env.apiTokenSecretKey }}
+              name: {{ .Values.guardrailsService.http.env.dbTokenSecretName }}
+              key: {{ .Values.guardrailsService.http.env.dbTokenSecretKey }}
         {{- else }}
-        - name: AKTO_API_TOKEN
-          value: {{ quote .Values.guardrailsService.http.env.aktoApiToken }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+          value: {{ quote .Values.guardrailsService.http.env.databaseAbstractorServiceToken }}
         {{- end }}
-        - name: AKTO_DB_ABSTRACTOR_HOST
-          value: {{ quote .Values.guardrailsService.http.env.aktoDbAbstractorHost }}
-        {{- if .Values.guardrailsService.http.env.aktoAgentGuardUrl }}
-        - name: AKTO_AGENT_GUARD_URL
-          value: {{ quote .Values.guardrailsService.http.env.aktoAgentGuardUrl }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ quote .Values.guardrailsService.http.env.databaseAbstractorServiceUrl }}
+        {{- if .Values.guardrailsService.http.env.rsaPublicKey }}
+        - name: RSA_PUBLIC_KEY
+          value: {{ quote .Values.guardrailsService.http.env.rsaPublicKey }}
+        {{- end }}
+        {{- if .Values.guardrailsService.http.env.scannerApiUrl }}
+        - name: SCANNER_API_URL
+          value: {{ quote .Values.guardrailsService.http.env.scannerApiUrl }}
         {{- else if .Values.agentGuard.enabled }}
-        - name: AKTO_AGENT_GUARD_URL
+        - name: SCANNER_API_URL
           value: {{ include "akto-ai-guardrails-v2.agentGuard.url" . | quote }}
         {{- else }}
-        {{- fail "guardrailsService.http.env.aktoAgentGuardUrl must be set when agentGuard.enabled=false" }}
+        {{- fail "guardrailsService.http.env.scannerApiUrl must be set when agentGuard.enabled=false" }}
         {{- end }}
-        - name: AKTO_THREAT_DETECTION_HOST
-          value: {{ quote .Values.guardrailsService.http.env.aktoThreatDetectionHost }}
-        - name: AKTO_LLM_VALIDATOR_HOST
-          value: {{ quote .Values.guardrailsService.http.env.aktoLlmValidatorHost }}
-        {{- if .Values.guardrailsService.http.env.aktoIngestHost }}
-        - name: AKTO_INGEST_HOST
-          value: {{ quote .Values.guardrailsService.http.env.aktoIngestHost }}
+        - name: NHI_ENABLED
+          value: {{ quote .Values.guardrailsService.http.env.nhiEnabled }}
+        - name: NHI_SCAN_INTERVAL_MIN
+          value: {{ quote .Values.guardrailsService.http.env.nhiScanIntervalMin }}
+        {{- if .Values.guardrailsService.http.env.cacheMode }}
+        - name: CACHE_MODE
+          value: {{ quote .Values.guardrailsService.http.env.cacheMode }}
+        {{- end }}
+        {{- if .Values.guardrailsService.http.env.redisUrl }}
+        - name: REDIS_URL
+          value: {{ quote .Values.guardrailsService.http.env.redisUrl }}
+        {{- else if .Values.redis.enabled }}
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "akto-ai-guardrails-v2.redis.secretName" . }}
+              key: {{ .Values.redis.auth.existingSecretKey }}
+        - name: REDIS_URL
+          value: "redis://:$(REDIS_PASSWORD)@{{ include "akto-ai-guardrails-v2.redis.host" . }}:{{ .Values.redis.service.port }}"
+        {{- end }}
+        {{- if .Values.guardrailsService.http.env.embedderUrl }}
+        - name: EMBEDDER_URL
+          value: {{ quote .Values.guardrailsService.http.env.embedderUrl }}
+        {{- else if .Values.embedder.enabled }}
+        - name: EMBEDDER_URL
+          value: {{ include "akto-ai-guardrails-v2.embedder.url" . | quote }}
+        {{- end }}
+        - name: SCAN_TIMEOUT_SEC
+          value: {{ quote .Values.guardrailsService.http.env.scanTimeoutSec }}
+        - name: GUARDRAILS_VALIDATION_TIMEOUT_MS
+          value: {{ quote .Values.guardrailsService.http.env.guardrailsValidationTimeoutMs }}
+        {{- if .Values.guardrailsService.http.env.guardrailsSkipPaths }}
+        - name: GUARDRAILS_SKIP_PATHS
+          value: {{ quote .Values.guardrailsService.http.env.guardrailsSkipPaths }}
         {{- end }}
         - name: LOG_LEVEL
           value: {{ quote .Values.guardrailsService.http.env.logLevel }}
@@ -88,13 +121,13 @@ spec:
         {{- end }}
         resources:
           {{- toYaml .Values.guardrailsService.http.resources | nindent 10 }}
-        {{- if .Values.guardrailsService.http.env.useKeyVaultForApiToken }}
+        {{- if .Values.guardrailsService.http.env.useKeyVaultForDbToken }}
         volumeMounts:
         - name: secrets-store
           mountPath: /mnt/secrets-store
           readOnly: true
         {{- end }}
-      {{- if .Values.guardrailsService.http.env.useKeyVaultForApiToken }}
+      {{- if .Values.guardrailsService.http.env.useKeyVaultForDbToken }}
       volumes:
       - name: secrets-store
         csi:
@@ -183,31 +216,79 @@ spec:
           value: {{ quote .Values.guardrailsService.kafka.env.kafkaBatchSize }}
         - name: KAFKA_BATCH_LINGER_SEC
           value: {{ quote .Values.guardrailsService.kafka.env.kafkaBatchLingerSec }}
-        {{- if .Values.guardrailsService.kafka.env.useKeyVaultForApiToken }}
-        - name: AKTO_API_TOKEN
+        {{- if .Values.guardrailsService.kafka.env.useKeyVaultForDbToken }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.guardrailsService.kafka.env.apiTokenSecretName }}
-              key: {{ .Values.guardrailsService.kafka.env.apiTokenSecretKey }}
+              name: {{ .Values.guardrailsService.kafka.env.dbTokenSecretName }}
+              key: {{ .Values.guardrailsService.kafka.env.dbTokenSecretKey }}
         {{- else }}
-        - name: AKTO_API_TOKEN
-          value: {{ quote .Values.guardrailsService.kafka.env.aktoApiToken }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+          value: {{ quote .Values.guardrailsService.kafka.env.databaseAbstractorServiceToken }}
         {{- end }}
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
-          value: {{ quote .Values.guardrailsService.kafka.env.aktoDbAbstractorHost }}
+          value: {{ quote .Values.guardrailsService.kafka.env.databaseAbstractorServiceUrl }}
+        {{- if .Values.guardrailsService.kafka.env.rsaPublicKey }}
+        - name: RSA_PUBLIC_KEY
+          value: {{ quote .Values.guardrailsService.kafka.env.rsaPublicKey }}
+        {{- end }}
+        {{- if .Values.guardrailsService.kafka.env.scannerApiUrl }}
+        - name: SCANNER_API_URL
+          value: {{ quote .Values.guardrailsService.kafka.env.scannerApiUrl }}
+        {{- else if .Values.agentGuard.enabled }}
+        - name: SCANNER_API_URL
+          value: {{ include "akto-ai-guardrails-v2.agentGuard.url" . | quote }}
+        {{- else }}
+        {{- fail "guardrailsService.kafka.env.scannerApiUrl must be set when agentGuard.enabled=false" }}
+        {{- end }}
+        - name: NHI_ENABLED
+          value: {{ quote .Values.guardrailsService.kafka.env.nhiEnabled }}
+        - name: NHI_SCAN_INTERVAL_MIN
+          value: {{ quote .Values.guardrailsService.kafka.env.nhiScanIntervalMin }}
+        {{- if .Values.guardrailsService.kafka.env.cacheMode }}
+        - name: CACHE_MODE
+          value: {{ quote .Values.guardrailsService.kafka.env.cacheMode }}
+        {{- end }}
+        {{- if .Values.guardrailsService.kafka.env.redisUrl }}
+        - name: REDIS_URL
+          value: {{ quote .Values.guardrailsService.kafka.env.redisUrl }}
+        {{- else if .Values.redis.enabled }}
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "akto-ai-guardrails-v2.redis.secretName" . }}
+              key: {{ .Values.redis.auth.existingSecretKey }}
+        - name: REDIS_URL
+          value: "redis://:$(REDIS_PASSWORD)@{{ include "akto-ai-guardrails-v2.redis.host" . }}:{{ .Values.redis.service.port }}"
+        {{- end }}
+        {{- if .Values.guardrailsService.kafka.env.embedderUrl }}
+        - name: EMBEDDER_URL
+          value: {{ quote .Values.guardrailsService.kafka.env.embedderUrl }}
+        {{- else if .Values.embedder.enabled }}
+        - name: EMBEDDER_URL
+          value: {{ include "akto-ai-guardrails-v2.embedder.url" . | quote }}
+        {{- end }}
+        - name: SCAN_TIMEOUT_SEC
+          value: {{ quote .Values.guardrailsService.kafka.env.scanTimeoutSec }}
+        - name: GUARDRAILS_VALIDATION_TIMEOUT_MS
+          value: {{ quote .Values.guardrailsService.kafka.env.guardrailsValidationTimeoutMs }}
+        {{- if .Values.guardrailsService.kafka.env.guardrailsSkipPaths }}
+        - name: GUARDRAILS_SKIP_PATHS
+          value: {{ quote .Values.guardrailsService.kafka.env.guardrailsSkipPaths }}
+        {{- end }}
         - name: LOG_LEVEL
           value: {{ quote .Values.guardrailsService.kafka.env.logLevel }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         resources:
           {{- toYaml .Values.guardrailsService.kafka.resources | nindent 10 }}
-        {{- if .Values.guardrailsService.kafka.env.useKeyVaultForApiToken }}
+        {{- if .Values.guardrailsService.kafka.env.useKeyVaultForDbToken }}
         volumeMounts:
         - name: secrets-store
           mountPath: /mnt/secrets-store
           readOnly: true
         {{- end }}
-      {{- if .Values.guardrailsService.kafka.env.useKeyVaultForApiToken }}
+      {{- if .Values.guardrailsService.kafka.env.useKeyVaultForDbToken }}
       volumes:
       - name: secrets-store
         csi:
