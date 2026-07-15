@@ -1,3 +1,16 @@
+{{- if not .Values.dataIngestionService.secrets.useKeyVault }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "data-ingestion-service.fullname" . }}-secrets
+  labels:
+    {{- include "data-ingestion-service.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  DATABASE_ABSTRACTOR_SERVICE_TOKEN: {{ .Values.dataIngestionService.secrets.databaseAbstractorServiceToken | quote }}
+  AKTO_DI_REVOKED_TOKENS: {{ .Values.dataIngestionService.secrets.aktoDiRevokedTokens | quote }}
+---
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -82,6 +95,9 @@ spec:
         ports:
         - containerPort: {{ .Values.dataIngestionService.service.targetPort }}
           protocol: TCP
+        envFrom:
+        - secretRef:
+            name: {{ if .Values.dataIngestionService.secrets.useKeyVault }}{{ .Values.dataIngestionService.secrets.existingSecretName }}{{ else }}{{ include "data-ingestion-service.fullname" . }}-secrets{{ end }}
         env:
         - name: AKTO_TRAFFIC_BATCH_SIZE
           value: {{ quote .Values.dataIngestionService.env.aktoTrafficBatchSize }}
@@ -99,6 +115,28 @@ spec:
           value: {{ quote .Values.dataIngestionService.env.aktoLogLevel }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        - name: ENABLE_GUARDRAILS
+          value: {{ quote .Values.dataIngestionService.env.enableGuardrails }}
+        {{- if .Values.dataIngestionService.env.guardrailsServiceUrl }}
+        - name: GUARDRAILS_SERVICE_URL
+          value: {{ quote .Values.dataIngestionService.env.guardrailsServiceUrl }}
+        {{- end }}
+        - name: GUARDRAILS_CLIENT_TIMEOUT_MS
+          value: {{ quote .Values.dataIngestionService.env.guardrailsClientTimeoutMs }}
+        {{- if .Values.dataIngestionService.env.databaseAbstractorServiceUrl }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ quote .Values.dataIngestionService.env.databaseAbstractorServiceUrl }}
+        {{- end }}
+        {{- if .Values.dataIngestionService.env.runtimeMode }}
+        - name: RUNTIME_MODE
+          value: {{ quote .Values.dataIngestionService.env.runtimeMode }}
+        {{- end }}
+        - name: AKTO_DI_AUTHENTICATE
+          value: {{ quote .Values.dataIngestionService.env.aktoDiAuthenticate }}
+        {{- if .Values.dataIngestionService.env.rsaPublicKey }}
+        - name: RSA_PUBLIC_KEY
+          value: {{ quote .Values.dataIngestionService.env.rsaPublicKey }}
+        {{- end }}
         {{- if .Values.dataIngestionService.useSasl }}
         - name: KAFKA_OPTS
           value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_client_jaas.conf"
@@ -128,13 +166,30 @@ spec:
         {{- end }}
         resources:
           {{- toYaml .Values.dataIngestionService.resources | nindent 10 }}
-        {{- if .Values.dataIngestionService.useSasl }}
+        {{- if or .Values.dataIngestionService.useSasl .Values.dataIngestionService.secrets.useKeyVault }}
         volumeMounts:
+        {{- if .Values.dataIngestionService.useSasl }}
         - name: kafka-jaas-config
           mountPath: /etc/kafka/secrets
         {{- end }}
-      {{- if .Values.dataIngestionService.useSasl }}
+        {{- if .Values.dataIngestionService.secrets.useKeyVault }}
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        {{- end }}
+        {{- end }}
+      {{- if or .Values.dataIngestionService.useSasl .Values.dataIngestionService.secrets.useKeyVault }}
       volumes:
+      {{- if .Values.dataIngestionService.useSasl }}
       - name: kafka-jaas-config
         emptyDir: {}
+      {{- end }}
+      {{- if .Values.dataIngestionService.secrets.useKeyVault }}
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.dataIngestionService.secrets.secretProviderClass }}
+      {{- end }}
       {{- end }}

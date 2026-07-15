@@ -73,26 +73,6 @@ spec:
         - name: ANONYMIZER_URL
           value: {{ include "akto-ai-guardrails-v2.anonymizer.url" . | quote }}
         {{- end }}
-        {{- if .Values.embedder.enabled }}
-        - name: EMBEDDER_URL
-          value: {{ include "akto-ai-guardrails-v2.embedder.url" . | quote }}
-        {{- end }}
-        {{- if .Values.agentGuard.env.cacheMode }}
-        - name: CACHE_MODE
-          value: {{ quote .Values.agentGuard.env.cacheMode }}
-        {{- end }}
-        {{- if .Values.redis.enabled }}
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "akto-ai-guardrails-v2.redis.secretName" . }}
-              key: {{ .Values.redis.auth.existingSecretKey }}
-        # $(REDIS_PASSWORD) is expanded by Kubernetes from the env var defined
-        # just above - not a shell substitution, so this works without a
-        # command wrapper. See "dependent environment variables" in the k8s docs.
-        - name: REDIS_URL
-          value: "redis://:$(REDIS_PASSWORD)@{{ include "akto-ai-guardrails-v2.redis.host" . }}:{{ .Values.redis.service.port }}"
-        {{- end }}
         {{- if .Values.agentGuard.env.databaseAbstractorServiceUrl }}
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
           value: {{ quote .Values.agentGuard.env.databaseAbstractorServiceUrl }}

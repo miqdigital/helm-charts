@@ -56,12 +56,23 @@ ingestion:
       # e.g. "<release>-akto-ai-guardrails-v2-guardrails-kafka:9092", or at an
       # external broker if guardrailsKafka.enabled is false below.
       aktoKafkaBrokerUrl: ""
+      # This whole chart exists to run the guardrails pipeline, so guardrails
+      # forwarding is on by default (the subchart itself defaults this off,
+      # for when it's used standalone elsewhere).
+      enableGuardrails: "true"
+      # Left blank for the same reason as aktoKafkaBrokerUrl above - point
+      # this at the guardrails-service-http hostname printed in NOTES.txt,
+      # e.g. "http://<release>-akto-ai-guardrails-v2-guardrails-service-http:9091".
+      guardrailsServiceUrl: ""
     service:
       type: ClusterIP
 
 # -----------------------------------------------------------------------------
-# 2 & 3. Guardrails Service - same image deployed twice: once serving HTTP,
-# once as a Kafka consumer. Both talk to the Agent Guard executor for scanning.
+# 2 & 3. Guardrails Service - same image (apps/guardrails-service, Go) deployed
+# twice: once serving HTTP, once as a Kafka consumer (KAFKA_ENABLED=true).
+# Env var names below are verified against the actual Go source
+# (apps/guardrails-service/container/src/config.go) rather than assumed from
+# the older akto-ai-guardrails chart - several differ from that chart's names.
 # -----------------------------------------------------------------------------
 guardrailsService:
   http:
@@ -76,19 +87,33 @@ guardrailsService:
       port: 9091
       targetPort: 9091
     env:
-      aktoApiToken: ""
-      # If true, AKTO_API_TOKEN is sourced via secretKeyRef from
-      # apiTokenSecretName/apiTokenSecretKey (synced by the SecretProviderClass
-      # named in keyVault.secretProviderClass) instead of the plain value above.
-      useKeyVaultForApiToken: false
-      apiTokenSecretName: "akto-guardrails-api-token"
-      apiTokenSecretKey: "AKTO_API_TOKEN"
-      aktoDbAbstractorHost: "cyborg.akto.io"
-      # Left blank = defaults to the bundled agent-guard executor Service (see agent-guard.yaml)
-      aktoAgentGuardUrl: ""
-      aktoThreatDetectionHost: "tbs.akto.io"
-      aktoLlmValidatorHost: "cyborg.akto.io"
-      aktoIngestHost: ""
+      databaseAbstractorServiceUrl: "https://cyborg.akto.io"
+      databaseAbstractorServiceToken: ""
+      # If true, DATABASE_ABSTRACTOR_SERVICE_TOKEN is sourced via secretKeyRef
+      # from dbTokenSecretName/dbTokenSecretKey (synced by the
+      # SecretProviderClass named in keyVault.secretProviderClass) instead of
+      # the plain value above.
+      useKeyVaultForDbToken: false
+      dbTokenSecretName: "akto-guardrails-db-abstractor-token"
+      dbTokenSecretKey: "DATABASE_ABSTRACTOR_SERVICE_TOKEN"
+      # JWT verification key - optional, plain value (this is a PUBLIC key by
+      # design, not a credential, despite living alongside secrets here).
+      rsaPublicKey: ""
+      # Where guardrails-service calls agent-guard's /scan. Left blank =
+      # defaults to the bundled agent-guard executor Service (see agent-guard.yaml).
+      scannerApiUrl: ""
+      nhiEnabled: "true"
+      nhiScanIntervalMin: "30"
+      # Semantic cache in front of agent-guard's /scan - fail-open, so REDIS_URL/
+      # EMBEDDER_URL are only emitted when the matching component is enabled or
+      # an explicit override is given; CACHE_MODE alone is safe to leave set
+      # even if redis/embedder aren't running (just becomes cache misses).
+      cacheMode: "decide"
+      redisUrl: ""
+      embedderUrl: ""
+      scanTimeoutSec: "40"
+      guardrailsValidationTimeoutMs: "40000"
+      guardrailsSkipPaths: ""
       logLevel: info
     resources:
       requests:
@@ -130,11 +155,21 @@ guardrailsService:
       kafkaGroupId: "guardrails-service"
       kafkaBatchSize: "100"
       kafkaBatchLingerSec: "5"
-      aktoApiToken: ""
-      useKeyVaultForApiToken: false
-      apiTokenSecretName: "akto-guardrails-api-token"
-      apiTokenSecretKey: "AKTO_API_TOKEN"
-      aktoDbAbstractorHost: "cyborg.akto.io"
+      databaseAbstractorServiceUrl: "https://cyborg.akto.io"
+      databaseAbstractorServiceToken: ""
+      useKeyVaultForDbToken: false
+      dbTokenSecretName: "akto-guardrails-db-abstractor-token"
+      dbTokenSecretKey: "DATABASE_ABSTRACTOR_SERVICE_TOKEN"
+      rsaPublicKey: ""
+      scannerApiUrl: ""
+      nhiEnabled: "true"
+      nhiScanIntervalMin: "30"
+      cacheMode: "decide"
+      redisUrl: ""
+      embedderUrl: ""
+      scanTimeoutSec: "40"
+      guardrailsValidationTimeoutMs: "40000"
+      guardrailsSkipPaths: ""
       logLevel: info
     resources:
       requests:
@@ -287,8 +322,10 @@ anonymizer:
     failureThreshold: 5
 
 # -----------------------------------------------------------------------------
-# Agent Guard (executor) - orchestrates the anonymizer + embedder + redis cache
-# to run the guardrail scanners. This is the "agent guard" component.
+# Agent Guard (executor) - runs the guardrail scanners, calling out to the
+# anonymizer for PII masking. This is the "agent guard" component. The
+# semantic cache (redis + embedder) sits in front of this at the
+# guardrails-service level, not here - see guardrailsService.*.env above.
 # -----------------------------------------------------------------------------
 agentGuard:
   enabled: true
@@ -301,8 +338,6 @@ agentGuard:
     port: 8090
     targetPort: 8090
   env:
-    # Semantic cache mode - see worker-py/src/cache.py, e.g. "read-write"
-    cacheMode: ""
     databaseAbstractorServiceUrl: ""
     slackWebhookUrl: ""
   # Model-provider credentials, injected via a chart-managed Secret by
