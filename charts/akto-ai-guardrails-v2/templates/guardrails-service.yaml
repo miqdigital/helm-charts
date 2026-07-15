@@ -33,8 +33,16 @@ spec:
           containerPort: {{ .Values.guardrailsService.http.service.targetPort }}
           protocol: TCP
         env:
+        {{- if .Values.guardrailsService.http.env.useKeyVaultForApiToken }}
+        - name: AKTO_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.guardrailsService.http.env.apiTokenSecretName }}
+              key: {{ .Values.guardrailsService.http.env.apiTokenSecretKey }}
+        {{- else }}
         - name: AKTO_API_TOKEN
           value: {{ quote .Values.guardrailsService.http.env.aktoApiToken }}
+        {{- end }}
         - name: AKTO_DB_ABSTRACTOR_HOST
           value: {{ quote .Values.guardrailsService.http.env.aktoDbAbstractorHost }}
         {{- if .Values.guardrailsService.http.env.aktoAgentGuardUrl }}
@@ -80,6 +88,21 @@ spec:
         {{- end }}
         resources:
           {{- toYaml .Values.guardrailsService.http.resources | nindent 10 }}
+        {{- if .Values.guardrailsService.http.env.useKeyVaultForApiToken }}
+        volumeMounts:
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        {{- end }}
+      {{- if .Values.guardrailsService.http.env.useKeyVaultForApiToken }}
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.keyVault.secretProviderClass }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -160,8 +183,16 @@ spec:
           value: {{ quote .Values.guardrailsService.kafka.env.kafkaBatchSize }}
         - name: KAFKA_BATCH_LINGER_SEC
           value: {{ quote .Values.guardrailsService.kafka.env.kafkaBatchLingerSec }}
+        {{- if .Values.guardrailsService.kafka.env.useKeyVaultForApiToken }}
+        - name: AKTO_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.guardrailsService.kafka.env.apiTokenSecretName }}
+              key: {{ .Values.guardrailsService.kafka.env.apiTokenSecretKey }}
+        {{- else }}
         - name: AKTO_API_TOKEN
           value: {{ quote .Values.guardrailsService.kafka.env.aktoApiToken }}
+        {{- end }}
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
           value: {{ quote .Values.guardrailsService.kafka.env.aktoDbAbstractorHost }}
         - name: LOG_LEVEL
@@ -170,6 +201,21 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         resources:
           {{- toYaml .Values.guardrailsService.kafka.resources | nindent 10 }}
+        {{- if .Values.guardrailsService.kafka.env.useKeyVaultForApiToken }}
+        volumeMounts:
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        {{- end }}
+      {{- if .Values.guardrailsService.kafka.env.useKeyVaultForApiToken }}
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.keyVault.secretProviderClass }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

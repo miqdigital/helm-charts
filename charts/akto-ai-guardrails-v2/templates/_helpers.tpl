@@ -108,3 +108,16 @@ http://{{ include "akto-ai-guardrails-v2.fullname" . }}-agent-guard:{{ .Values.a
 {{- define "akto-ai-guardrails-v2.guardrailsKafka.brokerUrl" -}}
 {{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-kafka:9092
 {{- end }}
+
+{{/*
+Resolved name of the native Secret backing Agent Guard's model-provider
+credentials: the chart-managed one, or the Key-Vault-synced one when
+agentGuard.secrets.useKeyVault is true.
+*/}}
+{{- define "akto-ai-guardrails-v2.agentGuard.secretName" -}}
+{{- if .Values.agentGuard.secrets.useKeyVault -}}
+{{ .Values.agentGuard.secrets.existingSecretName }}
+{{- else -}}
+{{ include "akto-ai-guardrails-v2.fullname" . }}-agent-guard-secrets
+{{- end }}
+{{- end }}

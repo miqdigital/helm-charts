@@ -1,4 +1,5 @@
 {{- if .Values.agentGuard.enabled }}
+{{- if not .Values.agentGuard.secrets.useKeyVault }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -24,6 +25,7 @@ stringData:
   OPENAI_COMPATIBLE_BASE_URL: {{ .Values.agentGuard.secrets.openaiCompatibleBaseUrl | quote }}
   DEFAULT_MODEL_CONFIG_JSON: {{ .Values.agentGuard.secrets.defaultModelConfigJson | quote }}
 ---
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -59,7 +61,7 @@ spec:
           protocol: TCP
         envFrom:
         - secretRef:
-            name: {{ include "akto-ai-guardrails-v2.fullname" . }}-agent-guard-secrets
+            name: {{ include "akto-ai-guardrails-v2.agentGuard.secretName" . }}
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
@@ -121,6 +123,21 @@ spec:
         {{- end }}
         resources:
           {{- toYaml .Values.agentGuard.resources | nindent 10 }}
+        {{- if .Values.agentGuard.secrets.useKeyVault }}
+        volumeMounts:
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        {{- end }}
+      {{- if .Values.agentGuard.secrets.useKeyVault }}
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.keyVault.secretProviderClass }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

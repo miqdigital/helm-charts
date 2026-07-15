@@ -19,6 +19,25 @@ podSecurityContext: {}
 securityContext: {}
 
 # -----------------------------------------------------------------------------
+# Azure Key Vault (via Secrets Store CSI Driver) - optional, mirrors the same
+# pattern charts/akto-setup-dashboard uses for AKTO_MONGO_CONN. This chart
+# never talks to Key Vault directly: you create a SecretProviderClass
+# separately (pointing at your Key Vault + identity) with a `secretObjects`
+# block that syncs the fetched values into a native Kubernetes Secret: this
+# chart just mounts that SecretProviderClass (which triggers the sync) and
+# reads the resulting Secret via secretKeyRef.
+# -----------------------------------------------------------------------------
+csiDriver:
+  # Set to true to install the Secrets Store CSI Driver + Azure provider as
+  # part of this chart. Leave false if already installed cluster-wide.
+  install: false
+
+keyVault:
+  # Name of the SecretProviderClass (created outside this chart) to mount
+  # wherever a component below has useKeyVault/useKeyVaultForApiToken: true.
+  secretProviderClass: akto-guardrails-keyvault
+
+# -----------------------------------------------------------------------------
 # 1. Data Ingestion Service
 # Reused as a local chart dependency (alias "ingestion") rather than duplicated
 # here. Anything under ingestion.dataIngestionService.* maps 1:1 onto that
@@ -58,6 +77,12 @@ guardrailsService:
       targetPort: 9091
     env:
       aktoApiToken: ""
+      # If true, AKTO_API_TOKEN is sourced via secretKeyRef from
+      # apiTokenSecretName/apiTokenSecretKey (synced by the SecretProviderClass
+      # named in keyVault.secretProviderClass) instead of the plain value above.
+      useKeyVaultForApiToken: false
+      apiTokenSecretName: "akto-guardrails-api-token"
+      apiTokenSecretKey: "AKTO_API_TOKEN"
       aktoDbAbstractorHost: "cyborg.akto.io"
       # Left blank = defaults to the bundled agent-guard executor Service (see agent-guard.yaml)
       aktoAgentGuardUrl: ""
@@ -106,6 +131,9 @@ guardrailsService:
       kafkaBatchSize: "100"
       kafkaBatchLingerSec: "5"
       aktoApiToken: ""
+      useKeyVaultForApiToken: false
+      apiTokenSecretName: "akto-guardrails-api-token"
+      apiTokenSecretKey: "AKTO_API_TOKEN"
       aktoDbAbstractorHost: "cyborg.akto.io"
       logLevel: info
     resources:
@@ -277,10 +305,17 @@ agentGuard:
     cacheMode: ""
     databaseAbstractorServiceUrl: ""
     slackWebhookUrl: ""
-  # Model-provider credentials, injected via a chart-managed Secret. Leave a
-  # field blank to skip that provider - never commit real values here, pass
-  # them with -f custom-values.yaml or --set at install time.
+  # Model-provider credentials, injected via a chart-managed Secret by
+  # default. Leave a field blank to skip that provider - never commit real
+  # values here, pass them with -f custom-values.yaml or --set at install time.
   secrets:
+    # If true, skip creating the chart-managed Secret entirely and instead
+    # read all the fields below from existingSecretName, which must already
+    # contain the same keys (QWEN3GUARD_*, GEMMA_VERTEX_*, ANTHROPIC_*,
+    # OPENAI_*, DEFAULT_MODEL_CONFIG_JSON) - synced there by the
+    # SecretProviderClass named in keyVault.secretProviderClass.
+    useKeyVault: false
+    existingSecretName: "akto-guardrails-agent-guard-secrets"
     qwen3guardSaKeyJson: ""
     qwen3guardProject: ""
     qwen3guardLocation: ""

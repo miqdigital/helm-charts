@@ -28,3 +28,15 @@ dependencies:
     repository: "file://../data-ingestion-service"
     alias: ingestion
     condition: ingestion.enabled
+  # Optional - only installed when csiDriver.install=true. Mirrors the same
+  # dependencies charts/akto-setup-dashboard uses for Azure Key Vault-backed
+  # secrets. Set to false (default) if the CSI driver is already installed
+  # cluster-wide.
+  - name: secrets-store-csi-driver
+    version: "1.4.x"
+    repository: "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
+    condition: csiDriver.install
+  - name: csi-secrets-store-provider-azure
+    version: "1.5.x"
+    repository: "https://azure.github.io/secrets-store-csi-driver-provider-azure/charts"
+    condition: csiDriver.install

@@ -68,6 +68,47 @@ Set `guardrailsKafka.enabled: false` / `redis.enabled: false` and point the
 relevant `*BrokerUrl` / `redis.auth.existingSecret` fields at your existing
 infrastructure instead of the bundled ones.
 
+### Azure Key Vault (optional)
+
+Mirrors the pattern `charts/akto-setup-dashboard` uses for its Mongo
+connection string, via the Secrets Store CSI Driver. This chart never talks
+to Key Vault directly - you create a `SecretProviderClass` separately
+(pointing at your Key Vault + identity) with a `secretObjects` block that
+syncs the fetched values into a native Kubernetes Secret; this chart just
+mounts that `SecretProviderClass` (which triggers the sync) and reads the
+resulting Secret via `secretKeyRef`.
+
+```yaml
+csiDriver:
+  install: true   # or false if the CSI driver is already installed cluster-wide
+
+keyVault:
+  secretProviderClass: akto-guardrails-keyvault   # must already exist in the cluster
+
+agentGuard:
+  secrets:
+    useKeyVault: true
+    existingSecretName: akto-guardrails-agent-guard-secrets   # synced by the SecretProviderClass above
+
+guardrailsService:
+  http:
+    env:
+      useKeyVaultForApiToken: true
+      apiTokenSecretName: akto-guardrails-api-token
+      apiTokenSecretKey: AKTO_API_TOKEN
+  kafka:
+    env:
+      useKeyVaultForApiToken: true
+      apiTokenSecretName: akto-guardrails-api-token
+      apiTokenSecretKey: AKTO_API_TOKEN
+```
+
+When `agentGuard.secrets.useKeyVault: true`, the chart-managed
+`agent-guard-secrets` Secret is skipped entirely, so `existingSecretName` must
+already contain the same keys the chart would otherwise generate
+(`QWEN3GUARD_*`, `GEMMA_VERTEX_*`, `ANTHROPIC_*`, `OPENAI_*`,
+`DEFAULT_MODEL_CONFIG_JSON`).
+
 ## Notes on architecture drift
 
 This chart targets the executor/anonymizer/embedder split described in
