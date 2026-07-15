@@ -34,8 +34,14 @@ spec:
           value: {{ quote .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.env.aktoInstanceType
             }}
         - name: AKTO_MONGO_CONN
-          value: {{ quote .Values.mongo.aktoMongoConn
-            }}
+          {{- if .Values.mongo.useKeyVault }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mongo.secretName }}
+              key: {{ .Values.mongo.secretKey | default "aktoMongoConn" }}
+          {{- else }}
+          value: {{ quote .Values.mongo.aktoMongoConn }}
+          {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.image.repository }}:{{ .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.image.tag
@@ -46,4 +52,19 @@ spec:
         ports:
         - containerPort: 9000
         resources: {{- toYaml .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.resources |  nindent 10 }}
+        {{- if .Values.mongo.useKeyVault }}
+        volumeMounts:
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        {{- end }}
+      {{- if .Values.mongo.useKeyVault }}
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.mongo.secretProviderClass | default "akto-keyvault" }}
+      {{- end }}
       restartPolicy: Always

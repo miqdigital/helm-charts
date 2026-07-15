@@ -12,6 +12,7 @@ testing:
       kafkaBrokerUrl: localhost:29092
       puppeteerReplayServiceUrl: http://localhost:3000
       databaseAbstractorUrl: https://cyborg.akto.io
+      automatedAgentBaseUrl: http://localhost:8000
       # If you want to use secrets to store database abstractor token. default: false
       useSecretsForDatabaseAbstractorToken: false
       # If not using secrets, place token here.
@@ -24,11 +25,11 @@ testing:
         token: ""
       blockLogs: "false"
       aktoLogLevel: WARN
-      miniTestingName: System-auto-scaled-akto-mini-testing
+      miniTestingName: "akto-external-testing"
 
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
-      tag: 1.59.3_local
+      tag: 1.70.6_local
     imagePullPolicy: Always
     resources:
       requests:
@@ -86,9 +87,15 @@ testing:
           type: Value
 
   aktoApiSecurityPuppeteerReplay:
+    env:
+      useSecretsForLogSenderApiKey: false
+      logSenderApiKey: ""
+      logSenderApiKeySecrets:
+        existingSecret: ""
+        token: ""
     image:
       repository: public.ecr.aws/aktosecurity/akto-puppeteer-replay
-      tag: 1.48.0_latest
+      tag: 1.49.4_latest
     imagePullPolicy: Always
     resources:
       requests:
@@ -98,14 +105,63 @@ testing:
         cpu: 1
         memory: "4Gi"
 
+  aiAutomatedTesting:
+    enabled: true
+    image:
+      repository: public.ecr.aws/aktosecurity/akto-ai-automated-testing
+      tag: latest
+    imagePullPolicy: Always
+    port: 8000
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "700Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+
+  agentTesting:
+    enabled: false
+    image:
+      repository: public.ecr.aws/aktosecurity/akto-agentic-testing
+      tag: latest
+    imagePullPolicy: Always
+    port: 5500
+    env:
+      nodeEnv: "production"
+      agenticMode: false
+      nodeTlsRejectUnauthorized: "0"
+      useSessionManagement: true
+      aktoUtilityServer: "http://localhost:8001"
+      useSecretsForAnthropicApiKey: false
+      anthropicApiKey: ""
+      # If using secrets, place key here.
+      anthropicApiKeySecrets:
+        # Name of an existing secret containing the Anthropic API key
+        existingSecret: ""
+        # Token to use if existingSecret is not provided
+        anthropicSecretKey: ""
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "500Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+
   kafka1:
     env:
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
       kafkaCreateTopics: akto.test.messages:1:1
       kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
-      kafkaListenerSecurityProtocolMap: LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,
+      kafkaListenerSecurityProtocolMap: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,
         LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
+      kafkaProcessRoles: "broker,controller"
+      kafkaNodeId: "1"
+      kafkaControllerQuorumVoters: "1@localhost:9094"
+      kafkaControllerListenerNames: "CONTROLLER"
+      kafkaListeners: "CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:9092"
       kafkaLogCleanerEnable: "true"
       kafkaLogRetentionBytes: "10737418240"
       kafkaLogRetentionCheckIntervalMs: "60000"
@@ -114,10 +170,10 @@ testing:
       kafkaOffsetsTopicReplicationFactor: "1"
       kafkaTransactionStateLogMinIsr: "1"
       kafkaTransactionStateLogReplicationFactor: "1"
-      kafkaZookeeperConnect: 127.0.0.1:2181
+      kafkaClusterId: "d7b2c9f3-5a3b-4c3b-8d4a-2b3c4d5e6f7a"
     image:
       repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
-      tag: 7.8.0-3-ubi8
+      tag: 8.2.2-1-ubi9
     resources:
       requests:
         cpu: 1
@@ -129,22 +185,6 @@ testing:
   - port: 9092
     targetPort: 9092
   type: ClusterIP
-  zoo1:
-    env:
-      kafkaOpts: -Dzookeeper.admin.enableServer=false
-      zookeeperClientPort: "2181"
-      zookeeperServerId: "1"
-      zookeeperServers: zoo1:2888:3888
-    image:
-      repository: public.ecr.aws/aktosecurity/confluentinc-cp-zookeeper
-      tag: 7.8.0-3-ubi8
-    resources:
-      requests:
-        cpu: 1
-        memory: "2Gi"
-      limits:
-        cpu: 1
-        memory: "2Gi"
 
 keel:
   keel:

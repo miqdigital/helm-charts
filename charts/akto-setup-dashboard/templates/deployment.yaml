@@ -23,54 +23,66 @@ spec:
       containers:
       - env:
         - name: AKTO_ACCOUNT_NAME
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoAccountName
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoAccountName }}
         - name: IS_KUBERNETES
           value: "true"
         - name: DASHBOARD_MODE
-          value: "local_deploy"
+          value: {{ if .Values.onPrem.enabled }}"on_prem"{{ else }}"local_deploy"{{ end }}
         - name: AKTO_CONFIG_NAME
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoConfigName
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoConfigName }}
         - name: AKTO_INSTANCE_TYPE
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoInstanceType
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoInstanceType }}
         - name: AKTO_KAFKA_BROKER_MAL
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaBrokerMal
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaBrokerMal }}
         - name: AKTO_KAFKA_BROKER_URL
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaBrokerUrl
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaBrokerUrl }}
         - name: AKTO_KAFKA_GROUP_ID_CONFIG
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaGroupIdConfig
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaGroupIdConfig }}
         - name: AKTO_KAFKA_MAX_POLL_RECORDS_CONFIG
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaMaxPollRecordsConfig
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaMaxPollRecordsConfig }}
         - name: AKTO_KAFKA_TOPIC_NAME
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaTopicName
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoKafkaTopicName }}
         - name: AKTO_TRAFFIC_BATCH_SIZE
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoTrafficBatchSize
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoTrafficBatchSize }}
         - name: AKTO_TRAFFIC_BATCH_TIME_SECS
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoTrafficBatchTimeSecs
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.aktoTrafficBatchTimeSecs }}
         - name: PUPPETEER_REPLAY_SERVICE_URL
-          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.puppeteerReplayServiceUrl
-            }}
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.puppeteerReplayServiceUrl }}
+        - name: THREAT_DETECTION_BACKEND_URL
+          value: {{ quote .Values.dashboard.aktoApiSecurityDashboard.env.threatDetectionBackendUrl }}
         - name: AKTO_MONGO_CONN
-          value: {{ quote .Values.mongo.aktoMongoConn
-            }}
+          {{- if .Values.mongo.useKeyVault }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mongo.secretName }}
+              key: {{ .Values.mongo.secretKey | default "aktoMongoConn" }}
+          {{- else }}
+          value: {{ quote .Values.mongo.aktoMongoConn }}
+          {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.dashboard.aktoApiSecurityDashboard.image.repository }}:{{ .Values.dashboard.aktoApiSecurityDashboard.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.dashboard.aktoApiSecurityDashboard.image.repository }}:{{ .Values.dashboard.aktoApiSecurityDashboard.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.dashboard.aktoApiSecurityDashboard.imagePullPolicy }}
         name: akto-api-security-dashboard
         ports:
         - containerPort: 8080
-        resources: {{- toYaml .Values.dashboard.aktoApiSecurityDashboard.resources |  nindent 10 }}
+        resources: {{- toYaml .Values.dashboard.aktoApiSecurityDashboard.resources | nindent 10 }}
+        {{- if .Values.mongo.useKeyVault }}
+        volumeMounts:
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        {{- end }}
+      {{- if .Values.mongo.useKeyVault }}
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.mongo.secretProviderClass | default "akto-keyvault" }}
+      {{- end }}
+{{- if .Values.testing.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -105,39 +117,39 @@ spec:
         - name: AKTO_INSTANCE_TYPE
           value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoInstanceType }}
         - name: AKTO_KAFKA_BROKER_MAL
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaBrokerMal
-            }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaBrokerMal }}
         - name: AKTO_KAFKA_BROKER_URL
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaBrokerUrl
-            }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaBrokerUrl }}
         - name: AKTO_KAFKA_GROUP_ID_CONFIG
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaGroupIdConfig
-            }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaGroupIdConfig }}
         - name: AKTO_KAFKA_MAX_POLL_RECORDS_CONFIG
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaMaxPollRecordsConfig
-            }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaMaxPollRecordsConfig }}
         - name: AKTO_KAFKA_TOPIC_NAME
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaTopicName
-            }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoKafkaTopicName }}
         - name: AKTO_TRAFFIC_BATCH_SIZE
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoTrafficBatchSize
-            }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoTrafficBatchSize }}
         - name: AKTO_TRAFFIC_BATCH_TIME_SECS
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoTrafficBatchTimeSecs
-            }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.aktoTrafficBatchTimeSecs }}
         - name: PUPPETEER_REPLAY_SERVICE_URL
-          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.puppeteerReplayServiceUrl
-            }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.puppeteerReplayServiceUrl }}
         - name: AKTO_MONGO_CONN
+          {{- if .Values.mongo.useKeyVault }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mongo.secretName }}
+              key: {{ .Values.mongo.secretKey | default "aktoMongoConn" }}
+          {{- else }}
           value: {{ quote .Values.mongo.aktoMongoConn }}
+          {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.testing.aktoApiSecurityTesting.image.repository }}:{{ .Values.testing.aktoApiSecurityTesting.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.testing.aktoApiSecurityTesting.image.repository }}:{{ .Values.testing.aktoApiSecurityTesting.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.testing.aktoApiSecurityTesting.imagePullPolicy }}
         name: akto-api-security-testing
-        resources: {{- toYaml .Values.testing.aktoApiSecurityTesting.resources |  nindent 10 }}
+        resources: {{- toYaml .Values.testing.aktoApiSecurityTesting.resources | nindent 10 }}
       restartPolicy: Always
+{{- end }}
+{{- if .Values.keel.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -194,8 +206,7 @@ spec:
           value: {{ quote .Values.keel.keel.env.insecureRegistry }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.keel.keel.image.repository }}:{{ .Values.keel.keel.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.keel.keel.image.repository }}:{{ .Values.keel.keel.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.keel.keel.imagePullPolicy }}
         livenessProbe:
           httpGet:
@@ -208,3 +219,4 @@ spec:
         - containerPort: 9300
         resources: {{- toYaml .Values.keel.keel.resources | nindent 10 }}
       serviceAccountName: {{ include "akto.fullname" . }}-keel
+{{- end }}

@@ -51,8 +51,18 @@ Note: Please ensure your K8S cluster has connectivity to Mongo.
 1. Add Akto repo
    ```helm repo add  akto https://akto-api-security.github.io/helm-charts```
 2. Install Akto via helm
-   ```helm install akto akto/akto -n dev --set mongo.aktoMongoConn="<AKTO_CONNECTION_STRING>"```
-3. Run `kubectl get pods -n <NAMESPACE>` and verify you can see 4 pods
+   ```helm install akto akto/akto-dashboard -n dev --create-namespace --set mongo.aktoMongoConn="<AKTO_CONNECTION_STRING>"```
+3. Run `kubectl get pods -n <NAMESPACE>` and verify the dashboard pod is `Running`
+
+### On-prem with Azure Key Vault
+
+If you're deploying on-prem (e.g. Azure Cosmos DB + AKS/k3s) and want the Mongo connection string pulled from Azure Key Vault instead of passed in plain text:
+
+```
+--set mongo.useKeyVault=true --set mongo.secretProviderClass=<your-SecretProviderClass-name>
+```
+
+`onPrem.enabled` and `mongo.useKeyVault` default to `true`. Set them to `false` to use the plain `mongo.aktoMongoConn` flow above instead. See `values.yaml` for all flags (`testing.enabled`, `keel.enabled`, `csiDriver.install`).
    <img width="862" alt="Screenshot 2023-11-16 at 10 08 23 AM" src="https://github.com/akto-api-security/Documentation/assets/91221068/3a5a4d26-3305-4eb2-94f9-ae598817252d">
 
 ### Verify Installation and harden security

@@ -1,5 +1,19 @@
 mongo:
   aktoMongoConn: ""
+  # Set to false to pass the connection string directly via aktoMongoConn above.
+  useKeyVault: true
+  secretName: akto-secrets
+  secretKey: aktoMongoConn
+  secretProviderClass: akto-keyvault
+
+onPrem:
+  # Set to false for local_deploy mode.
+  enabled: true
+
+csiDriver:
+  # Set to true to install Azure Key Vault CSI drivers as part of this chart.
+  # Set to false if CSI drivers are already installed cluster-wide.
+  install: false
 
 dashboard:
   aktoApiSecurityDashboard:
@@ -15,9 +29,12 @@ dashboard:
       aktoTrafficBatchSize: "100"
       aktoTrafficBatchTimeSecs: "10"
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+      # URL of the threat detection backend service. Override to point at a
+      # self-hosted akto-threat-backend deployment instead of Akto's SaaS backend.
+      threatDetectionBackendUrl: https://tbs.akto.io
     image:
       repository: aktosecurity/akto-api-security-dashboard
-      tag: local
+      tag: latest
     imagePullPolicy: Always
     resources:
       requests:
@@ -31,8 +48,10 @@ dashboard:
     targetPort: 8080
   replicas: 1
   type: LoadBalancer
-kubernetesClusterDomain: cluster.local
+
 testing:
+  # Set to true to deploy the testing service alongside the dashboard.
+  enabled: false
   aktoApiSecurityTesting:
     env:
       aktoAccountName: Helios
@@ -60,6 +79,8 @@ testing:
   replicas: 1
 
 keel:
+  # Set to true to also deploy Keel for auto image updates.
+  enabled: false
   keel:
     env:
       awsAccessKeyId: ""
@@ -97,3 +118,4 @@ keel:
     annotations: {}
   type: LoadBalancer
 
+kubernetesClusterDomain: cluster.local
