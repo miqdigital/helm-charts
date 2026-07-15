@@ -1,10 +1,10 @@
-# Akto Mini-Runtime
+# Akto Runtime
 
 Helm chart for installing Akto's hybrid runtime, with a bundled Kafka broker co-located in the same pod. No Keel, no threat detection client, no Redis — for threat detection, see [`akto-threat-client`](../akto-threat-client/README.md).
 
 ## Resources
 Akto's Helm chart repo is on GitHub [here](https://github.com/akto-api-security/helm-charts).
-You can also find Akto mini-runtime on Helm.sh [here](https://artifacthub.io/packages/helm/akto/akto-mini-runtime).
+You can also find Akto mini-runtime on Helm.sh [here](https://artifacthub.io/packages/helm/akto/akto-runtime).
 
 ## Prerequisites
 Please ensure you have the following -
@@ -21,7 +21,7 @@ Please ensure you have the following -
    ```
 2. Install the chart
    ```bash
-   helm install akto-mini-runtime akto/akto-mini-runtime -n dev --create-namespace \
+   helm install akto-mini-runtime akto/akto-runtime -n dev --create-namespace \
      --set mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorToken="<your-database-abstractor-token>"
    ```
 3. Run `kubectl get pods -n <NAMESPACE>` and verify the mini-runtime pod is `Running` (2 containers: the runtime app + its bundled Kafka broker).
@@ -62,8 +62,8 @@ You can add custom Kubernetes annotations to Service, Deployment, and Pod resour
 
 ```bash
 helm repo update
-helm show chart akto/akto-mini-runtime
-helm upgrade akto-mini-runtime akto/akto-mini-runtime -n <namespace> --version <latest-version>
+helm show chart akto/akto-runtime
+helm upgrade akto-mini-runtime akto/akto-runtime -n <namespace> --version <latest-version>
 ```
 
 ## Get Support for your Akto setup
