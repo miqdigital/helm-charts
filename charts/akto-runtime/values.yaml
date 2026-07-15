@@ -1,5 +1,18 @@
 kubernetesClusterDomain: cluster.local
 
+# Azure Key Vault (via the CSI driver) for pulling secrets instead of plain
+# values or a pre-existing K8s Secret. Set enabled: true and point
+# secretProviderClass at your SecretProviderClass; secretKeys maps each
+# secret to the key name inside the Key Vault-synced K8s Secret.
+keyVault:
+  enabled: false
+  secretName: akto-secrets
+  secretProviderClass: akto-keyvault
+  secretKeys:
+    databaseAbstractorToken: databaseAbstractorToken
+    kafkaSaslUsername: kafkaSaslUsername
+    kafkaSaslPassword: kafkaSaslPassword
+
 # Busybox image for init containers
 busybox:
   image:

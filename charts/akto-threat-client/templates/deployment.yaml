@@ -64,7 +64,18 @@ spec:
             {{- end }}
             echo "JAAS config generated successfully"
         env:
-        {{- if .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
+        {{- if .Values.keyVault.enabled }}
+        - name: KAFKA_SASL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+        - name: KAFKA_SASL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+        {{- else if .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
         - name: KAFKA_SASL_USERNAME
           valueFrom:
             secretKeyRef:
@@ -100,16 +111,35 @@ spec:
         - name: AKTO_THREAT_DETECTION_POSTGRES
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresUrl }}
         - name: AKTO_THREAT_DETECTION_POSTGRES_USER
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.postgresUser }}
+          {{- else }}
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresUser }}
+          {{- end }}
         - name: AKTO_THREAT_DETECTION_POSTGRES_PASSWORD
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.postgresPassword }}
+          {{- else }}
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresPassword
             }}
+          {{- end }}
         - name: AKTO_TRAFFIC_KAFKA_BOOTSTRAP_SERVER
           value: {{ if .Values.threat_client.useExternalKafka }}{{ quote .Values.threat_client.externalKafka.brokerUrl }}{{ else }}"localhost:29092"{{ end }}
         - name: AKTO_INTERNAL_KAFKA_BOOTSTRAP_SERVER
           value: {{ if .Values.threat_client.useExternalKafka }}{{ quote .Values.threat_client.externalKafka.brokerUrl }}{{ else }}"localhost:29092"{{ end }}
         - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
-            {{- if .Values.threat_client.aktoApiSecurityThreatClient.env.useSecretsForDatabaseAbstractorToken }}
+            {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.databaseAbstractorToken }}
+            {{- else if .Values.threat_client.aktoApiSecurityThreatClient.env.useSecretsForDatabaseAbstractorToken }}
           valueFrom:
             secretKeyRef:
               key: token
@@ -118,7 +148,12 @@ spec:
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorToken }}
             {{- end }}
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
-            {{- if .Values.threat_client.aktoApiSecurityThreatClient.env.useSecretsForDatabaseAbstractorToken }}
+            {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.databaseAbstractorToken }}
+            {{- else if .Values.threat_client.aktoApiSecurityThreatClient.env.useSecretsForDatabaseAbstractorToken }}
           valueFrom:
             secretKeyRef:
               key: token
@@ -147,7 +182,28 @@ spec:
         - name: AKTO_KAFKA_SECURITY_PROTOCOL
           value: {{ quote .Values.threat_client.externalKafka.securityProtocol }}
         {{- end }}
-        {{- if and .Values.threat_client.kafka1.useSasl .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
+        {{- if .Values.keyVault.enabled }}
+        - name: KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+        - name: KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+        - name: AKTO_KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+        - name: AKTO_KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+        {{- else if and .Values.threat_client.kafka1.useSasl .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
         - name: KAFKA_USERNAME
           valueFrom:
             secretKeyRef:
@@ -183,6 +239,12 @@ spec:
         imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
         name: akto-api-security-threat-client
         resources: {{- toYaml .Values.threat_client.aktoApiSecurityThreatClient.resources |  nindent 10 }}
+        {{- if .Values.keyVault.enabled }}
+        volumeMounts:
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        {{- end }}
 
       {{- if not .Values.threat_client.useExternalKafka }}
       - env:
@@ -299,7 +361,12 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         {{- if and .Values.threat_client.kafka1.useSasl (or (eq .Values.threat_client.kafka1.env.saslMechanism "SCRAM-SHA-256") (eq .Values.threat_client.kafka1.env.saslMechanism "SCRAM-SHA-512")) }}
         - name: KAFKA_SCRAM_USERNAME
-          {{- if .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+          {{- else if .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
           valueFrom:
             secretKeyRef:
               name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
@@ -308,7 +375,12 @@ spec:
           value: {{ quote .Values.threat_client.kafka1.env.saslUsername }}
           {{- end }}
         - name: KAFKA_SCRAM_PASSWORD
-          {{- if .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+          {{- else if .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
           valueFrom:
             secretKeyRef:
               name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
@@ -392,4 +464,12 @@ spec:
       - name: kafka-certs
         secret:
           secretName: {{ quote .Values.threat_client.kafka1.env.sslSecretName }}
+      {{- end }}
+      {{- if .Values.keyVault.enabled }}
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.keyVault.secretProviderClass | default "akto-keyvault" }}
       {{- end }}

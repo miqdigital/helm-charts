@@ -45,6 +45,16 @@ If you already have a Kafka broker (e.g. from an `akto-mini-runtime` install in 
 --set threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorTokenSecrets.token="<your-database-abstractor-token>"
 ```
 
+## Pulling secrets from Azure Key Vault
+
+If you want the database abstractor token, Postgres credentials, and Kafka SASL credentials pulled from Azure Key Vault (via the CSI driver) instead of passed as plain text or a pre-existing K8s Secret:
+
+```bash
+--set keyVault.enabled=true --set keyVault.secretProviderClass=<your-SecretProviderClass-name>
+```
+
+By default this expects a Key Vault-synced K8s Secret named `akto-secrets` with keys `databaseAbstractorToken`, `postgresUser`, `postgresPassword`, `kafkaSaslUsername`, and `kafkaSaslPassword` — override `keyVault.secretName` / `keyVault.secretKeys.*` if your SecretProviderClass uses different names.
+
 ## Configuring Annotations
 
 You can add custom Kubernetes annotations to Service, Deployment, and Pod resources for `threat_client`:
