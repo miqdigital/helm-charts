@@ -216,7 +216,7 @@ embedder:
   replicas: 1
   image:
     repository: aktosecurity/akto-agent-guard-embedder
-    tag: latest
+    tag: local
     pullPolicy: IfNotPresent
   service:
     port: 8094
@@ -255,7 +255,7 @@ anonymizer:
   replicas: 1
   image:
     repository: aktosecurity/akto-agent-guard-anonymizer
-    tag: latest
+    tag: local
     pullPolicy: IfNotPresent
   service:
     port: 8093
@@ -295,7 +295,7 @@ agentGuard:
   replicas: 1
   image:
     repository: aktosecurity/akto-agent-guard-worker
-    tag: latest
+    tag: local
     pullPolicy: IfNotPresent
   service:
     port: 8090
