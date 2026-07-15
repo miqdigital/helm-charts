@@ -24,7 +24,7 @@ dependencies:
   # match charts/data-ingestion-service/Chart.yaml whenever that chart is
   # released, then re-run `helm dependency update`.
   - name: data-ingestion-service
-    version: "0.1.8-sha"
+    version: "0.1.9-sha"
     repository: "file://../data-ingestion-service"
     alias: ingestion
     condition: ingestion.enabled
