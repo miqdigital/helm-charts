@@ -1,0 +1,29 @@
+{{- if not .Values.threat_client.useExternalKafka }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto.fullname" . }}-threat-client
+  labels:
+  {{- include "akto.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.threat_client.serviceAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- else }}
+    {{- with .Values.threat_client.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- end }}
+spec:
+  type: {{ .Values.threat_client.type }}
+  selector:
+    app: {{ include "akto.fullname" . }}-threat-client
+  {{- include "akto.selectorLabels" . | nindent 4 }}
+  ports:
+  {{- if .Values.threat_client.kafka1.useSasl }}
+  {{- .Values.ports.sasl | toYaml | nindent 4 -}}
+  {{- else if .Values.threat_client.kafka1.useTls }}
+  {{- .Values.ports.tls | toYaml | nindent 4 -}}
+  {{- else }}
+  {{- .Values.ports.default | toYaml | nindent 4 -}}
+  {{- end }}
+{{- end }}

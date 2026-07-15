@@ -10,6 +10,8 @@ keyVault:
   secretProviderClass: akto-keyvault
   secretKeys:
     databaseAbstractorToken: databaseAbstractorToken
+    postgresUser: postgresUser
+    postgresPassword: postgresPassword
     kafkaSaslUsername: kafkaSaslUsername
     kafkaSaslPassword: kafkaSaslPassword
 
@@ -42,13 +44,14 @@ affinity: {}
   #         values:
   #         - coreservices
 
-mini_runtime:
+threat_client:
   # External Kafka Configuration
-  # Set useExternalKafka to true to use an existing Kafka cluster
-  # When enabled, the internal Kafka container will not be deployed
+  # Set useExternalKafka to true to have this threat client read from an
+  # existing Kafka cluster (e.g. the one bundled with an akto-mini-runtime
+  # install) instead of the Kafka broker bundled in this chart.
   useExternalKafka: false
   externalKafka:
-    # Kafka broker URL (e.g., kafka.example.com:9092 or kafka1:9092,kafka2:9092,kafka3:9092)
+    # Kafka broker URL (e.g. <mini-runtime-release>-mini-runtime.<namespace>.svc.cluster.local:9092)
     brokerUrl: ""
     # SASL authentication (leave empty for no authentication)
     username: ""
@@ -56,31 +59,26 @@ mini_runtime:
     # SASL mechanism for external Kafka: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
     saslMechanism: "SCRAM-SHA-256"
     # SSL/TLS configuration for external Kafka
-    # Set to true if connecting via SSL/TLS (e.g., MSK with TLS)
     useSsl: false
     # Security protocol: PLAINTEXT, SASL_PLAINTEXT, SASL_SSL, SSL
     securityProtocol: "SASL_SSL"
 
-  aktoApiSecurityRuntime:
+  replicas: 1
+
+  aktoApiSecurityThreatClient:
     env:
+      enabled: true
+      postgresUrl: jdbc:postgresql://postgres.default.svc.cluster.local:5432/akto
+      postgresUser: akto
+      postgresPassword: akto
       aktoAccountName: Helios
       aktoConfigName: staging
       aktoInstanceType: DASHBOARD
-      aktoKafkaBrokerMal: localhost:29092
-      aktoKafkaBrokerUrl: 127.0.0.1:29092
-      aktoKafkaGroupIdConfig: asdf
-      aktoKafkaMaxPollRecordsConfig: "100"
-      aktoKafkaTopicName: akto.api.logs
-      aktoTrafficBatchSize: "100"
-      aktoTrafficBatchTimeSecs: "10"
-      aktoLogLevel: WARN
-      aktoRunMcpJobs: "true"
-      # Enable sending traffic to threat detection (runtime reads SEND_TO_THREAT_ENABLED env)
-      sendToThreatEnabled: "false"
-      puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+      backendUrl: https://tbs.akto.io
+      aktoLogLevel: INFO
       useHostName: true
       databaseAbstractorUrl: https://cyborg.akto.io
-      # If you want to use secrets to store database abstractor token. default: false
+      # If you want to use secrets to store the database abstractor token. default: false
       useSecretsForDatabaseAbstractorToken: false
       # If not using secrets, place token here.
       databaseAbstractorToken: ""
@@ -91,23 +89,24 @@ mini_runtime:
         # Token to use if existingSecret is not provided
         token: ""
     image:
-      repository: public.ecr.aws/aktosecurity/akto-api-security-mini-runtime
+      repository: public.ecr.aws/aktosecurity/akto-threat-detection
       tag: latest
     imagePullPolicy: Always
     resources:
       requests:
-        cpu: 1
+        cpu: 1.5
         memory: "2Gi"
       limits:
-        cpu: 2
-        memory: "4Gi"
+        cpu: 1.5
+        memory: "2.5Gi"
+
   kafka1:
     env:
       # add advertised listeners if you want to override the default listeners
       kafkaAdvertisedListeners: ""
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
-      kafkaCreateTopics: akto.api.logs:3:3
+      kafkaCreateTopics: akto.threat_detection.alerts:3:3
       kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
       kafkaListenerSecurityProtocolMap: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
       kafkaListenerSecurityProtocolMapSsl: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED:SSL
@@ -126,7 +125,7 @@ mini_runtime:
       kafkaOffsetsTopicReplicationFactor: "1"
       kafkaTransactionStateLogMinIsr: "1"
       kafkaTransactionStateLogReplicationFactor: "1"
-      kafkaClusterId: "c6a1b8e2-4f2a-4b2a-9c3f-1a2b3c4d5e6f"
+      kafkaClusterId: "a1b2c3d4-5e6f-4a1b-8c2d-3e4f5a6b7c8d"
       sslKeystoreLocation: "/etc/kafka/ssl/secrets/server.keystore.jks"
       sslKeystorePassword: "password"
       sslKeyPassword: "password"
@@ -146,7 +145,6 @@ mini_runtime:
     useTls: false
     useSasl: false
     # Auto-format storage with SCRAM on first deployment (single helm install)
-    # When enabled, Kafka will format storage with SCRAM user on first run
     # Requires persistence.enabled: true
     autoFormatWithScram: false
     image:
@@ -154,15 +152,14 @@ mini_runtime:
       tag: 8.2.2-1-ubi9
     resources:
       requests:
-        cpu: 1.5
-        memory: "4Gi"
+        cpu: 1
+        memory: "2Gi"
         ephemeral-storage: "500Mi"
       limits:
-        cpu: 1.5
-        memory: "4Gi"
-        ephemeral-storage: "11Gi"
+        cpu: 1
+        memory: "2Gi"
+        ephemeral-storage: "4Gi"
 
-  replicas: 1
   type: ClusterIP
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"

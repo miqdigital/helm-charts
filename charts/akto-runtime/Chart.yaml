@@ -1,13 +1,13 @@
 apiVersion: v2
-name: akto-runtime
-description: Helm chart for installing Akto
+name: akto-mini-runtime
+description: Helm chart for installing Akto hybrid runtime
 type: application
-version: 0.1.7
-appVersion: "0.1.7"
+version: 0.7.22
+appVersion: "0.7.22"
 home: https://www.akto.io
 icon: https://akto-setup.s3.amazonaws.com/templates/128x128.png
 sources:
-  - https://github.com/akto-api-security/helm-charts/tree/master/charts/akto-runtime
+  - https://github.com/akto-api-security/helm-charts/tree/master/charts/mini-runtime
 keywords:
   - akto
   - api

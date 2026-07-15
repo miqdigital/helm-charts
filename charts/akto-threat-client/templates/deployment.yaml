@@ -1,0 +1,475 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto.fullname" . }}-threat-client
+  labels:
+  {{- include "akto.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.threat_client.deploymentAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.threat_client.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "akto.fullname" . }}-threat-client
+    {{- include "akto.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "akto.fullname" . }}-threat-client
+      {{- include "akto.selectorLabels" . | nindent 8 }}
+      annotations:
+        {{- with .Values.threat_client.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if and (not .Values.threat_client.useExternalKafka) .Values.threat_client.kafka1.useSasl }}
+      initContainers:
+      - name: generate-jaas-config
+        image: {{ .Values.busybox.image.repository }}@{{ .Values.busybox.image.digest }}
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            mkdir -p /etc/kafka/secrets
+            {{- if eq .Values.threat_client.kafka1.env.saslMechanism "PLAIN" }}
+            cat > /etc/kafka/secrets/kafka_server_jaas.conf <<EOF
+            KafkaServer {
+              org.apache.kafka.common.security.plain.PlainLoginModule required
+              username="${KAFKA_SASL_USERNAME}"
+              password="${KAFKA_SASL_PASSWORD}"
+              user_${KAFKA_SASL_USERNAME}="${KAFKA_SASL_PASSWORD}";
+            };
+            EOF
+            {{- else }}
+            cat > /etc/kafka/secrets/kafka_server_jaas.conf <<EOF
+            KafkaServer {
+              org.apache.kafka.common.security.scram.ScramLoginModule required
+              username="${KAFKA_SASL_USERNAME}"
+              password="${KAFKA_SASL_PASSWORD}";
+            };
+            EOF
+            {{- end }}
+            echo "JAAS config generated successfully"
+        env:
+        {{- if .Values.keyVault.enabled }}
+        - name: KAFKA_SASL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+        - name: KAFKA_SASL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+        {{- else if .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
+        - name: KAFKA_SASL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
+              key: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.username }}
+        - name: KAFKA_SASL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
+              key: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.password }}
+        {{- else }}
+        - name: KAFKA_SASL_USERNAME
+          value: {{ quote .Values.threat_client.kafka1.env.saslUsername }}
+        - name: KAFKA_SASL_PASSWORD
+          value: {{ quote .Values.threat_client.kafka1.env.saslPassword }}
+        {{- end }}
+        volumeMounts:
+        - name: kafka-jaas-config
+          mountPath: /etc/kafka/secrets
+      {{- end }}
+      containers:
+      - env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: RUNTIME_MODE
+          value: "hybrid"
+        - name: AKTO_THREAT_DETECTION_POSTGRES
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresUrl }}
+        - name: AKTO_THREAT_DETECTION_POSTGRES_USER
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.postgresUser }}
+          {{- else }}
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresUser }}
+          {{- end }}
+        - name: AKTO_THREAT_DETECTION_POSTGRES_PASSWORD
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.postgresPassword }}
+          {{- else }}
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.postgresPassword
+            }}
+          {{- end }}
+        - name: AKTO_TRAFFIC_KAFKA_BOOTSTRAP_SERVER
+          value: {{ if .Values.threat_client.useExternalKafka }}{{ quote .Values.threat_client.externalKafka.brokerUrl }}{{ else }}"localhost:29092"{{ end }}
+        - name: AKTO_INTERNAL_KAFKA_BOOTSTRAP_SERVER
+          value: {{ if .Values.threat_client.useExternalKafka }}{{ quote .Values.threat_client.externalKafka.brokerUrl }}{{ else }}"localhost:29092"{{ end }}
+        - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
+            {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.databaseAbstractorToken }}
+            {{- else if .Values.threat_client.aktoApiSecurityThreatClient.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-threat-client" (include "akto.fullname" .) ) }}
+            {{- else }}
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorToken }}
+            {{- end }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+            {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.databaseAbstractorToken }}
+            {{- else if .Values.threat_client.aktoApiSecurityThreatClient.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-threat-client" (include "akto.fullname" .) ) }}
+            {{- else }}
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorToken }}
+            {{- end }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorUrl }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoLogLevel }}
+        - name: AKTO_THREAT_PROTECTION_BACKEND_URL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendUrl }}
+        - name: AGGREGATION_RULES_ENABLED
+          value: "false"
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if or .Values.threat_client.kafka1.useSasl (and .Values.threat_client.useExternalKafka .Values.threat_client.externalKafka.username) }}
+        - name: AKTO_KAFKA_SASL_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_SASL_MECHANISM
+          value: {{ if .Values.threat_client.useExternalKafka }}{{ quote .Values.threat_client.externalKafka.saslMechanism }}{{ else }}{{ quote .Values.threat_client.kafka1.env.saslMechanism }}{{ end }}
+        - name: KAFKA_AUTH_ENABLED
+          value: "true"
+        {{- if .Values.threat_client.useExternalKafka }}
+        - name: AKTO_KAFKA_SECURITY_PROTOCOL
+          value: {{ quote .Values.threat_client.externalKafka.securityProtocol }}
+        {{- end }}
+        {{- if .Values.keyVault.enabled }}
+        - name: KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+        - name: KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+        - name: AKTO_KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+        - name: AKTO_KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+        {{- else if and .Values.threat_client.kafka1.useSasl .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
+        - name: KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
+              key: username
+        - name: KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
+              key: password
+        - name: AKTO_KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
+              key: username
+        - name: AKTO_KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
+              key: password
+        {{- else }}
+        - name: KAFKA_USERNAME
+          value: {{ if .Values.threat_client.useExternalKafka }}{{ quote .Values.threat_client.externalKafka.username }}{{ else }}{{ quote .Values.threat_client.kafka1.env.saslUsername }}{{ end }}
+        - name: KAFKA_PASSWORD
+          value: {{ if .Values.threat_client.useExternalKafka }}{{ quote .Values.threat_client.externalKafka.password }}{{ else }}{{ quote .Values.threat_client.kafka1.env.saslPassword }}{{ end }}
+        - name: AKTO_KAFKA_USERNAME
+          value: {{ if .Values.threat_client.useExternalKafka }}{{ quote .Values.threat_client.externalKafka.username }}{{ else }}{{ quote .Values.threat_client.kafka1.env.saslUsername }}{{ end }}
+        - name: AKTO_KAFKA_PASSWORD
+          value: {{ if .Values.threat_client.useExternalKafka }}{{ quote .Values.threat_client.externalKafka.password }}{{ else }}{{ quote .Values.threat_client.kafka1.env.saslPassword }}{{ end }}
+        {{- end }}
+        {{- end }}
+        image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}{{ if .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}@{{ .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}{{ else }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag | default .Chart.AppVersion }}{{ end }}
+        imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
+        name: akto-api-security-threat-client
+        resources: {{- toYaml .Values.threat_client.aktoApiSecurityThreatClient.resources |  nindent 10 }}
+        {{- if .Values.keyVault.enabled }}
+        volumeMounts:
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        {{- end }}
+
+      {{- if not .Values.threat_client.useExternalKafka }}
+      - env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: >-
+            {{- if .Values.threat_client.kafka1.env.kafkaAdvertisedListeners }}
+              {{ .Values.threat_client.kafka1.env.kafkaAdvertisedListeners }}
+            {{- else if and .Values.threat_client.kafka1.useSasl .Values.threat_client.kafka1.useTls }}
+              LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ include "akto.fullname" . }}-threat-client.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.ports.sasl 1).port }}, LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://localhost:29092
+            {{- else if .Values.threat_client.kafka1.useSasl }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ include "akto.fullname" . }}-threat-client.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.ports.sasl 0).port }}
+            {{- else if .Values.threat_client.kafka1.useTls }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ include "akto.fullname" . }}-threat-client.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.ports.tls 0).port }},LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED://{{ include "akto.fullname" . }}-threat-client.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.ports.tls 1).port }}
+            {{- else }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ include "akto.fullname" . }}-threat-client.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.ports.default 0).port }}
+            {{- end }}
+        - name: KAFKA_BROKER_ID
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaBrokerId }}
+        - name: KAFKA_CLEANUP_POLICY
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaCleanupPolicy }}
+        - name: KAFKA_CREATE_TOPICS
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaCreateTopics }}
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: >-
+            {{- if .Values.threat_client.kafka1.env.kafkaAdvertisedListeners }}
+              {{ .Values.threat_client.kafka1.env.kafkaInterBrokerListenerName }}
+            {{- else if .Values.threat_client.kafka1.useSasl }}
+              LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL
+            {{- else if .Values.threat_client.kafka1.useTls }}
+              LISTENER_DOCKER_EXTERNAL_DIFFHOST
+            {{- else }}
+              {{ .Values.threat_client.kafka1.env.kafkaInterBrokerListenerName }}
+            {{- end }}
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: >-
+            {{- if and .Values.threat_client.kafka1.useSasl .Values.threat_client.kafka1.useTls }}
+              {{ .Values.threat_client.kafka1.env.kafkaListenerSecurityProtocolMapSaslTls }}
+            {{- else if .Values.threat_client.kafka1.useSasl }}
+              {{ .Values.threat_client.kafka1.env.kafkaListenerSecurityProtocolMapSasl }}
+            {{- else if .Values.threat_client.kafka1.useTls }}
+              {{ .Values.threat_client.kafka1.env.kafkaListenerSecurityProtocolMapSsl }}
+            {{- else }}
+              {{ .Values.threat_client.kafka1.env.kafkaListenerSecurityProtocolMap }}
+            {{- end }}
+        - name: KAFKA_PROCESS_ROLES
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaProcessRoles }}
+        - name: KAFKA_NODE_ID
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaNodeId }}
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaControllerQuorumVoters }}
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaControllerListenerNames }}
+        - name: KAFKA_LISTENERS
+          value: >-
+            {{- if .Values.threat_client.kafka1.env.kafkaListeners }}
+              {{ .Values.threat_client.kafka1.env.kafkaListeners }}
+            {{- else if and .Values.threat_client.kafka1.useSasl .Values.threat_client.kafka1.useTls }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://0.0.0.0:9093
+            {{- else if .Values.threat_client.kafka1.useSasl }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://0.0.0.0:9092
+            {{- else if .Values.threat_client.kafka1.useTls }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED://0.0.0.0:9093
+            {{- else }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:9092
+            {{- end }}
+        - name: KAFKA_LOG_CLEANER_ENABLE
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaLogCleanerEnable }}
+        - name: KAFKA_LOG_RETENTION_BYTES
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaLogRetentionBytes }}
+        - name: KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaLogRetentionCheckIntervalMs }}
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaLogRetentionHours }}
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaLogSegmentBytes }}
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaOffsetsTopicReplicationFactor
+            }}
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaTransactionStateLogMinIsr }}
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaTransactionStateLogReplicationFactor
+            }}
+        - name: CLUSTER_ID
+          value: {{ quote .Values.threat_client.kafka1.env.kafkaClusterId }}
+
+        {{- if .Values.threat_client.kafka1.useTls }}
+        - name: KAFKA_SSL_KEYSTORE_LOCATION
+          value: {{ quote .Values.threat_client.kafka1.env.sslKeystoreLocation }}
+        - name: KAFKA_SSL_KEYSTORE_PASSWORD
+          value: {{ quote .Values.threat_client.kafka1.env.sslKeystorePassword }}
+        - name: KAFKA_SSL_KEY_PASSWORD
+          value: {{ quote .Values.threat_client.kafka1.env.sslKeyPassword }}
+        - name: KAFKA_SSL_TRUSTSTORE_LOCATION
+          value: {{ quote .Values.threat_client.kafka1.env.sslTruststoreLocation }}
+        - name: KAFKA_SSL_TRUSTSTORE_PASSWORD
+          value: {{ quote .Values.threat_client.kafka1.env.sslTruststorePassword }}
+        {{- end }}
+
+        {{- if .Values.threat_client.kafka1.useSasl }}
+        - name: KAFKA_OPTS
+          value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
+        - name: KAFKA_SASL_ENABLED_MECHANISMS
+          value: {{ quote .Values.threat_client.kafka1.env.saslMechanism }}
+        - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
+          value: {{ quote .Values.threat_client.kafka1.env.saslMechanism }}
+        {{- end }}
+
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if and .Values.threat_client.kafka1.useSasl (or (eq .Values.threat_client.kafka1.env.saslMechanism "SCRAM-SHA-256") (eq .Values.threat_client.kafka1.env.saslMechanism "SCRAM-SHA-512")) }}
+        - name: KAFKA_SCRAM_USERNAME
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+          {{- else if .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
+              key: username
+          {{- else }}
+          value: {{ quote .Values.threat_client.kafka1.env.saslUsername }}
+          {{- end }}
+        - name: KAFKA_SCRAM_PASSWORD
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+          {{- else if .Values.threat_client.kafka1.env.useSecretsForSaslCredentials }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.threat_client.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
+              key: password
+          {{- else }}
+          value: {{ quote .Values.threat_client.kafka1.env.saslPassword }}
+          {{- end }}
+        - name: KAFKA_SCRAM_MECHANISM
+          value: {{ quote .Values.threat_client.kafka1.env.saslMechanism }}
+        {{- end }}
+        image: {{ .Values.threat_client.kafka1.image.repository }}{{ if .Values.threat_client.kafka1.image.digest }}@{{ .Values.threat_client.kafka1.image.digest }}{{ else }}:{{ .Values.threat_client.kafka1.image.tag | default .Chart.AppVersion }}{{ end }}
+        {{- if .Values.threat_client.kafka1.autoFormatWithScram }}
+        command:
+          - bash
+          - -c
+          - |
+            # Auto-format storage with SCRAM credentials on first deployment
+            if [ ! -f /var/lib/kafka/data/.kafka-formatted ]; then
+              echo "========================================================================"
+              echo "FIRST TIME DEPLOYMENT - Formatting Kafka storage with SCRAM user"
+              echo "========================================================================"
+              echo "Cluster ID: ${CLUSTER_ID}"
+              echo "SCRAM Username: ${KAFKA_SCRAM_USERNAME}"
+              echo "SCRAM Mechanism: ${KAFKA_SCRAM_MECHANISM}"
+              echo ""
+
+              echo "Generating Kafka configuration..."
+              /etc/confluent/docker/configure
+
+              echo "Formatting storage with SCRAM user..."
+              kafka-storage format \
+                --config /etc/kafka/kafka.properties \
+                --cluster-id "${CLUSTER_ID}" \
+                --add-scram "${KAFKA_SCRAM_MECHANISM}=[name=${KAFKA_SCRAM_USERNAME},password=${KAFKA_SCRAM_PASSWORD}]" || {
+                  echo "ERROR: Failed to format storage with SCRAM"
+                  exit 1
+                }
+
+              touch /var/lib/kafka/data/.kafka-formatted
+              echo ""
+              echo "SUCCESS: Storage formatted with SCRAM user!"
+              echo "========================================================================"
+            else
+              echo "========================================================================"
+              echo "Storage already formatted - skipping format step"
+              echo "========================================================================"
+            fi
+
+            echo ""
+            echo "Starting Kafka broker with SASL authentication..."
+            echo "========================================================================"
+
+            exec /etc/confluent/docker/run
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.threat_client.kafka1.useSasl }}
+        - name: kafka-jaas-config
+          mountPath: /etc/kafka/secrets
+        {{- end }}
+        {{- if .Values.threat_client.kafka1.useTls }}
+        - name: kafka-certs
+          mountPath: {{ quote .Values.threat_client.kafka1.env.sslBaseMountPath }}
+        {{- end }}
+
+        name: kafka1
+        ports:
+        - containerPort: 9092
+        - containerPort: 9093
+        - containerPort: 29092
+        - containerPort: 9999
+        resources: {{- toYaml .Values.threat_client.kafka1.resources | nindent 10 }}
+      {{- end }}
+
+      restartPolicy: Always
+      volumes:
+      {{- if and (not .Values.threat_client.useExternalKafka) .Values.threat_client.kafka1.useSasl }}
+      - name: kafka-jaas-config
+        emptyDir: {}
+      {{- end }}
+      {{- if and (not .Values.threat_client.useExternalKafka) .Values.threat_client.kafka1.useTls }}
+      - name: kafka-certs
+        secret:
+          secretName: {{ quote .Values.threat_client.kafka1.env.sslSecretName }}
+      {{- end }}
+      {{- if .Values.keyVault.enabled }}
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.keyVault.secretProviderClass | default "akto-keyvault" }}
+      {{- end }}
