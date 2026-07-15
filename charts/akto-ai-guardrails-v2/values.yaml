@@ -1,0 +1,324 @@
+kubernetesClusterDomain: cluster.local
+
+# Global settings
+global:
+  imagePullSecrets: []
+  storageClass: ""
+
+# Node scheduling shared by every component below
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podSecurityContext: {}
+securityContext: {}
+
+# -----------------------------------------------------------------------------
+# 1. Data Ingestion Service
+# Reused as a local chart dependency (alias "ingestion") rather than duplicated
+# here. Anything under ingestion.dataIngestionService.* maps 1:1 onto that
+# chart's own values.yaml (see charts/data-ingestion-service/values.yaml).
+# By default it's pointed at the bundled guardrailsKafka broker below and
+# produces onto the same topic guardrailsService.kafka consumes from, so HTTP
+# traffic ingested here flows straight into the guardrails pipeline.
+# -----------------------------------------------------------------------------
+ingestion:
+  enabled: true
+  dataIngestionService:
+    env:
+      aktoKafkaTopicName: "akto.guardrails"
+      # Left blank here because subchart values aren't templated - point this at
+      # the guardrails-kafka hostname printed by `helm install --dry-run` / NOTES.txt,
+      # e.g. "<release>-akto-ai-guardrails-v2-guardrails-kafka:9092", or at an
+      # external broker if guardrailsKafka.enabled is false below.
+      aktoKafkaBrokerUrl: ""
+    service:
+      type: ClusterIP
+
+# -----------------------------------------------------------------------------
+# 2 & 3. Guardrails Service - same image deployed twice: once serving HTTP,
+# once as a Kafka consumer. Both talk to the Agent Guard executor for scanning.
+# -----------------------------------------------------------------------------
+guardrailsService:
+  http:
+    enabled: true
+    replicas: 1
+    image:
+      repository: public.ecr.aws/aktosecurity/akto-agent-guard-service
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 9091
+      targetPort: 9091
+    env:
+      aktoApiToken: ""
+      aktoDbAbstractorHost: "cyborg.akto.io"
+      # Left blank = defaults to the bundled agent-guard executor Service (see agent-guard.yaml)
+      aktoAgentGuardUrl: ""
+      aktoThreatDetectionHost: "tbs.akto.io"
+      aktoLlmValidatorHost: "cyborg.akto.io"
+      aktoIngestHost: ""
+      logLevel: info
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2
+        memory: 2Gi
+    livenessProbe:
+      enabled: true
+      httpGet:
+        path: /health
+        port: 9091
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      enabled: true
+      httpGet:
+        path: /health
+        port: 9091
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+  kafka:
+    enabled: true
+    replicas: 1
+    image:
+      repository: public.ecr.aws/aktosecurity/akto-agent-guard-service
+      tag: latest
+      pullPolicy: IfNotPresent
+    env:
+      # Left blank = defaults to the bundled guardrailsKafka broker below
+      kafkaBrokerUrl: ""
+      kafkaTopic: "akto.guardrails"
+      kafkaGroupId: "guardrails-service"
+      kafkaBatchSize: "100"
+      kafkaBatchLingerSec: "5"
+      aktoApiToken: ""
+      aktoDbAbstractorHost: "cyborg.akto.io"
+      logLevel: info
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2
+        memory: 2Gi
+
+# -----------------------------------------------------------------------------
+# 4. Guardrails Kafka - dedicated single-broker Kafka + Zookeeper for the
+# guardrails pipeline. Set enabled: false and point the URLs above at an
+# existing cluster if you'd rather bring your own broker.
+# -----------------------------------------------------------------------------
+guardrailsKafka:
+  enabled: true
+  image:
+    repository: confluentinc/cp-kafka
+    tag: "6.2.1"
+  zookeeperImage:
+    repository: confluentinc/cp-zookeeper
+    tag: "6.2.1"
+  createTopics: "akto.guardrails:3:1"
+  logRetentionHours: "5"
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  zookeeperResources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# -----------------------------------------------------------------------------
+# 5. Redis - dedicated redis-stack-server instance backing Agent Guard's
+# semantic cache. Must stay redis-stack-server (not plain redis/redis): the
+# cache needs the RediSearch module (FT.* commands).
+# -----------------------------------------------------------------------------
+redis:
+  enabled: true
+  image:
+    repository: redis/redis-stack-server
+    tag: "7.4.0-v1"
+  auth:
+    # Leave both blank to auto-generate a password into a chart-managed Secret.
+    # Set existingSecret/existingSecretKey to bring your own instead.
+    password: ""
+    existingSecret: ""
+    existingSecretKey: "redis-password"
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  service:
+    port: 6379
+
+# -----------------------------------------------------------------------------
+# 6. Embedder - model sidecar used by Agent Guard's semantic cache
+# -----------------------------------------------------------------------------
+embedder:
+  enabled: true
+  replicas: 1
+  image:
+    repository: aktosecurity/akto-agent-guard-embedder
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8094
+    targetPort: 8094
+  resources:
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8094
+    initialDelaySeconds: 60
+    periodSeconds: 20
+    timeoutSeconds: 15
+    failureThreshold: 5
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8094
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 5
+
+# -----------------------------------------------------------------------------
+# 7. Anonymizer - PII masking sidecar used by Agent Guard
+# -----------------------------------------------------------------------------
+anonymizer:
+  enabled: true
+  replicas: 1
+  image:
+    repository: aktosecurity/akto-agent-guard-anonymizer
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8093
+    targetPort: 8093
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8093
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 10
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8093
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 5
+
+# -----------------------------------------------------------------------------
+# Agent Guard (executor) - orchestrates the anonymizer + embedder + redis cache
+# to run the guardrail scanners. This is the "agent guard" component.
+# -----------------------------------------------------------------------------
+agentGuard:
+  enabled: true
+  replicas: 1
+  image:
+    repository: aktosecurity/akto-agent-guard-worker
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8090
+    targetPort: 8090
+  env:
+    # Semantic cache mode - see worker-py/src/cache.py, e.g. "read-write"
+    cacheMode: ""
+    databaseAbstractorServiceUrl: ""
+    slackWebhookUrl: ""
+  # Model-provider credentials, injected via a chart-managed Secret. Leave a
+  # field blank to skip that provider - never commit real values here, pass
+  # them with -f custom-values.yaml or --set at install time.
+  secrets:
+    qwen3guardSaKeyJson: ""
+    qwen3guardProject: ""
+    qwen3guardLocation: ""
+    qwen3guardEndpointId: ""
+    qwen3guardDedicatedDns: ""
+    gemmaVertexSaKeyJson: ""
+    gemmaVertexProject: ""
+    gemmaVertexLocation: ""
+    gemmaVertexEndpointId: ""
+    gemmaVertexDedicatedDns: ""
+    anthropicApiKey: ""
+    anthropicModel: ""
+    openaiApiKey: ""
+    openaiModel: ""
+    openaiCompatibleBaseUrl: ""
+    defaultModelConfigJson: ""
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8090
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 5
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8090
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 5

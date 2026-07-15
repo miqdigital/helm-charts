@@ -1,0 +1,185 @@
+{{- if .Values.guardrailsService.http.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-service-http
+  labels:
+    {{- include "akto-ai-guardrails-v2.componentLabels" (list . "guardrails-service-http") | nindent 4 }}
+spec:
+  replicas: {{ .Values.guardrailsService.http.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-ai-guardrails-v2.componentSelectorLabels" (list . "guardrails-service-http") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-ai-guardrails-v2.componentSelectorLabels" (list . "guardrails-service-http") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-ai-guardrails-v2.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: guardrails-service
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.guardrailsService.http.image.repository }}:{{ .Values.guardrailsService.http.image.tag }}"
+        imagePullPolicy: {{ .Values.guardrailsService.http.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.guardrailsService.http.service.targetPort }}
+          protocol: TCP
+        env:
+        - name: AKTO_API_TOKEN
+          value: {{ quote .Values.guardrailsService.http.env.aktoApiToken }}
+        - name: AKTO_DB_ABSTRACTOR_HOST
+          value: {{ quote .Values.guardrailsService.http.env.aktoDbAbstractorHost }}
+        {{- if .Values.guardrailsService.http.env.aktoAgentGuardUrl }}
+        - name: AKTO_AGENT_GUARD_URL
+          value: {{ quote .Values.guardrailsService.http.env.aktoAgentGuardUrl }}
+        {{- else if .Values.agentGuard.enabled }}
+        - name: AKTO_AGENT_GUARD_URL
+          value: {{ include "akto-ai-guardrails-v2.agentGuard.url" . | quote }}
+        {{- else }}
+        {{- fail "guardrailsService.http.env.aktoAgentGuardUrl must be set when agentGuard.enabled=false" }}
+        {{- end }}
+        - name: AKTO_THREAT_DETECTION_HOST
+          value: {{ quote .Values.guardrailsService.http.env.aktoThreatDetectionHost }}
+        - name: AKTO_LLM_VALIDATOR_HOST
+          value: {{ quote .Values.guardrailsService.http.env.aktoLlmValidatorHost }}
+        {{- if .Values.guardrailsService.http.env.aktoIngestHost }}
+        - name: AKTO_INGEST_HOST
+          value: {{ quote .Values.guardrailsService.http.env.aktoIngestHost }}
+        {{- end }}
+        - name: LOG_LEVEL
+          value: {{ quote .Values.guardrailsService.http.env.logLevel }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if .Values.guardrailsService.http.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.guardrailsService.http.livenessProbe.httpGet.path }}
+            port: {{ .Values.guardrailsService.http.livenessProbe.httpGet.port }}
+          initialDelaySeconds: {{ .Values.guardrailsService.http.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.guardrailsService.http.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.guardrailsService.http.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.guardrailsService.http.livenessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.guardrailsService.http.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.guardrailsService.http.readinessProbe.httpGet.path }}
+            port: {{ .Values.guardrailsService.http.readinessProbe.httpGet.port }}
+          initialDelaySeconds: {{ .Values.guardrailsService.http.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.guardrailsService.http.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.guardrailsService.http.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.guardrailsService.http.readinessProbe.failureThreshold }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.guardrailsService.http.resources | nindent 10 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-service-http
+  labels:
+    {{- include "akto-ai-guardrails-v2.componentLabels" (list . "guardrails-service-http") | nindent 4 }}
+spec:
+  type: {{ .Values.guardrailsService.http.service.type }}
+  ports:
+  - port: {{ .Values.guardrailsService.http.service.port }}
+    targetPort: {{ .Values.guardrailsService.http.service.targetPort }}
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "akto-ai-guardrails-v2.componentSelectorLabels" (list . "guardrails-service-http") | nindent 4 }}
+{{- end }}
+---
+{{- if .Values.guardrailsService.kafka.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-service-kafka
+  labels:
+    {{- include "akto-ai-guardrails-v2.componentLabels" (list . "guardrails-service-kafka") | nindent 4 }}
+spec:
+  replicas: {{ .Values.guardrailsService.kafka.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-ai-guardrails-v2.componentSelectorLabels" (list . "guardrails-service-kafka") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-ai-guardrails-v2.componentSelectorLabels" (list . "guardrails-service-kafka") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-ai-guardrails-v2.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: guardrails-service-kafka
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.guardrailsService.kafka.image.repository }}:{{ .Values.guardrailsService.kafka.image.tag }}"
+        imagePullPolicy: {{ .Values.guardrailsService.kafka.image.pullPolicy }}
+        env:
+        - name: KAFKA_ENABLED
+          value: "true"
+        {{- if .Values.guardrailsService.kafka.env.kafkaBrokerUrl }}
+        - name: KAFKA_BROKER_URL
+          value: {{ quote .Values.guardrailsService.kafka.env.kafkaBrokerUrl }}
+        {{- else if .Values.guardrailsKafka.enabled }}
+        - name: KAFKA_BROKER_URL
+          value: {{ include "akto-ai-guardrails-v2.guardrailsKafka.brokerUrl" . | quote }}
+        {{- else }}
+        {{- fail "guardrailsService.kafka.env.kafkaBrokerUrl must be set when guardrailsKafka.enabled=false" }}
+        {{- end }}
+        - name: KAFKA_TOPIC
+          value: {{ quote .Values.guardrailsService.kafka.env.kafkaTopic }}
+        - name: KAFKA_GROUP_ID
+          value: {{ quote .Values.guardrailsService.kafka.env.kafkaGroupId }}
+        - name: KAFKA_BATCH_SIZE
+          value: {{ quote .Values.guardrailsService.kafka.env.kafkaBatchSize }}
+        - name: KAFKA_BATCH_LINGER_SEC
+          value: {{ quote .Values.guardrailsService.kafka.env.kafkaBatchLingerSec }}
+        - name: AKTO_API_TOKEN
+          value: {{ quote .Values.guardrailsService.kafka.env.aktoApiToken }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ quote .Values.guardrailsService.kafka.env.aktoDbAbstractorHost }}
+        - name: LOG_LEVEL
+          value: {{ quote .Values.guardrailsService.kafka.env.logLevel }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        resources:
+          {{- toYaml .Values.guardrailsService.kafka.resources | nindent 10 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
