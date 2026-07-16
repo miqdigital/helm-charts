@@ -101,6 +101,10 @@ spec:
         - name: THREAT_BACKEND_URL
           value: {{ quote .Values.guardrailsService.http.env.threatBackendUrl }}
         {{- end }}
+        {{- if .Values.guardrailsService.http.env.threatDetectionApiUrl }}
+        - name: THREAT_DETECTION_API_URL
+          value: {{ quote .Values.guardrailsService.http.env.threatDetectionApiUrl }}
+        {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         {{- if .Values.guardrailsService.http.livenessProbe.enabled }}
@@ -285,6 +289,10 @@ spec:
         {{- if .Values.guardrailsService.kafka.env.threatBackendUrl }}
         - name: THREAT_BACKEND_URL
           value: {{ quote .Values.guardrailsService.kafka.env.threatBackendUrl }}
+        {{- end }}
+        {{- if .Values.guardrailsService.kafka.env.threatDetectionApiUrl }}
+        - name: THREAT_DETECTION_API_URL
+          value: {{ quote .Values.guardrailsService.kafka.env.threatDetectionApiUrl }}
         {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
