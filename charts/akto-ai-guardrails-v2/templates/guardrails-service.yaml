@@ -97,6 +97,10 @@ spec:
         {{- end }}
         - name: LOG_LEVEL
           value: {{ quote .Values.guardrailsService.http.env.logLevel }}
+        {{- if .Values.guardrailsService.http.env.threatBackendUrl }}
+        - name: THREAT_BACKEND_URL
+          value: {{ quote .Values.guardrailsService.http.env.threatBackendUrl }}
+        {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         {{- if .Values.guardrailsService.http.livenessProbe.enabled }}
@@ -278,6 +282,10 @@ spec:
         {{- end }}
         - name: LOG_LEVEL
           value: {{ quote .Values.guardrailsService.kafka.env.logLevel }}
+        {{- if .Values.guardrailsService.kafka.env.threatBackendUrl }}
+        - name: THREAT_BACKEND_URL
+          value: {{ quote .Values.guardrailsService.kafka.env.threatBackendUrl }}
+        {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         resources:

@@ -132,6 +132,11 @@ guardrailsService:
       guardrailsValidationTimeoutMs: "40000"
       guardrailsSkipPaths: ""
       logLevel: info
+      # URL of the threat backend the guardrails service reports to. Leave
+      # blank to use the app default (https://tbs.akto.io); set to your own
+      # self-hosted threat backend, e.g.
+      # http://akto-threat-backend-threat-backend.<namespace>.svc.cluster.local:9090
+      threatBackendUrl: ""
     resources:
       requests:
         cpu: 500m
@@ -188,6 +193,11 @@ guardrailsService:
       guardrailsValidationTimeoutMs: "40000"
       guardrailsSkipPaths: ""
       logLevel: info
+      # URL of the threat backend the guardrails service reports to. Leave
+      # blank to use the app default (https://tbs.akto.io); set to your own
+      # self-hosted threat backend, e.g.
+      # http://akto-threat-backend-threat-backend.<namespace>.svc.cluster.local:9090
+      threatBackendUrl: ""
     resources:
       requests:
         cpu: 500m
