@@ -32,6 +32,17 @@ csiDriver:
   # part of this chart. Leave false if already installed cluster-wide.
   install: false
 
+# Values for the nested csi-secrets-store-provider-azure -> secrets-store-csi-driver
+# dependency chain. syncSecret.enabled defaults to false upstream, which mounts
+# the CSI volume fine but never creates the native Kubernetes Secrets our
+# secretObjects blocks rely on (envFrom/secretKeyRef read those Secrets, not
+# the CSI volume directly) - must be true for any of this chart's useKeyVault
+# toggles to actually work.
+csi-secrets-store-provider-azure:
+  secrets-store-csi-driver:
+    syncSecret:
+      enabled: true
+
 keyVault:
   # Name of the SecretProviderClass (created outside this chart) to mount
   # wherever a component below has useKeyVault/useKeyVaultForApiToken: true.
