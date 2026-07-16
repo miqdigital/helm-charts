@@ -2,8 +2,8 @@ apiVersion: v2
 name: akto-ai-guardrails-v2
 description: Helm chart for deploying the full Akto AI Guardrails stack (data ingestion, guardrails service, kafka, redis, embedder, agent guard, anonymizer)
 type: application
-version: 0.1.1
-appVersion: "0.1.1"
+version: 0.1.2
+appVersion: "0.1.2"
 home: https://www.akto.io
 icon: https://akto-setup.s3.amazonaws.com/templates/128x128.png
 sources:
@@ -24,7 +24,7 @@ dependencies:
   # match charts/data-ingestion-service/Chart.yaml whenever that chart is
   # released, then re-run `helm dependency update`.
   - name: data-ingestion-service
-    version: "0.1.9-sha"
+    version: "0.1.10-sha"
     repository: "file://../data-ingestion-service"
     alias: ingestion
     condition: ingestion.enabled
