@@ -49,6 +49,12 @@ keyVault:
 ingestion:
   enabled: true
   dataIngestionService:
+    image:
+      # Overrides the subchart's own pinned-digest default with :latest, scoped
+      # to this stack only - charts/data-ingestion-service's own default.yaml
+      # still uses the pinned digest unchanged for any other consumer.
+      digest: ""
+      tag: "latest"
     env:
       aktoKafkaTopicName: "akto.guardrails"
       # Left blank here because subchart values aren't templated - point this at
