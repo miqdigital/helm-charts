@@ -292,6 +292,8 @@ anonymizer:
     repository: aktosecurity/akto-agent-guard-anonymizer
     tag: local
     pullPolicy: IfNotPresent
+  env:
+    spacyModel: "en_core_web_sm"
   service:
     port: 8093
     targetPort: 8093
