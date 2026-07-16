@@ -86,7 +86,7 @@ guardrailsService:
     replicas: 1
     image:
       repository: public.ecr.aws/aktosecurity/akto-agent-guard-service
-      tag: latest
+      tag: local
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
@@ -152,7 +152,7 @@ guardrailsService:
     replicas: 1
     image:
       repository: public.ecr.aws/aktosecurity/akto-agent-guard-service
-      tag: latest
+      tag: local
       pullPolicy: IfNotPresent
     env:
       # Left blank = defaults to the bundled guardrailsKafka broker below
