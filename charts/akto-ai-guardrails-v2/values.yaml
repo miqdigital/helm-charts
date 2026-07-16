@@ -85,7 +85,7 @@ guardrailsService:
     enabled: true
     replicas: 1
     image:
-      repository: public.ecr.aws/aktosecurity/akto-agent-guard-service
+      repository: aktosecurity/guardrails-service
       tag: local
       pullPolicy: IfNotPresent
     service:
@@ -151,7 +151,7 @@ guardrailsService:
     enabled: true
     replicas: 1
     image:
-      repository: public.ecr.aws/aktosecurity/akto-agent-guard-service
+      repository: aktosecurity/guardrails-service
       tag: local
       pullPolicy: IfNotPresent
     env:
