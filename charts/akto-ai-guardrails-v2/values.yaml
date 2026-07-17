@@ -365,8 +365,8 @@ agentGuard:
   secrets:
     # If true, skip creating the chart-managed Secret entirely and instead
     # read all the fields below from existingSecretName, which must already
-    # contain the same keys (QWEN3GUARD_*, GEMMA_VERTEX_*, ANTHROPIC_*,
-    # OPENAI_*, DEFAULT_MODEL_CONFIG_JSON) - synced there by the
+    # contain the same keys (QWEN3GUARD_*, GEMMA_VERTEX_*, *_FOUNDRY_*,
+    # ANTHROPIC_*, OPENAI_*, DEFAULT_MODEL_CONFIG_JSON) - synced there by the
     # SecretProviderClass named in keyVault.secretProviderClass.
     useKeyVault: false
     existingSecretName: "akto-guardrails-agent-guard-secrets"
@@ -380,6 +380,21 @@ agentGuard:
     gemmaVertexLocation: ""
     gemmaVertexEndpointId: ""
     gemmaVertexDedicatedDns: ""
+    # Azure AI Foundry alternative to the Vertex endpoints above (managed
+    # compute / OpenAI-compatible). BaseUrl + apiKey required per provider;
+    # deployment (azureml-model-deployment header) and model are optional.
+    qwen3guardFoundryBaseUrl: ""
+    qwen3guardFoundryApiKey: ""
+    qwen3guardFoundryDeployment: ""
+    qwen3guardFoundryModel: ""
+    gemmaFoundryBaseUrl: ""
+    gemmaFoundryApiKey: ""
+    gemmaFoundryDeployment: ""
+    gemmaFoundryModel: ""
+    azureFoundryBaseUrl: ""
+    azureFoundryApiKey: ""
+    azureFoundryDeployment: ""
+    azureFoundryModel: ""
     anthropicApiKey: ""
     anthropicModel: ""
     openaiApiKey: ""

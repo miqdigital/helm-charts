@@ -18,6 +18,18 @@ stringData:
   GEMMA_VERTEX_LOCATION: {{ .Values.agentGuard.secrets.gemmaVertexLocation | quote }}
   GEMMA_VERTEX_ENDPOINT_ID: {{ .Values.agentGuard.secrets.gemmaVertexEndpointId | quote }}
   GEMMA_VERTEX_DEDICATED_DNS: {{ .Values.agentGuard.secrets.gemmaVertexDedicatedDns | quote }}
+  QWEN3GUARD_FOUNDRY_BASE_URL: {{ .Values.agentGuard.secrets.qwen3guardFoundryBaseUrl | quote }}
+  QWEN3GUARD_FOUNDRY_API_KEY: {{ .Values.agentGuard.secrets.qwen3guardFoundryApiKey | quote }}
+  QWEN3GUARD_FOUNDRY_DEPLOYMENT: {{ .Values.agentGuard.secrets.qwen3guardFoundryDeployment | quote }}
+  QWEN3GUARD_FOUNDRY_MODEL: {{ .Values.agentGuard.secrets.qwen3guardFoundryModel | quote }}
+  GEMMA_FOUNDRY_BASE_URL: {{ .Values.agentGuard.secrets.gemmaFoundryBaseUrl | quote }}
+  GEMMA_FOUNDRY_API_KEY: {{ .Values.agentGuard.secrets.gemmaFoundryApiKey | quote }}
+  GEMMA_FOUNDRY_DEPLOYMENT: {{ .Values.agentGuard.secrets.gemmaFoundryDeployment | quote }}
+  GEMMA_FOUNDRY_MODEL: {{ .Values.agentGuard.secrets.gemmaFoundryModel | quote }}
+  AZURE_FOUNDRY_BASE_URL: {{ .Values.agentGuard.secrets.azureFoundryBaseUrl | quote }}
+  AZURE_FOUNDRY_API_KEY: {{ .Values.agentGuard.secrets.azureFoundryApiKey | quote }}
+  AZURE_FOUNDRY_DEPLOYMENT: {{ .Values.agentGuard.secrets.azureFoundryDeployment | quote }}
+  AZURE_FOUNDRY_MODEL: {{ .Values.agentGuard.secrets.azureFoundryModel | quote }}
   ANTHROPIC_API_KEY: {{ .Values.agentGuard.secrets.anthropicApiKey | quote }}
   ANTHROPIC_MODEL: {{ .Values.agentGuard.secrets.anthropicModel | quote }}
   OPENAI_API_KEY: {{ .Values.agentGuard.secrets.openaiApiKey | quote }}
