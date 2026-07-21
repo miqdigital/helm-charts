@@ -44,6 +44,21 @@ spec:
           {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        - name: SEARCH_BACKEND
+          value: {{ quote .Values.elasticsearch.searchBackend }}
+        - name: ES_HOST
+          value: {{ quote .Values.elasticsearch.host }}
+        - name: ES_INDEX_AGENT_QUERY
+          value: {{ quote .Values.elasticsearch.indexAgentQuery }}
+        - name: ES_API_KEY
+          {{- if .Values.elasticsearch.useKeyVault }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.elasticsearch.secretName }}
+              key: {{ .Values.elasticsearch.secretKey | default "esApiKey" }}
+          {{- else }}
+          value: {{ quote .Values.elasticsearch.apiKey }}
+          {{- end }}
         image: {{ .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.image.repository }}:{{ .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.image.tag
           | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.imagePullPolicy
@@ -52,19 +67,36 @@ spec:
         ports:
         - containerPort: 9000
         resources: {{- toYaml .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.resources |  nindent 10 }}
-        {{- if .Values.mongo.useKeyVault }}
+        {{- if or .Values.mongo.useKeyVault .Values.elasticsearch.useKeyVault }}
         volumeMounts:
+        {{- if .Values.mongo.useKeyVault }}
         - name: secrets-store
           mountPath: /mnt/secrets-store
           readOnly: true
         {{- end }}
-      {{- if .Values.mongo.useKeyVault }}
+        {{- if .Values.elasticsearch.useKeyVault }}
+        - name: secrets-store-es
+          mountPath: /mnt/secrets-store-es
+          readOnly: true
+        {{- end }}
+        {{- end }}
+      {{- if or .Values.mongo.useKeyVault .Values.elasticsearch.useKeyVault }}
       volumes:
+      {{- if .Values.mongo.useKeyVault }}
       - name: secrets-store
         csi:
           driver: secrets-store.csi.k8s.io
           readOnly: true
           volumeAttributes:
             secretProviderClass: {{ .Values.mongo.secretProviderClass | default "akto-keyvault" }}
+      {{- end }}
+      {{- if .Values.elasticsearch.useKeyVault }}
+      - name: secrets-store-es
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.elasticsearch.secretProviderClass | default "akto-keyvault" }}
+      {{- end }}
       {{- end }}
       restartPolicy: Always
