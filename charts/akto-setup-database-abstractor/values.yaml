@@ -1,10 +1,28 @@
 mongo:
   aktoMongoConn: ""
-  # Set to true to read AKTO_MONGO_CONN from a K8s Secret synced via the
-  # Azure Key Vault CSI driver, instead of the plain aktoMongoConn value above.
-  useKeyVault: false
+  # Set to false to read AKTO_MONGO_CONN from the plain aktoMongoConn value
+  # above instead of a K8s Secret synced via the Azure Key Vault CSI driver.
+  # Defaults to true (Key Vault) since that's the recommended production path;
+  # complete the "Deploy with Azure Key Vault" setup before installing, or set
+  # this to false for a quick plaintext install.
+  useKeyVault: true
   secretName: akto-secrets
   secretKey: aktoMongoConn
+  secretProviderClass: akto-keyvault
+
+elasticsearch:
+  # ELASTICSEARCH (default) or AZURE_ADX. Leave host/indexAgentQuery empty to
+  # disable Elasticsearch-backed features entirely (they no-op when unset).
+  searchBackend: "ELASTICSEARCH"
+  host: ""
+  indexAgentQuery: "agent_query_logs"
+  apiKey: ""
+  # Set to false to read ES_API_KEY from the plain apiKey value above instead
+  # of a K8s Secret synced via the Azure Key Vault CSI driver. Defaults to
+  # true (Key Vault), matching mongo.useKeyVault above.
+  useKeyVault: true
+  secretName: akto-secrets
+  secretKey: esApiKey
   secretProviderClass: akto-keyvault
 
 database_abstractor:
