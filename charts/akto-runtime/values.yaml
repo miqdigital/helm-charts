@@ -80,6 +80,11 @@ mini_runtime:
       puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
       useHostName: true
       databaseAbstractorUrl: https://cyborg.akto.io
+      # URL the runtime posts agent-query-log records to (AGENT_QUERY_LOGS_SERVICE_URL).
+      # Plain text, not a secret. Leave empty to inherit databaseAbstractorUrl above
+      # (the database abstractor serves this route too) - only set this separately if
+      # agent-query-log ingestion should go somewhere else.
+      agentQueryLogsServiceUrl: ""
       # If you want to use secrets to store database abstractor token. default: false
       useSecretsForDatabaseAbstractorToken: false
       # If not using secrets, place token here.

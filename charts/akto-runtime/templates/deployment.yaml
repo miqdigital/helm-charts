@@ -148,6 +148,8 @@ spec:
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.useHostName}}
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
           value: {{ quote .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorUrl}}
+        - name: AGENT_QUERY_LOGS_SERVICE_URL
+          value: {{ quote (.Values.mini_runtime.aktoApiSecurityRuntime.env.agentQueryLogsServiceUrl | default .Values.mini_runtime.aktoApiSecurityRuntime.env.databaseAbstractorUrl) }}
         - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
             {{- if .Values.keyVault.enabled }}
           valueFrom:

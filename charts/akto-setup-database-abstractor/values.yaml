@@ -11,18 +11,20 @@ mongo:
   secretProviderClass: akto-keyvault
 
 elasticsearch:
-  # ELASTICSEARCH (default) or AZURE_ADX. Leave host/indexAgentQuery empty to
-  # disable Elasticsearch-backed features entirely (they no-op when unset).
+  # ELASTICSEARCH (default) or AZURE_ADX. Leave esHost empty to disable
+  # Elasticsearch-backed features entirely (they no-op when unset).
   searchBackend: "ELASTICSEARCH"
-  host: ""
+  esHost: ""
+  # Fixed default index name; override only if your cluster uses a different one.
   indexAgentQuery: "agent_query_logs"
-  apiKey: ""
-  # Set to false to read ES_API_KEY from the plain apiKey value above instead
-  # of a K8s Secret synced via the Azure Key Vault CSI driver. Defaults to
-  # true (Key Vault), matching mongo.useKeyVault above.
+  esApiKey: ""
+  # Set to false to read ES_HOST/ES_API_KEY from the plain esHost/esApiKey
+  # values above instead of a K8s Secret synced via the Azure Key Vault CSI
+  # driver. Defaults to true (Key Vault), matching mongo.useKeyVault above.
   useKeyVault: true
   secretName: akto-secrets
-  secretKey: esApiKey
+  esHostSecretKey: esHost
+  esApiKeySecretKey: esApiKey
   secretProviderClass: akto-keyvault
 
 database_abstractor:

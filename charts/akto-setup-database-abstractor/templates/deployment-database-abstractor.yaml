@@ -46,18 +46,25 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         - name: SEARCH_BACKEND
           value: {{ quote .Values.elasticsearch.searchBackend }}
-        - name: ES_HOST
-          value: {{ quote .Values.elasticsearch.host }}
         - name: ES_INDEX_AGENT_QUERY
-          value: {{ quote .Values.elasticsearch.indexAgentQuery }}
+          value: {{ .Values.elasticsearch.indexAgentQuery | default "agent_query_logs" | quote }}
+        - name: ES_HOST
+          {{- if .Values.elasticsearch.useKeyVault }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.elasticsearch.secretName }}
+              key: {{ .Values.elasticsearch.esHostSecretKey | default "esHost" }}
+          {{- else }}
+          value: {{ quote .Values.elasticsearch.esHost }}
+          {{- end }}
         - name: ES_API_KEY
           {{- if .Values.elasticsearch.useKeyVault }}
           valueFrom:
             secretKeyRef:
               name: {{ .Values.elasticsearch.secretName }}
-              key: {{ .Values.elasticsearch.secretKey | default "esApiKey" }}
+              key: {{ .Values.elasticsearch.esApiKeySecretKey | default "esApiKey" }}
           {{- else }}
-          value: {{ quote .Values.elasticsearch.apiKey }}
+          value: {{ quote .Values.elasticsearch.esApiKey }}
           {{- end }}
         image: {{ .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.image.repository }}:{{ .Values.database_abstractor.aktoApiSecurityDatabaseAbstractor.image.tag
           | default .Chart.AppVersion }}
