@@ -236,11 +236,14 @@ guardrailsService:
 guardrailsKafka:
   enabled: false
   image:
-    repository: confluentinc/cp-kafka
-    tag: "6.2.1"
-  zookeeperImage:
-    repository: confluentinc/cp-zookeeper
-    tag: "6.2.1"
+    # Matches the mini-runtime Kafka image/version (charts/mini-runtime).
+    # Runs in KRaft mode (no Zookeeper) - see templates/guardrails-kafka.yaml.
+    repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
+    tag: "8.2.2-1-ubi9"
+  # KRaft cluster id used to format the broker's storage on first start. Any
+  # valid base64-url uuid works; change it only for a fresh cluster (changing
+  # it against existing persisted data will fail to start).
+  clusterId: "c6a1b8e2-4f2a-4b2a-9c3f-1a2b3c4d5e6f"
   createTopics: "akto.guardrails:3:1"
   logRetentionHours: "5"
   persistence:
@@ -254,13 +257,6 @@ guardrailsKafka:
     limits:
       cpu: 1
       memory: 2Gi
-  zookeeperResources:
-    requests:
-      cpu: 250m
-      memory: 512Mi
-    limits:
-      cpu: 500m
-      memory: 1Gi
 
 # -----------------------------------------------------------------------------
 # 5. Redis - dedicated redis-stack-server instance backing Agent Guard's

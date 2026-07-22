@@ -22,79 +22,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-zookeeper
-  labels:
-    {{- include "akto-ai-guardrails-v2.componentLabels" (list . "guardrails-zookeeper") | nindent 4 }}
-spec:
-  replicas: 1
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
-      {{- include "akto-ai-guardrails-v2.componentSelectorLabels" (list . "guardrails-zookeeper") | nindent 6 }}
-  template:
-    metadata:
-      labels:
-        {{- include "akto-ai-guardrails-v2.componentSelectorLabels" (list . "guardrails-zookeeper") | nindent 8 }}
-    spec:
-      {{- with .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      serviceAccountName: {{ include "akto-ai-guardrails-v2.serviceAccountName" . }}
-      containers:
-      - name: zookeeper
-        image: "{{ .Values.guardrailsKafka.zookeeperImage.repository }}:{{ .Values.guardrailsKafka.zookeeperImage.tag }}"
-        imagePullPolicy: IfNotPresent
-        env:
-        - name: ZOOKEEPER_CLIENT_PORT
-          value: "2181"
-        - name: ZOOKEEPER_SERVER_ID
-          value: "1"
-        - name: ZOOKEEPER_SERVERS
-          value: "{{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-zookeeper:2888:3888"
-        ports:
-        - name: client
-          containerPort: 2181
-        resources:
-          {{- toYaml .Values.guardrailsKafka.zookeeperResources | nindent 10 }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-zookeeper
-  labels:
-    {{- include "akto-ai-guardrails-v2.componentLabels" (list . "guardrails-zookeeper") | nindent 4 }}
-spec:
-  type: ClusterIP
-  ports:
-  - port: 2181
-    targetPort: client
-    name: client
-  - port: 2888
-    targetPort: 2888
-    name: follower
-  - port: 3888
-    targetPort: 3888
-    name: election
-  selector:
-    {{- include "akto-ai-guardrails-v2.componentSelectorLabels" (list . "guardrails-zookeeper") | nindent 4 }}
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: {{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-kafka
   labels:
     {{- include "akto-ai-guardrails-v2.componentLabels" (list . "guardrails-kafka") | nindent 4 }}
@@ -120,14 +47,27 @@ spec:
         image: "{{ .Values.guardrailsKafka.image.repository }}:{{ .Values.guardrailsKafka.image.tag }}"
         imagePullPolicy: IfNotPresent
         env:
+        # KRaft mode: single node acting as both broker and controller (no
+        # Zookeeper). Mirrors the mini-runtime Kafka config so this bundled
+        # broker matches it version-for-version and mode-for-mode.
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_NODE_ID
+          value: "1"
         - name: KAFKA_BROKER_ID
           value: "1"
-        - name: KAFKA_ZOOKEEPER_CONNECT
-          value: "{{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-zookeeper:2181"
+        - name: CLUSTER_ID
+          value: {{ quote .Values.guardrailsKafka.clusterId }}
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@localhost:9093"
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_LISTENERS
+          value: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
         - name: KAFKA_ADVERTISED_LISTENERS
           value: "PLAINTEXT://{{ include "akto-ai-guardrails-v2.fullname" . }}-guardrails-kafka:9092"
         - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
-          value: "PLAINTEXT:PLAINTEXT"
+          value: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
         - name: KAFKA_INTER_BROKER_LISTENER_NAME
           value: "PLAINTEXT"
         - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
