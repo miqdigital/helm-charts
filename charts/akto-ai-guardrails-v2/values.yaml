@@ -68,11 +68,14 @@ ingestion:
       tag: "latest"
     env:
       aktoKafkaTopicName: "akto.guardrails"
-      # Left blank here because subchart values aren't templated - point this at
-      # the guardrails-kafka hostname printed by `helm install --dry-run` / NOTES.txt,
-      # e.g. "<release>-akto-ai-guardrails-v2-guardrails-kafka:9092", or at an
-      # external broker if guardrailsKafka.enabled is false below.
-      aktoKafkaBrokerUrl: ""
+      # Points at the shared mini-runtime Kafka broker by default (same broker
+      # guardrailsService.kafka consumes from below), so ingested traffic is
+      # produced onto akto.guardrails there and flows into the guardrails
+      # consumer. The bundled guardrailsKafka broker is disabled by default; if
+      # you re-enable it and want to use it instead, set this to the
+      # guardrails-kafka hostname printed in NOTES.txt, e.g.
+      # "<release>-akto-ai-guardrails-v2-guardrails-kafka:9092".
+      aktoKafkaBrokerUrl: "akto-mini-runtime-mini-runtime:9092"
       # This whole chart exists to run the guardrails pipeline, so guardrails
       # forwarding is on by default (the subchart itself defaults this off,
       # for when it's used standalone elsewhere).
@@ -179,8 +182,11 @@ guardrailsService:
       tag: local
       pullPolicy: IfNotPresent
     env:
-      # Left blank = defaults to the bundled guardrailsKafka broker below
-      kafkaBrokerUrl: ""
+      # Defaults to the shared mini-runtime Kafka broker (same hostname
+      # convention the data-ingestion-service chart uses). The bundled
+      # guardrailsKafka broker is disabled by default; if you re-enable it and
+      # want to use it instead, set this back to "" (blank = bundled broker).
+      kafkaBrokerUrl: "akto-mini-runtime-mini-runtime:9092"
       kafkaTopic: "akto.guardrails"
       kafkaGroupId: "guardrails-service"
       kafkaBatchSize: "100"
@@ -228,7 +234,7 @@ guardrailsService:
 # existing cluster if you'd rather bring your own broker.
 # -----------------------------------------------------------------------------
 guardrailsKafka:
-  enabled: true
+  enabled: false
   image:
     repository: confluentinc/cp-kafka
     tag: "6.2.1"
