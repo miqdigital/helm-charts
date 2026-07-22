@@ -6,6 +6,27 @@ mongo:
   secretKey: aktoMongoConn
   secretProviderClass: akto-keyvault
 
+elasticsearch:
+  # Backs the dashboard's agentic-session/prompt search (LLMObservabilityAction,
+  # UserAnalysisCron) with Elasticsearch instead of Mongo aggregations. This is
+  # the dashboard process that actually calls ElasticSearchClient - not
+  # database-abstractor. ELASTICSEARCH (default) or AZURE_ADX. Leave esHost
+  # empty to disable Elasticsearch-backed features entirely (they no-op when
+  # unset).
+  searchBackend: "ELASTICSEARCH"
+  esHost: ""
+  # Fixed default index name; override only if your cluster uses a different one.
+  indexAgentQuery: "agent_query_logs"
+  esApiKey: ""
+  # Set to false to read ES_HOST/ES_API_KEY from the plain esHost/esApiKey
+  # values above instead of a K8s Secret synced via the Azure Key Vault CSI
+  # driver. Defaults to true (Key Vault), matching mongo.useKeyVault above.
+  useKeyVault: true
+  secretName: akto-secrets
+  esHostSecretKey: esHost
+  esApiKeySecretKey: esApiKey
+  secretProviderClass: akto-keyvault
+
 onPrem:
   # Set to false for local_deploy mode.
   enabled: true
