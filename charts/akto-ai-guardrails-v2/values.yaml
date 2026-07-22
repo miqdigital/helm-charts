@@ -85,7 +85,7 @@ ingestion:
       # e.g. "http://<release>-akto-ai-guardrails-v2-guardrails-service-http:9091".
       guardrailsServiceUrl: ""
     service:
-      type: ClusterIP
+      type: LoadBalancer
 
 # -----------------------------------------------------------------------------
 # 2 & 3. Guardrails Service - same image (apps/guardrails-service, Go) deployed
@@ -103,7 +103,7 @@ guardrailsService:
       tag: local
       pullPolicy: IfNotPresent
     service:
-      type: ClusterIP
+      type: LoadBalancer
       port: 9091
       targetPort: 9091
     env:
