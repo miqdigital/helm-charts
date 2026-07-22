@@ -30,6 +30,10 @@ stringData:
   AZURE_FOUNDRY_API_KEY: {{ .Values.agentGuard.secrets.azureFoundryApiKey | quote }}
   AZURE_FOUNDRY_DEPLOYMENT: {{ .Values.agentGuard.secrets.azureFoundryDeployment | quote }}
   AZURE_FOUNDRY_MODEL: {{ .Values.agentGuard.secrets.azureFoundryModel | quote }}
+  ANTHROPIC_FOUNDRY_BASE_URL: {{ .Values.agentGuard.secrets.anthropicFoundryBaseUrl | quote }}
+  ANTHROPIC_FOUNDRY_API_KEY: {{ .Values.agentGuard.secrets.anthropicFoundryApiKey | quote }}
+  ANTHROPIC_FOUNDRY_DEPLOYMENT: {{ .Values.agentGuard.secrets.anthropicFoundryDeployment | quote }}
+  ANTHROPIC_FOUNDRY_MODEL: {{ .Values.agentGuard.secrets.anthropicFoundryModel | quote }}
   ANTHROPIC_API_KEY: {{ .Values.agentGuard.secrets.anthropicApiKey | quote }}
   ANTHROPIC_MODEL: {{ .Values.agentGuard.secrets.anthropicModel | quote }}
   OPENAI_API_KEY: {{ .Values.agentGuard.secrets.openaiApiKey | quote }}
