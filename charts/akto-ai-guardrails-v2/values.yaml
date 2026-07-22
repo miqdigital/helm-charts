@@ -103,7 +103,7 @@ guardrailsService:
       tag: local
       pullPolicy: IfNotPresent
     service:
-      type: ClusterIP
+      type: LoadBalancer
       port: 9091
       targetPort: 9091
     env:
