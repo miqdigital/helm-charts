@@ -80,6 +80,7 @@ ingestion:
       # forwarding is on by default (the subchart itself defaults this off,
       # for when it's used standalone elsewhere).
       enableGuardrails: "true"
+      blockLogs: "true"
       # Left blank for the same reason as aktoKafkaBrokerUrl above - point
       # this at the guardrails-service-http hostname printed in NOTES.txt,
       # e.g. "http://<release>-akto-ai-guardrails-v2-guardrails-service-http:9091".

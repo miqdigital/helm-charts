@@ -117,6 +117,8 @@ spec:
           value: {{ quote .Values.dataIngestionService.env.aktoKafkaTopicName }}
         - name: AKTO_LOG_LEVEL
           value: {{ quote .Values.dataIngestionService.env.aktoLogLevel }}
+        - name: BLOCK_LOGS
+          value: {{ quote .Values.dataIngestionService.env.blockLogs }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         - name: ENABLE_GUARDRAILS
