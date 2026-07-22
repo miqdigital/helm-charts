@@ -43,6 +43,7 @@ dataIngestionService:
     aktoKafkaProducerLingerMs: "10"
     aktoKafkaTopicName: "akto.api.logs"
     aktoLogLevel: "WARN"
+    blockLogs: "false"
     # Guardrails integration - all optional, off by default so standalone
     # (non-guardrails) deployments of this chart are unaffected.
     enableGuardrails: "false"
