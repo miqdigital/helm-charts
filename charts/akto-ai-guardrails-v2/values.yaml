@@ -61,11 +61,12 @@ ingestion:
   enabled: true
   dataIngestionService:
     image:
-      # Overrides the subchart's own pinned-digest default with :latest, scoped
-      # to this stack only - charts/data-ingestion-service's own default.yaml
-      # still uses the pinned digest unchanged for any other consumer.
+      # Pin data-ingestion-service to a specific release for this stack. The
+      # subchart uses repository@digest when digest is set, else repository:tag
+      # (deployment.yaml) - so leave digest empty and the tag below wins,
+      # overriding the subchart's own pinned-digest default.
       digest: ""
-      tag: "latest"
+      tag: "1.4.8"
     env:
       aktoKafkaTopicName: "akto.guardrails"
       # Points at the shared mini-runtime Kafka broker by default (same broker
@@ -101,7 +102,7 @@ guardrailsService:
     replicas: 1
     image:
       repository: aktosecurity/guardrails-service
-      tag: local
+      tag: "2.13.9"
       pullPolicy: IfNotPresent
     service:
       type: LoadBalancer
@@ -180,7 +181,7 @@ guardrailsService:
     replicas: 1
     image:
       repository: aktosecurity/guardrails-service
-      tag: local
+      tag: "2.13.9"
       pullPolicy: IfNotPresent
     env:
       # Defaults to the shared mini-runtime Kafka broker (same hostname
@@ -297,7 +298,7 @@ embedder:
   replicas: 1
   image:
     repository: aktosecurity/akto-agent-guard-embedder
-    tag: local
+    tag: "1.1.2"
     pullPolicy: IfNotPresent
   service:
     port: 8094
@@ -336,7 +337,7 @@ anonymizer:
   replicas: 1
   image:
     repository: aktosecurity/akto-agent-guard-anonymizer
-    tag: local
+    tag: "1.1.2"
     pullPolicy: IfNotPresent
   env:
     spacyModel: "en_core_web_sm"
@@ -380,7 +381,7 @@ agentGuard:
   replicas: 1
   image:
     repository: aktosecurity/akto-agent-guard-worker
-    tag: local
+    tag: "1.1.2"
     pullPolicy: IfNotPresent
   service:
     port: 8090
