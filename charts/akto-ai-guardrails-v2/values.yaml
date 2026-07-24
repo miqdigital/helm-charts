@@ -62,7 +62,7 @@ ingestion:
   dataIngestionService:
     image:
       digest: ""
-      tag: "1.4.8"
+      tag: "1.4.9"
     env:
       aktoKafkaTopicName: "akto.guardrails"
       # Points at the shared mini-runtime Kafka broker by default (same broker
