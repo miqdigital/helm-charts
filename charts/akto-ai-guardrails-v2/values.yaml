@@ -294,7 +294,7 @@ embedder:
   replicas: 1
   image:
     repository: aktosecurity/akto-agent-guard-embedder
-    tag: "1.1.2"
+    tag: "1.1.4"
     pullPolicy: IfNotPresent
   service:
     port: 8094
@@ -333,7 +333,7 @@ anonymizer:
   replicas: 1
   image:
     repository: aktosecurity/akto-agent-guard-anonymizer
-    tag: "1.1.2"
+    tag: "1.1.4"
     pullPolicy: IfNotPresent
   env:
     spacyModel: "en_core_web_sm"
@@ -377,7 +377,7 @@ agentGuard:
   replicas: 1
   image:
     repository: aktosecurity/akto-agent-guard-worker
-    tag: "1.1.2"
+    tag: "1.1.4"
     pullPolicy: IfNotPresent
   service:
     port: 8090
