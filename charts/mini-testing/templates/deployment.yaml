@@ -185,6 +185,16 @@ spec:
         imagePullPolicy: {{ .Values.testing.aiAutomatedTesting.imagePullPolicy }}
         ports:
           - containerPort: {{ .Values.testing.aiAutomatedTesting.port }}
+        env:
+        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+          {{- if .Values.testing.aktoApiSecurityTesting.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-mini-testing" (include "akto.fullname" .) ) }}
+          {{- else }}
+          value: {{ quote .Values.testing.aktoApiSecurityTesting.env.databaseAbstractorToken }}
+          {{- end }}
         resources: {{- toYaml .Values.testing.aiAutomatedTesting.resources | nindent 10 }}
       {{- if .Values.testing.agentTesting.enabled }}
       - name: agent-testing
