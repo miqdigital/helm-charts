@@ -186,7 +186,7 @@ spec:
         ports:
           - containerPort: {{ .Values.testing.aiAutomatedTesting.port }}
         env:
-        - name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+        - name: DATABASE_ABSTRACTOR_TOKEN
           {{- if .Values.testing.aktoApiSecurityTesting.env.useSecretsForDatabaseAbstractorToken }}
           valueFrom:
             secretKeyRef:
