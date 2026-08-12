@@ -160,6 +160,19 @@ miniRuntime:
   enabled: true
   replicas: 1
 
+  # Off by default, unlike threat-backend/database-abstractor's autoscaling.
+  # Reason: the bundled Kafka broker is a per-pod sidecar, not a shared
+  # cluster - it's also the regional traffic bus other components read/write
+  # via this Service's DNS name. Scaling past 1 replica splits that bus across
+  # N independent single-node brokers behind one ClusterIP, so producers and
+  # consumers can land on different, inconsistent brokers. Only turn this on
+  # if miniRuntime.external.enabled=true (a real external Kafka cluster).
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 80
+
   image:
     repository: aktosecurity/mini-runtime
     tag: "1.72.15_local"
@@ -183,6 +196,10 @@ miniRuntime:
     aktoRunMcpJobs: "false"
     sendToThreatEnabled: "true"
     useHostName: "true"
+    # URL the runtime posts agent-query-log records to. Leave empty to reuse
+    # central.databaseAbstractorUrl (it serves this route too) - only set this
+    # separately if agent-query-log ingestion should go somewhere else.
+    agentQueryLogsServiceUrl: ""
 
   resources:
     requests:
@@ -205,9 +222,11 @@ miniRuntime:
       requests:
         cpu: 1
         memory: "2Gi"
+        ephemeral-storage: "500Mi"
       limits:
         cpu: 1
         memory: "2Gi"
+        ephemeral-storage: "11Gi"
 
   # Use an existing Kafka cluster (MSK, Confluent Cloud, ...) instead of the
   # bundled broker. When enabled the bundled broker container is not created.
@@ -270,9 +289,11 @@ threatClient:
       requests:
         cpu: 1
         memory: "2Gi"
+        ephemeral-storage: "500Mi"
       limits:
         cpu: 1
         memory: "2Gi"
+        ephemeral-storage: "4Gi"
 
   # Consume traffic from an existing Kafka instead of the bundled broker.
   # Leave brokerUrl blank while miniRuntime.enabled=true and it auto-targets
@@ -326,8 +347,11 @@ dataIngestion:
     # release; set it to use something else.
     kafkaBrokerUrl: ""
     # Call guardrails inline on ingested traffic. Blank guardrailsServiceUrl
-    # auto-targets the guardrails service in this release.
-    enableGuardrails: "false"
+    # auto-targets the guardrails service in this release. On by default -
+    # agentGuard/anonymizer/guardrailsService.http are also enabled by
+    # default, so a stock install should actually route traffic through them
+    # rather than run those pods idle. Set to "false" to disable.
+    enableGuardrails: "true"
     guardrailsServiceUrl: ""
     guardrailsClientTimeoutMs: "5000"
 
@@ -413,6 +437,12 @@ guardrailsService:
     # Kafka to consume from. Blank auto-targets guardrailsKafka when it is
     # enabled, else the mini-runtime broker.
     brokerUrl: ""
+    # Env var names below are the app's actual config (apps/guardrails-service
+    # container/src/config.go), not guessed - don't rename without checking there.
+    topic: "akto.guardrails"
+    groupId: "guardrails-service"
+    batchSize: "100"
+    batchLingerSec: "5"
     resources:
       requests:
         cpu: 500m
@@ -440,6 +470,44 @@ agentGuard:
   env:
     slackWebhookUrl: ""
 
+    # Model-provider config - base URLs, deployment/model names, GCP
+    # project/location/endpoint identifiers, dedicated-DNS hosts, and the
+    # provider-routing JSON below. None of this is a credential, so it's a
+    # plain value here (--set/-f), not Key Vault. Set only the field(s) for
+    # the provider(s) you actually use; leave the rest blank.
+    vertexAiProject: ""
+    vertexAiLocation: ""
+    vertexAiEndpointId: ""
+    qwen3guardProject: ""
+    qwen3guardLocation: ""
+    qwen3guardEndpointId: ""
+    qwen3guardDedicatedDns: ""
+    gemmaVertexProject: ""
+    gemmaVertexLocation: ""
+    gemmaVertexEndpointId: ""
+    gemmaVertexDedicatedDns: ""
+    qwen3guardFoundryBaseUrl: ""
+    qwen3guardFoundryDeployment: ""
+    qwen3guardFoundryModel: ""
+    gemmaFoundryBaseUrl: ""
+    gemmaFoundryDeployment: ""
+    gemmaFoundryModel: ""
+    azureFoundryBaseUrl: ""
+    azureFoundryDeployment: ""
+    azureFoundryModel: ""
+    anthropicFoundryBaseUrl: ""
+    anthropicFoundryDeployment: ""
+    anthropicFoundryModel: ""
+    anthropicModel: ""
+    openaiModel: ""
+    openaiCompatibleBaseUrl: ""
+    # Routes requests between the providers above (fast filter, fallback,
+    # final arbiter - roles, timeouts, thresholds). Must be set together with
+    # whichever provider credentials you sync below, or agent-guard's
+    # built-in fallback - hardcoded to Vertex providers - tries Vertex,
+    # fails, and never touches the providers configured above.
+    defaultModelConfigJson: ""
+
   resources:
     requests:
       cpu: 500m
@@ -463,24 +531,15 @@ agentGuard:
     timeoutSeconds: 10
     failureThreshold: 5
 
-  # Model-provider credentials. Every one of these comes from Key Vault -
-  # sync only the key(s) for the provider(s) you actually use into
+  # True credentials only. Every one of these comes from Key Vault - sync
+  # only the key(s) for the provider(s) you actually use into
   # global.keyVault.secretName; leave the rest unsynced (each is read with
   # optional: true, so a missing key just leaves that env var unset).
   #
   # Keys expected in Key Vault (fixed - not configurable per-install):
-  #   qwen3guardSaKeyJson, qwen3guardProject, qwen3guardLocation,
-  #   qwen3guardEndpointId, qwen3guardDedicatedDns, gemmaVertexSaKeyJson,
-  #   gemmaVertexProject, gemmaVertexLocation, gemmaVertexEndpointId,
-  #   gemmaVertexDedicatedDns, qwen3guardFoundryBaseUrl,
-  #   qwen3guardFoundryApiKey, qwen3guardFoundryDeployment,
-  #   qwen3guardFoundryModel, gemmaFoundryBaseUrl, gemmaFoundryApiKey,
-  #   gemmaFoundryDeployment, gemmaFoundryModel, azureFoundryBaseUrl,
-  #   azureFoundryApiKey, azureFoundryDeployment, azureFoundryModel,
-  #   anthropicFoundryBaseUrl, anthropicFoundryApiKey,
-  #   anthropicFoundryDeployment, anthropicFoundryModel, anthropicApiKey,
-  #   anthropicModel, openaiApiKey, openaiModel, openaiCompatibleBaseUrl,
-  #   defaultModelConfigJson
+  #   vertexAiSaKeyJson, qwen3guardSaKeyJson, gemmaVertexSaKeyJson,
+  #   qwen3guardFoundryApiKey, gemmaFoundryApiKey, azureFoundryApiKey,
+  #   anthropicFoundryApiKey, anthropicApiKey, openaiApiKey
   #
   # NOTE: reaching these providers is OUTBOUND traffic. With networkPolicy
   # enabled you must allowlist them under

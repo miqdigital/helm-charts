@@ -53,6 +53,7 @@ spec:
           value: {{ quote . }}
         {{- end }}
         {{- include "akto-regional-setup.agentGuard.secretEnv" . | nindent 8 }}
+        {{- include "akto-regional-setup.agentGuard.providerEnv" . | nindent 8 }}
         {{- include "akto-regional-setup.probes" (list .Values.agentGuard .Values.agentGuard.service.targetPort) | nindent 8 }}
         resources:
           {{- toYaml .Values.agentGuard.resources | nindent 10 }}

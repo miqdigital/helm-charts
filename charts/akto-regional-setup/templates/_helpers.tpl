@@ -219,44 +219,22 @@ REDIS_URL for the guardrails semantic cache.
 {{- end }}
 
 {{/*
-Agent-guard's model-provider credentials. Every key is optional: fill in only
-the provider(s) you actually use by syncing that key into Key Vault, leave
-the rest unsynced. (env var name, Key Vault key name) pairs.
+Agent-guard's model-provider credentials - the actual secret material only
+(API keys, service-account key JSON). Every key is optional: fill in only the
+provider(s) you actually use by syncing that key into Key Vault, leave the
+rest unsynced. (env var name, Key Vault key name) pairs.
 */}}
 {{- define "akto-regional-setup.agentGuard.secretEnv" -}}
 {{- $pairs := list
+  (list "VERTEX_AI_SA_KEY_JSON" "vertexAiSaKeyJson")
   (list "QWEN3GUARD_SA_KEY_JSON" "qwen3guardSaKeyJson")
-  (list "QWEN3GUARD_PROJECT" "qwen3guardProject")
-  (list "QWEN3GUARD_LOCATION" "qwen3guardLocation")
-  (list "QWEN3GUARD_ENDPOINT_ID" "qwen3guardEndpointId")
-  (list "QWEN3GUARD_DEDICATED_DNS" "qwen3guardDedicatedDns")
   (list "GEMMA_VERTEX_SA_KEY_JSON" "gemmaVertexSaKeyJson")
-  (list "GEMMA_VERTEX_PROJECT" "gemmaVertexProject")
-  (list "GEMMA_VERTEX_LOCATION" "gemmaVertexLocation")
-  (list "GEMMA_VERTEX_ENDPOINT_ID" "gemmaVertexEndpointId")
-  (list "GEMMA_VERTEX_DEDICATED_DNS" "gemmaVertexDedicatedDns")
-  (list "QWEN3GUARD_FOUNDRY_BASE_URL" "qwen3guardFoundryBaseUrl")
   (list "QWEN3GUARD_FOUNDRY_API_KEY" "qwen3guardFoundryApiKey")
-  (list "QWEN3GUARD_FOUNDRY_DEPLOYMENT" "qwen3guardFoundryDeployment")
-  (list "QWEN3GUARD_FOUNDRY_MODEL" "qwen3guardFoundryModel")
-  (list "GEMMA_FOUNDRY_BASE_URL" "gemmaFoundryBaseUrl")
   (list "GEMMA_FOUNDRY_API_KEY" "gemmaFoundryApiKey")
-  (list "GEMMA_FOUNDRY_DEPLOYMENT" "gemmaFoundryDeployment")
-  (list "GEMMA_FOUNDRY_MODEL" "gemmaFoundryModel")
-  (list "AZURE_FOUNDRY_BASE_URL" "azureFoundryBaseUrl")
   (list "AZURE_FOUNDRY_API_KEY" "azureFoundryApiKey")
-  (list "AZURE_FOUNDRY_DEPLOYMENT" "azureFoundryDeployment")
-  (list "AZURE_FOUNDRY_MODEL" "azureFoundryModel")
-  (list "ANTHROPIC_FOUNDRY_BASE_URL" "anthropicFoundryBaseUrl")
   (list "ANTHROPIC_FOUNDRY_API_KEY" "anthropicFoundryApiKey")
-  (list "ANTHROPIC_FOUNDRY_DEPLOYMENT" "anthropicFoundryDeployment")
-  (list "ANTHROPIC_FOUNDRY_MODEL" "anthropicFoundryModel")
   (list "ANTHROPIC_API_KEY" "anthropicApiKey")
-  (list "ANTHROPIC_MODEL" "anthropicModel")
   (list "OPENAI_API_KEY" "openaiApiKey")
-  (list "OPENAI_MODEL" "openaiModel")
-  (list "OPENAI_COMPATIBLE_BASE_URL" "openaiCompatibleBaseUrl")
-  (list "DEFAULT_MODEL_CONFIG_JSON" "defaultModelConfigJson")
 -}}
 {{- range $pairs }}
 - name: {{ index . 0 }}
@@ -265,6 +243,51 @@ the rest unsynced. (env var name, Key Vault key name) pairs.
       name: {{ $.Values.global.keyVault.secretName }}
       key: {{ index . 1 }}
       optional: true
+{{- end }}
+{{- end }}
+
+{{/*
+Agent-guard's model-provider config - everything that isn't a credential:
+base URLs, deployment/model names, project/location/endpoint identifiers,
+dedicated-DNS hosts, and the provider-routing JSON. Plain values, not Key
+Vault. (env var name, agentGuard.env key name) pairs.
+*/}}
+{{- define "akto-regional-setup.agentGuard.providerEnv" -}}
+{{- $pairs := list
+  (list "VERTEX_AI_PROJECT" "vertexAiProject")
+  (list "VERTEX_AI_LOCATION" "vertexAiLocation")
+  (list "VERTEX_AI_ENDPOINT_ID" "vertexAiEndpointId")
+  (list "QWEN3GUARD_PROJECT" "qwen3guardProject")
+  (list "QWEN3GUARD_LOCATION" "qwen3guardLocation")
+  (list "QWEN3GUARD_ENDPOINT_ID" "qwen3guardEndpointId")
+  (list "QWEN3GUARD_DEDICATED_DNS" "qwen3guardDedicatedDns")
+  (list "GEMMA_VERTEX_PROJECT" "gemmaVertexProject")
+  (list "GEMMA_VERTEX_LOCATION" "gemmaVertexLocation")
+  (list "GEMMA_VERTEX_ENDPOINT_ID" "gemmaVertexEndpointId")
+  (list "GEMMA_VERTEX_DEDICATED_DNS" "gemmaVertexDedicatedDns")
+  (list "QWEN3GUARD_FOUNDRY_BASE_URL" "qwen3guardFoundryBaseUrl")
+  (list "QWEN3GUARD_FOUNDRY_DEPLOYMENT" "qwen3guardFoundryDeployment")
+  (list "QWEN3GUARD_FOUNDRY_MODEL" "qwen3guardFoundryModel")
+  (list "GEMMA_FOUNDRY_BASE_URL" "gemmaFoundryBaseUrl")
+  (list "GEMMA_FOUNDRY_DEPLOYMENT" "gemmaFoundryDeployment")
+  (list "GEMMA_FOUNDRY_MODEL" "gemmaFoundryModel")
+  (list "AZURE_FOUNDRY_BASE_URL" "azureFoundryBaseUrl")
+  (list "AZURE_FOUNDRY_DEPLOYMENT" "azureFoundryDeployment")
+  (list "AZURE_FOUNDRY_MODEL" "azureFoundryModel")
+  (list "ANTHROPIC_FOUNDRY_BASE_URL" "anthropicFoundryBaseUrl")
+  (list "ANTHROPIC_FOUNDRY_DEPLOYMENT" "anthropicFoundryDeployment")
+  (list "ANTHROPIC_FOUNDRY_MODEL" "anthropicFoundryModel")
+  (list "ANTHROPIC_MODEL" "anthropicModel")
+  (list "OPENAI_MODEL" "openaiModel")
+  (list "OPENAI_COMPATIBLE_BASE_URL" "openaiCompatibleBaseUrl")
+  (list "DEFAULT_MODEL_CONFIG_JSON" "defaultModelConfigJson")
+-}}
+{{- range $pairs }}
+{{- $val := index $.Values.agentGuard.env (index . 1) }}
+{{- if $val }}
+- name: {{ index . 0 }}
+  value: {{ quote $val }}
+{{- end }}
 {{- end }}
 {{- end }}
 
@@ -306,7 +329,11 @@ rather than expecting the operator to paste an FQDN.
 {{- end }}
 
 {{- define "akto-regional-setup.miniRuntime.kafkaUrl" -}}
+{{- if .Values.miniRuntime.external.enabled -}}
+{{- required "miniRuntime.external.brokerUrl is required when miniRuntime.external.enabled=true" .Values.miniRuntime.external.brokerUrl -}}
+{{- else -}}
 {{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "mini-runtime")) .Values.miniRuntime.service.kafkaPort -}}
+{{- end -}}
 {{- end }}
 
 {{- define "akto-regional-setup.guardrailsKafka.url" -}}

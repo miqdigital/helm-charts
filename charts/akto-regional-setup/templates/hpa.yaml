@@ -1,0 +1,22 @@
+{{- if and .Values.miniRuntime.enabled .Values.miniRuntime.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "mini-runtime") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "mini-runtime") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-regional-setup.componentName" (list . "mini-runtime") }}
+  minReplicas: {{ .Values.miniRuntime.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.miniRuntime.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.miniRuntime.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
