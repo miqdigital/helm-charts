@@ -150,11 +150,19 @@ spec:
         image: "{{ .Values.guardrailsService.image.repository }}:{{ .Values.guardrailsService.image.tag }}"
         imagePullPolicy: {{ .Values.guardrailsService.image.pullPolicy }}
         env:
-        - name: RUN_MODE
-          value: "kafka"
+        - name: KAFKA_ENABLED
+          value: "true"
         # Auto-wired to guardrails-kafka, else the mini-runtime broker.
-        - name: AKTO_KAFKA_BROKER_URL
+        - name: KAFKA_BROKER_URL
           value: {{ include "akto-regional-setup.guardrails.kafkaBroker" . | quote }}
+        - name: KAFKA_TOPIC
+          value: {{ quote .Values.guardrailsService.kafka.topic }}
+        - name: KAFKA_GROUP_ID
+          value: {{ quote .Values.guardrailsService.kafka.groupId }}
+        - name: KAFKA_BATCH_SIZE
+          value: {{ quote .Values.guardrailsService.kafka.batchSize }}
+        - name: KAFKA_BATCH_LINGER_SEC
+          value: {{ quote .Values.guardrailsService.kafka.batchLingerSec }}
         {{- include "akto-regional-setup.guardrailsService.env" . | nindent 8 }}
         resources:
           {{- toYaml .Values.guardrailsService.kafka.resources | nindent 10 }}

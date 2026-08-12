@@ -68,6 +68,8 @@ spec:
         # Auto-wired to the central cloud.
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
           value: {{ include "akto-regional-setup.central.databaseAbstractorUrl" . | quote }}
+        - name: AGENT_QUERY_LOGS_SERVICE_URL
+          value: {{ .Values.miniRuntime.env.agentQueryLogsServiceUrl | default (include "akto-regional-setup.central.databaseAbstractorUrl" .) | quote }}
         {{- include "akto-regional-setup.central.tokenEnv" . | nindent 8 }}
         {{- include "akto-regional-setup.kafka.clientSaslEnv" (list . .Values.miniRuntime.external) | nindent 8 }}
         resources:

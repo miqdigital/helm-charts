@@ -149,10 +149,10 @@ Sync the SASL username/password into Key Vault under the keys named by
 
 Leave `brokerUrl` blank and it targets mini-runtime automatically.
 
-**Guardrails inline on ingested traffic:**
+**Guardrails inline on ingested traffic:** on by default. To turn it off:
 
 ```bash
---set dataIngestion.env.enableGuardrails=true
+--set dataIngestion.env.enableGuardrails=false
 ```
 
 **Kafka-mode guardrails with its own broker:**
@@ -177,11 +177,13 @@ and syncing a full connection string under `guardrailsService.env.redisUrlKey`
 (default `guardrailsRedisUrl`) instead - optional, cache just stays off
 (fail-open) if left unsynced.
 
-**Model-provider credentials:** sync only the key(s) for the provider(s) you
-use into Key Vault - e.g. `openaiApiKey` and `openaiModel` for OpenAI. Every
-key is read with `optional: true`, so anything left unsynced simply leaves
-that env var unset rather than failing the install. See the full list of
-expected key names in `values.yaml` under `agentGuard.secrets`.
+**Model-provider config:** split by whether it's a credential. API
+keys/service-account key JSON go through Key Vault same as everything else -
+e.g. `openaiApiKey` (see `values.yaml` under `agentGuard.secrets` for the full
+list; each is `optional: true`, unsynced just leaves that env var unset).
+Everything else - base URLs, deployment/model names, project/location/endpoint
+IDs, and `defaultModelConfigJson` - isn't a secret, so it's a plain
+`--set`/`-f` value under `agentGuard.env` instead, e.g. `openaiModel`.
 
 **Run only part of the stack** — every component has an `enabled` flag:
 
