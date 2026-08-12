@@ -1,0 +1,178 @@
+{{- if .Values.threatBackend.enabled }}
+{{- $svc := include "akto-central-setup.componentName" (list . "threat-backend") -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svc }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "threat-backend") | nindent 4 }}
+  {{- if .Values.imageAutoUpdate.enabled }}
+  annotations:
+    keel.sh/policy: force
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: {{ quote .Values.imageAutoUpdate.pollSchedule }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.threatBackend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list . "threat-backend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list . "threat-backend") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: Always
+      {{- with (include "akto-central-setup.tls.initContainers" .) }}
+      initContainers:
+        {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+      # ---------------------------------------------------------------------
+      # Bundled single-node Kafka broker (KRaft mode). The threat backend
+      # process talks to it over localhost; other pods reach it on the Service's
+      # kafka port.
+      # ---------------------------------------------------------------------
+      - name: kafka1
+        image: "{{ .Values.threatBackend.kafka.image.repository }}:{{ .Values.threatBackend.kafka.image.tag }}"
+        imagePullPolicy: {{ .Values.threatBackend.kafka.image.pullPolicy }}
+        ports:
+        - name: kafka
+          containerPort: {{ .Values.threatBackend.service.kafkaPort }}
+        - name: kafka-local
+          containerPort: 29092
+        - name: kafka-ctrl
+          containerPort: 9093
+        env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ $svc }}.{{ .Release.Namespace }}.svc.{{ .Values.global.kubernetesClusterDomain }}:{{ .Values.threatBackend.service.kafkaPort }}"
+        - name: KAFKA_LISTENERS
+          value: "CONTROLLER://0.0.0.0:9093,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:{{ .Values.threatBackend.service.kafkaPort }}"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT"
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST"
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@localhost:9093"
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_NODE_ID
+          value: "1"
+        - name: KAFKA_BROKER_ID
+          value: "1"
+        - name: CLUSTER_ID
+          value: {{ quote .Values.threatBackend.kafka.clusterId }}
+        - name: KAFKA_CREATE_TOPICS
+          value: {{ quote .Values.threatBackend.kafka.createTopics }}
+        - name: KAFKA_CLEANUP_POLICY
+          value: {{ quote .Values.threatBackend.kafka.cleanupPolicy }}
+        - name: KAFKA_LOG_CLEANER_ENABLE
+          value: {{ quote .Values.threatBackend.kafka.logCleanerEnable }}
+        - name: KAFKA_LOG_RETENTION_BYTES
+          value: {{ quote .Values.threatBackend.kafka.logRetentionBytes }}
+        - name: KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS
+          value: {{ quote .Values.threatBackend.kafka.logRetentionCheckIntervalMs }}
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: {{ quote .Values.threatBackend.kafka.logRetentionHours }}
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: {{ quote .Values.threatBackend.kafka.logSegmentBytes }}
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: {{ quote .Values.threatBackend.kafka.offsetsTopicReplicationFactor }}
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: {{ quote .Values.threatBackend.kafka.transactionStateLogMinIsr }}
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: {{ quote .Values.threatBackend.kafka.transactionStateLogReplicationFactor }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.global.kubernetesClusterDomain }}
+        resources:
+          {{- toYaml .Values.threatBackend.kafka.resources | nindent 10 }}
+      # ---------------------------------------------------------------------
+      # Threat backend API. Listens on httpPort - this is the endpoint the
+      # dashboard and every regional cluster actually call.
+      # ---------------------------------------------------------------------
+      - name: akto-api-security-threat-backend
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.threatBackend.image.repository }}:{{ .Values.threatBackend.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.threatBackend.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.threatBackend.service.httpPort }}
+          protocol: TCP
+        env:
+        {{- include "akto-central-setup.commonEnv" . | nindent 8 }}
+        - name: THREAT_DETECTION_BACKEND_SERVER_PORT
+          value: {{ quote .Values.threatBackend.service.httpPort }}
+        - name: THREAT_EVENTS_KAFKA_BROKER_URL
+          value: "localhost:29092"
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.threatBackend.env.aktoLogLevel }}
+        - name: HEALTH_DEEP_THRESHOLD_MS
+          value: {{ quote .Values.threatBackend.env.healthDeepThresholdMs }}
+        {{- include "akto-central-setup.mongoEnv" . | nindent 8 }}
+        # The threat backend keeps its own data in the same Mongo instance.
+        - name: AKTO_THREAT_PROTECTION_MONGO_CONN
+          {{- include "akto-central-setup.mongoSecretKeyRef" . | nindent 10 }}
+        {{- include "akto-central-setup.tls.env" . | nindent 8 }}
+        resources:
+          {{- toYaml .Values.threatBackend.resources | nindent 10 }}
+        {{- with (include "akto-central-setup.volumeMounts" .) }}
+        volumeMounts:
+          {{- . | nindent 8 }}
+        {{- end }}
+      {{- with (include "akto-central-setup.volumes" .) }}
+      volumes:
+        {{- . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "threat-backend") | nindent 4 }}
+  {{- with .Values.threatBackend.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.threatBackend.service.type }}
+  selector:
+    {{- include "akto-central-setup.componentSelectorLabels" (list . "threat-backend") | nindent 4 }}
+  ports:
+  # The API. Regional clusters and the dashboard talk to this.
+  - name: http
+    port: {{ .Values.threatBackend.service.httpPort }}
+    targetPort: {{ .Values.threatBackend.service.httpPort }}
+    protocol: TCP
+  # The bundled broker, for threat clients that stream events over Kafka.
+  - name: kafka
+    port: {{ .Values.threatBackend.service.kafkaPort }}
+    targetPort: {{ .Values.threatBackend.service.kafkaPort }}
+    protocol: TCP
+{{- end }}

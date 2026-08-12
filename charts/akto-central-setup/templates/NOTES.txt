@@ -1,0 +1,61 @@
+Akto Central Cloud is installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Components deployed:
+{{ if .Values.dashboard.enabled }}  [x]{{ else }}  [ ]{{ end }} dashboard
+{{ if .Values.databaseAbstractor.enabled }}  [x]{{ else }}  [ ]{{ end }} database-abstractor
+{{ if .Values.threatBackend.enabled }}  [x]{{ else }}  [ ]{{ end }} threat-backend
+
+Check everything is up:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+{{- if .Values.dashboard.enabled }}
+
+Dashboard URL:
+{{- if eq .Values.dashboard.service.type "LoadBalancer" }}
+  kubectl get svc -n {{ .Release.Namespace }} {{ include "akto-central-setup.componentName" (list . "dashboard") }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+{{- else }}
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "akto-central-setup.componentName" (list . "dashboard") }} {{ .Values.dashboard.service.port }}:{{ .Values.dashboard.service.port }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.threatBackend.enabled }}
+
+=============================================================================
+Endpoints your REGIONAL clusters need
+=============================================================================
+Pass these to the akto-regional-setup chart's `central` block. They are in-cluster
+names - expose them (LoadBalancer / ingress / private link) and use the
+external address if regional runs in a different cluster.
+
+  central.threatBackendUrl:      {{ include "akto-central-setup.threatBackend.url" . }}
+{{- if .Values.databaseAbstractor.enabled }}
+  central.databaseAbstractorUrl: {{ include "akto-central-setup.databaseAbstractor.url" . }}
+{{- end }}
+
+REQUIRED one-time setup: insert the HYBRID_SAAS keypair into the shared Mongo
+`common.configs` collection, or every dashboard <-> threat backend call 401s.
+See this chart's README for the exact document.
+{{- end }}
+
+{{- if .Values.networkPolicy.enabled }}
+
+=============================================================================
+NetworkPolicy is ENABLED - outbound traffic is default-deny
+=============================================================================
+Each component may only reach: DNS, other pods in this release, and the CIDRs
+listed in networkPolicy.egressAllowlist (currently RFC1918 private space
+unless you changed it).
+
+If Mongo or Elasticsearch is on a PUBLIC endpoint (Mongo Atlas, Elastic
+Cloud), add its CIDR or those components will not connect:
+
+  --set networkPolicy.egressAllowlist[3].cidr=<your.mongo.ip/32>
+
+Enforcement needs a NetworkPolicy-capable CNI (Calico, Cilium, Azure NPM).
+Verify:  kubectl get networkpolicy -n {{ .Release.Namespace }}
+{{- end }}
+
+NOTE: AKTO_MONGO_CONN is read from the Secret "{{ .Values.global.keyVault.secretName }}".
+Make sure your SecretProviderClass "{{ .Values.global.keyVault.secretProviderClass }}"
+is syncing a key named "{{ .Values.global.mongo.secretKey | default "aktoMongoConn" }}"
+into it - there is no plaintext connection-string fallback in this chart.

@@ -1,0 +1,118 @@
+{{- if .Values.dashboard.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "dashboard") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "dashboard") | nindent 4 }}
+  {{- if .Values.imageAutoUpdate.enabled }}
+  annotations:
+    keel.sh/policy: force
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: {{ quote .Values.imageAutoUpdate.pollSchedule }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.dashboard.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list . "dashboard") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list . "dashboard") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: Always
+      {{- with (include "akto-central-setup.tls.initContainers" .) }}
+      initContainers:
+        {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+      - name: akto-api-security-dashboard
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.dashboard.image.repository }}:{{ .Values.dashboard.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.dashboard.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.dashboard.service.targetPort }}
+          protocol: TCP
+        env:
+        {{- include "akto-central-setup.commonEnv" . | nindent 8 }}
+        - name: DASHBOARD_MODE
+          value: {{ if .Values.dashboard.env.onPrem }}"on_prem"{{ else }}"local_deploy"{{ end }}
+        - name: AKTO_INSTANCE_TYPE
+          value: {{ quote .Values.dashboard.env.aktoInstanceType }}
+        - name: AKTO_KAFKA_BROKER_MAL
+          value: {{ quote .Values.dashboard.env.aktoKafkaBrokerMal }}
+        - name: AKTO_KAFKA_BROKER_URL
+          value: {{ quote .Values.dashboard.env.aktoKafkaBrokerUrl }}
+        - name: AKTO_KAFKA_GROUP_ID_CONFIG
+          value: {{ quote .Values.dashboard.env.aktoKafkaGroupIdConfig }}
+        - name: AKTO_KAFKA_MAX_POLL_RECORDS_CONFIG
+          value: {{ quote .Values.dashboard.env.aktoKafkaMaxPollRecordsConfig }}
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: {{ quote .Values.dashboard.env.aktoKafkaTopicName }}
+        - name: AKTO_TRAFFIC_BATCH_SIZE
+          value: {{ quote .Values.dashboard.env.aktoTrafficBatchSize }}
+        - name: AKTO_TRAFFIC_BATCH_TIME_SECS
+          value: {{ quote .Values.dashboard.env.aktoTrafficBatchTimeSecs }}
+        - name: PUPPETEER_REPLAY_SERVICE_URL
+          value: {{ quote .Values.dashboard.env.puppeteerReplayServiceUrl }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.dashboard.env.aktoLogLevel }}
+        # Auto-wired to the threat backend in this release unless overridden.
+        - name: THREAT_DETECTION_BACKEND_URL
+          value: {{ include "akto-central-setup.dashboard.threatBackendUrl" . | quote }}
+        {{- include "akto-central-setup.mongoEnv" . | nindent 8 }}
+        {{- include "akto-central-setup.elasticsearchEnv" . | nindent 8 }}
+        {{- include "akto-central-setup.tls.env" . | nindent 8 }}
+        resources:
+          {{- toYaml .Values.dashboard.resources | nindent 10 }}
+        {{- with (include "akto-central-setup.volumeMounts" .) }}
+        volumeMounts:
+          {{- . | nindent 8 }}
+        {{- end }}
+      {{- with (include "akto-central-setup.volumes" .) }}
+      volumes:
+        {{- . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "dashboard") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "dashboard") | nindent 4 }}
+  {{- with .Values.dashboard.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.dashboard.service.type }}
+  selector:
+    {{- include "akto-central-setup.componentSelectorLabels" (list . "dashboard") | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ .Values.dashboard.service.port }}
+    targetPort: {{ .Values.dashboard.service.targetPort }}
+    protocol: TCP
+{{- end }}

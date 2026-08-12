@@ -1,0 +1,459 @@
+{{- define "akto-regional-setup.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "akto-regional-setup.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "akto-regional-setup.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Usage: {{ include "akto-regional-setup.componentName" (list . "mini-runtime") }}
+*/}}
+{{- define "akto-regional-setup.componentName" -}}
+{{- $ctx := index . 0 -}}
+{{- $component := index . 1 -}}
+{{- printf "%s-%s" (include "akto-regional-setup.fullname" $ctx) $component | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "akto-regional-setup.labels" -}}
+helm.sh/chart: {{ include "akto-regional-setup.chart" . }}
+{{ include "akto-regional-setup.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/part-of: akto
+{{- end }}
+
+{{- define "akto-regional-setup.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "akto-regional-setup.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "akto-regional-setup.componentLabels" -}}
+{{- $ctx := index . 0 -}}
+{{- $component := index . 1 -}}
+{{ include "akto-regional-setup.labels" $ctx }}
+app.kubernetes.io/component: {{ $component }}
+{{- end }}
+
+{{- define "akto-regional-setup.componentSelectorLabels" -}}
+{{- $ctx := index . 0 -}}
+{{- $component := index . 1 -}}
+{{ include "akto-regional-setup.selectorLabels" $ctx }}
+app.kubernetes.io/component: {{ $component }}
+{{- end }}
+
+{{- define "akto-regional-setup.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "akto-regional-setup.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Renders "repository@digest" when a digest is set, else "repository:tag".
+Usage: {{ include "akto-regional-setup.image" .Values.miniRuntime.image }}
+*/}}
+{{- define "akto-regional-setup.image" -}}
+{{- if .digest -}}
+{{ .repository }}@{{ .digest }}
+{{- else -}}
+{{ .repository }}:{{ .tag | default "latest" }}
+{{- end -}}
+{{- end }}
+
+{{/*
+------------------------------------------------------------------------------
+Central cloud endpoints.
+
+These replace the per-component URL values the old charts each had, so an
+operator sets the central address once instead of six times.
+------------------------------------------------------------------------------
+*/}}
+
+{{- define "akto-regional-setup.central.databaseAbstractorUrl" -}}
+{{- .Values.central.databaseAbstractorUrl | default "https://cyborg.akto.io" -}}
+{{- end }}
+
+{{- define "akto-regional-setup.central.threatBackendUrl" -}}
+{{- .Values.central.threatBackendUrl | default "https://tbs.akto.io" -}}
+{{- end }}
+
+{{/*
+Full URL guardrails POSTs blocked/malicious events to.
+*/}}
+{{- define "akto-regional-setup.central.threatDetectionApiUrl" -}}
+{{- printf "%s/api/threat_detection/record_malicious_event" (trimSuffix "/" (include "akto-regional-setup.central.threatBackendUrl" .)) -}}
+{{- end }}
+
+{{/*
+------------------------------------------------------------------------------
+Azure Key Vault. The only source of secrets anywhere in this chart - no
+plaintext values.yaml field and no bring-your-own-Secret escape hatch exists
+for any credential below. Every pod that reads one of these also mounts the
+CSI volume below: the Azure Key Vault provider only syncs a SecretProviderClass
+into its Kubernetes Secret when something actually mounts it, so at least one
+consumer per release has to.
+------------------------------------------------------------------------------
+*/}}
+{{- define "akto-regional-setup.keyVault.volumeMounts" -}}
+- name: secrets-store
+  mountPath: /mnt/secrets-store
+  readOnly: true
+{{- end }}
+
+{{- define "akto-regional-setup.keyVault.volumes" -}}
+- name: secrets-store
+  csi:
+    driver: secrets-store.csi.k8s.io
+    readOnly: true
+    volumeAttributes:
+      secretProviderClass: {{ .Values.global.keyVault.secretProviderClass }}
+{{- end }}
+
+{{/*
+Just the valueFrom block for the central database-abstractor token, reused
+wherever the env var name differs (threat-client also authenticates to the
+threat backend with the same token, under a different env var name).
+*/}}
+{{- define "akto-regional-setup.central.tokenSecretKeyRef" -}}
+valueFrom:
+  secretKeyRef:
+    name: {{ .Values.global.keyVault.secretName }}
+    key: {{ .Values.central.databaseAbstractorTokenKey | default "databaseAbstractorToken" }}
+{{- end }}
+
+{{/*
+DATABASE_ABSTRACTOR_SERVICE_TOKEN, always via secretKeyRef so the token never
+appears in a Deployment spec.
+*/}}
+{{- define "akto-regional-setup.central.tokenEnv" -}}
+- name: DATABASE_ABSTRACTOR_SERVICE_TOKEN
+  {{- include "akto-regional-setup.central.tokenSecretKeyRef" . | nindent 2 }}
+{{- end }}
+
+{{/*
+Threat client's Postgres credentials, always via secretKeyRef.
+*/}}
+{{- define "akto-regional-setup.threatClient.postgresEnv" -}}
+- name: AKTO_THREAT_DETECTION_POSTGRES_USER
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.global.keyVault.secretName }}
+      key: {{ .Values.threatClient.env.postgresUserKey | default "threatClientPostgresUser" }}
+- name: AKTO_THREAT_DETECTION_POSTGRES_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.global.keyVault.secretName }}
+      key: {{ .Values.threatClient.env.postgresPasswordKey | default "threatClientPostgresPassword" }}
+{{- end }}
+
+{{/*
+AKTO_DI_REVOKED_TOKENS - optional, so it's fine to leave unsynced.
+*/}}
+{{- define "akto-regional-setup.dataIngestion.revokedTokensEnv" -}}
+- name: AKTO_DI_REVOKED_TOKENS
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.global.keyVault.secretName }}
+      key: {{ .Values.dataIngestion.env.revokedTokensKey | default "diRevokedTokens" }}
+      optional: true
+{{- end }}
+
+{{/*
+Bundled Redis Service address (host:port only, no scheme/credentials).
+*/}}
+{{- define "akto-regional-setup.guardrailsRedis.host" -}}
+{{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "guardrails-redis")) .Values.guardrailsRedis.service.port -}}
+{{- end }}
+
+{{/*
+REDIS_URL for the guardrails semantic cache.
+
+- guardrailsRedis.enabled=true: auto-targets the bundled Redis in this
+  release. The password is REQUIRED (not optional) here on purpose: Kubernetes
+  leaves a $(VAR) reference in command/args and env value fields UNCHANGED,
+  as a literal string, when the referenced env var is undefined - it does
+  NOT resolve to an empty string. An optional/missing key would silently make
+  Redis require the literal password "$(REDIS_PASSWORD)" while this env var
+  composes the literal "$(GUARDRAILS_REDIS_PASSWORD)" instead - two different
+  literal strings, so the cache would silently fail to authenticate rather
+  than cleanly run passwordless. Sync a real password before enabling this.
+- guardrailsRedis.enabled=false: reads a full connection string for an
+  EXTERNAL Redis from Key Vault instead. Optional - an unsynced/missing key
+  leaves REDIS_URL unset entirely, same as today's "leave it blank" behavior
+  (cache stays off, fail-open).
+*/}}
+{{- define "akto-regional-setup.guardrailsService.redisEnv" -}}
+{{- if .Values.guardrailsRedis.enabled }}
+- name: GUARDRAILS_REDIS_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.global.keyVault.secretName }}
+      key: {{ .Values.guardrailsRedis.passwordKey | default "guardrailsRedisPassword" }}
+- name: REDIS_URL
+  value: {{ printf "redis://:$(GUARDRAILS_REDIS_PASSWORD)@%s" (include "akto-regional-setup.guardrailsRedis.host" .) | quote }}
+{{- else }}
+- name: REDIS_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.global.keyVault.secretName }}
+      key: {{ .Values.guardrailsService.env.redisUrlKey | default "guardrailsRedisUrl" }}
+      optional: true
+{{- end }}
+{{- end }}
+
+{{/*
+Agent-guard's model-provider credentials. Every key is optional: fill in only
+the provider(s) you actually use by syncing that key into Key Vault, leave
+the rest unsynced. (env var name, Key Vault key name) pairs.
+*/}}
+{{- define "akto-regional-setup.agentGuard.secretEnv" -}}
+{{- $pairs := list
+  (list "QWEN3GUARD_SA_KEY_JSON" "qwen3guardSaKeyJson")
+  (list "QWEN3GUARD_PROJECT" "qwen3guardProject")
+  (list "QWEN3GUARD_LOCATION" "qwen3guardLocation")
+  (list "QWEN3GUARD_ENDPOINT_ID" "qwen3guardEndpointId")
+  (list "QWEN3GUARD_DEDICATED_DNS" "qwen3guardDedicatedDns")
+  (list "GEMMA_VERTEX_SA_KEY_JSON" "gemmaVertexSaKeyJson")
+  (list "GEMMA_VERTEX_PROJECT" "gemmaVertexProject")
+  (list "GEMMA_VERTEX_LOCATION" "gemmaVertexLocation")
+  (list "GEMMA_VERTEX_ENDPOINT_ID" "gemmaVertexEndpointId")
+  (list "GEMMA_VERTEX_DEDICATED_DNS" "gemmaVertexDedicatedDns")
+  (list "QWEN3GUARD_FOUNDRY_BASE_URL" "qwen3guardFoundryBaseUrl")
+  (list "QWEN3GUARD_FOUNDRY_API_KEY" "qwen3guardFoundryApiKey")
+  (list "QWEN3GUARD_FOUNDRY_DEPLOYMENT" "qwen3guardFoundryDeployment")
+  (list "QWEN3GUARD_FOUNDRY_MODEL" "qwen3guardFoundryModel")
+  (list "GEMMA_FOUNDRY_BASE_URL" "gemmaFoundryBaseUrl")
+  (list "GEMMA_FOUNDRY_API_KEY" "gemmaFoundryApiKey")
+  (list "GEMMA_FOUNDRY_DEPLOYMENT" "gemmaFoundryDeployment")
+  (list "GEMMA_FOUNDRY_MODEL" "gemmaFoundryModel")
+  (list "AZURE_FOUNDRY_BASE_URL" "azureFoundryBaseUrl")
+  (list "AZURE_FOUNDRY_API_KEY" "azureFoundryApiKey")
+  (list "AZURE_FOUNDRY_DEPLOYMENT" "azureFoundryDeployment")
+  (list "AZURE_FOUNDRY_MODEL" "azureFoundryModel")
+  (list "ANTHROPIC_FOUNDRY_BASE_URL" "anthropicFoundryBaseUrl")
+  (list "ANTHROPIC_FOUNDRY_API_KEY" "anthropicFoundryApiKey")
+  (list "ANTHROPIC_FOUNDRY_DEPLOYMENT" "anthropicFoundryDeployment")
+  (list "ANTHROPIC_FOUNDRY_MODEL" "anthropicFoundryModel")
+  (list "ANTHROPIC_API_KEY" "anthropicApiKey")
+  (list "ANTHROPIC_MODEL" "anthropicModel")
+  (list "OPENAI_API_KEY" "openaiApiKey")
+  (list "OPENAI_MODEL" "openaiModel")
+  (list "OPENAI_COMPATIBLE_BASE_URL" "openaiCompatibleBaseUrl")
+  (list "DEFAULT_MODEL_CONFIG_JSON" "defaultModelConfigJson")
+-}}
+{{- range $pairs }}
+- name: {{ index . 0 }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $.Values.global.keyVault.secretName }}
+      key: {{ index . 1 }}
+      optional: true
+{{- end }}
+{{- end }}
+
+{{/*
+Env every Akto JVM component shares.
+*/}}
+{{- define "akto-regional-setup.commonEnv" -}}
+- name: IS_KUBERNETES
+  value: "true"
+- name: AKTO_ACCOUNT_NAME
+  value: {{ quote .Values.global.accountName }}
+- name: AKTO_CONFIG_NAME
+  value: {{ quote .Values.global.configName }}
+- name: AKTO_LOG_LEVEL
+  value: {{ quote .Values.global.aktoLogLevel }}
+- name: KUBERNETES_CLUSTER_DOMAIN
+  value: {{ quote .Values.global.kubernetesClusterDomain }}
+- name: POD_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name
+- name: NODE_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: spec.nodeName
+{{- end }}
+
+{{/*
+------------------------------------------------------------------------------
+In-cluster service URLs. Every component that needs a sibling resolves it here
+rather than expecting the operator to paste an FQDN.
+------------------------------------------------------------------------------
+*/}}
+
+{{- define "akto-regional-setup.svcHost" -}}
+{{- $ctx := index . 0 -}}
+{{- $component := index . 1 -}}
+{{- printf "%s.%s.svc.%s" (include "akto-regional-setup.componentName" (list $ctx $component)) $ctx.Release.Namespace $ctx.Values.global.kubernetesClusterDomain -}}
+{{- end }}
+
+{{- define "akto-regional-setup.miniRuntime.kafkaUrl" -}}
+{{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "mini-runtime")) .Values.miniRuntime.service.kafkaPort -}}
+{{- end }}
+
+{{- define "akto-regional-setup.guardrailsKafka.url" -}}
+{{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "guardrails-kafka")) .Values.guardrailsKafka.service.kafkaPort -}}
+{{- end }}
+
+{{- define "akto-regional-setup.agentGuard.url" -}}
+{{- printf "http://%s:%v" (include "akto-regional-setup.svcHost" (list . "agent-guard")) .Values.agentGuard.service.port -}}
+{{- end }}
+
+{{- define "akto-regional-setup.anonymizer.url" -}}
+{{- printf "http://%s:%v" (include "akto-regional-setup.svcHost" (list . "anonymizer")) .Values.anonymizer.service.port -}}
+{{- end }}
+
+{{- define "akto-regional-setup.embedder.url" -}}
+{{- printf "http://%s:%v" (include "akto-regional-setup.svcHost" (list . "embedder")) .Values.embedder.service.port -}}
+{{- end }}
+
+{{- define "akto-regional-setup.guardrailsService.url" -}}
+{{- printf "http://%s:%v" (include "akto-regional-setup.svcHost" (list . "guardrails-service-http")) .Values.guardrailsService.http.service.port -}}
+{{- end }}
+
+{{/*
+Kafka the mini-runtime process itself uses: its own bundled broker over
+localhost, or the configured external cluster.
+*/}}
+{{- define "akto-regional-setup.miniRuntime.brokerForRuntime" -}}
+{{- if .Values.miniRuntime.external.enabled -}}
+{{- required "miniRuntime.external.brokerUrl is required when miniRuntime.external.enabled=true" .Values.miniRuntime.external.brokerUrl -}}
+{{- else -}}
+localhost:29092
+{{- end -}}
+{{- end }}
+
+{{/*
+Kafka the threat client consumes traffic from. Explicit override wins; then the
+mini-runtime broker in this release; else its own bundled broker.
+*/}}
+{{- define "akto-regional-setup.threatClient.trafficBroker" -}}
+{{- if .Values.threatClient.external.enabled -}}
+{{- if .Values.threatClient.external.brokerUrl -}}
+{{- .Values.threatClient.external.brokerUrl -}}
+{{- else if .Values.miniRuntime.enabled -}}
+{{- include "akto-regional-setup.miniRuntime.kafkaUrl" . -}}
+{{- else -}}
+{{- fail "threatClient.external.enabled=true but no brokerUrl given and miniRuntime is disabled - set threatClient.external.brokerUrl" -}}
+{{- end -}}
+{{- else -}}
+localhost:29092
+{{- end -}}
+{{- end }}
+
+{{/*
+Kafka the data ingestion service produces into.
+*/}}
+{{- define "akto-regional-setup.dataIngestion.brokerUrl" -}}
+{{- if .Values.dataIngestion.env.kafkaBrokerUrl -}}
+{{- .Values.dataIngestion.env.kafkaBrokerUrl -}}
+{{- else if .Values.miniRuntime.enabled -}}
+{{- include "akto-regional-setup.miniRuntime.kafkaUrl" . -}}
+{{- else -}}
+{{- fail "dataIngestion.env.kafkaBrokerUrl must be set when miniRuntime.enabled=false" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Guardrails service URL the ingestion service calls when guardrails is on.
+*/}}
+{{- define "akto-regional-setup.dataIngestion.guardrailsUrl" -}}
+{{- if .Values.dataIngestion.env.guardrailsServiceUrl -}}
+{{- .Values.dataIngestion.env.guardrailsServiceUrl -}}
+{{- else if .Values.guardrailsService.http.enabled -}}
+{{- include "akto-regional-setup.guardrailsService.url" . -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Where guardrails-service sends scan requests.
+*/}}
+{{- define "akto-regional-setup.guardrails.scannerUrl" -}}
+{{- if .Values.guardrailsService.env.scannerApiUrl -}}
+{{- .Values.guardrailsService.env.scannerApiUrl -}}
+{{- else if .Values.agentGuard.enabled -}}
+{{- include "akto-regional-setup.agentGuard.url" . -}}
+{{- else -}}
+{{- fail "guardrailsService.env.scannerApiUrl must be set when agentGuard.enabled=false" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Kafka the Kafka-mode guardrails service consumes from.
+*/}}
+{{- define "akto-regional-setup.guardrails.kafkaBroker" -}}
+{{- if .Values.guardrailsService.kafka.brokerUrl -}}
+{{- .Values.guardrailsService.kafka.brokerUrl -}}
+{{- else if .Values.guardrailsKafka.enabled -}}
+{{- include "akto-regional-setup.guardrailsKafka.url" . -}}
+{{- else if .Values.miniRuntime.enabled -}}
+{{- include "akto-regional-setup.miniRuntime.kafkaUrl" . -}}
+{{- else -}}
+{{- fail "guardrailsService.kafka.brokerUrl must be set when neither guardrailsKafka nor miniRuntime is enabled" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Probe block shared by the guardrails components.
+Usage: {{ include "akto-regional-setup.probes" (list .Values.agentGuard 8090) }}
+*/}}
+{{- define "akto-regional-setup.probes" -}}
+{{- $c := index . 0 -}}
+{{- $port := index . 1 -}}
+{{- if $c.livenessProbe.enabled }}
+livenessProbe:
+  httpGet:
+    path: {{ $c.livenessProbe.path }}
+    port: {{ $port }}
+  initialDelaySeconds: {{ $c.livenessProbe.initialDelaySeconds }}
+  periodSeconds: {{ $c.livenessProbe.periodSeconds }}
+  timeoutSeconds: {{ $c.livenessProbe.timeoutSeconds }}
+  failureThreshold: {{ $c.livenessProbe.failureThreshold }}
+{{- end }}
+{{- if $c.readinessProbe.enabled }}
+readinessProbe:
+  httpGet:
+    path: {{ $c.readinessProbe.path }}
+    port: {{ $port }}
+  initialDelaySeconds: {{ $c.readinessProbe.initialDelaySeconds }}
+  periodSeconds: {{ $c.readinessProbe.periodSeconds }}
+  timeoutSeconds: {{ $c.readinessProbe.timeoutSeconds }}
+  failureThreshold: {{ $c.readinessProbe.failureThreshold }}
+{{- end }}
+{{- end }}
+
+{{/*
+Pod-level scheduling block, identical for every component.
+*/}}
+{{- define "akto-regional-setup.scheduling" -}}
+{{- with .Values.nodeSelector }}
+nodeSelector:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.affinity }}
+affinity:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.tolerations }}
+tolerations:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}

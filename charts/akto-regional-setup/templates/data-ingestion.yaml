@@ -1,0 +1,108 @@
+{{- if .Values.dataIngestion.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "data-ingestion") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "data-ingestion") | nindent 4 }}
+spec:
+  replicas: {{ .Values.dataIngestion.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-regional-setup.componentSelectorLabels" (list . "data-ingestion") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-regional-setup.componentSelectorLabels" (list . "data-ingestion") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-regional-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: Always
+      containers:
+      - name: data-ingestion-service
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: {{ include "akto-regional-setup.image" .Values.dataIngestion.image | quote }}
+        imagePullPolicy: {{ .Values.dataIngestion.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.dataIngestion.service.targetPort }}
+          protocol: TCP
+        env:
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.global.aktoLogLevel }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.global.kubernetesClusterDomain }}
+        - name: AKTO_TRAFFIC_BATCH_SIZE
+          value: {{ quote .Values.dataIngestion.env.aktoTrafficBatchSize }}
+        - name: AKTO_TRAFFIC_BATCH_TIME_SECS
+          value: {{ quote .Values.dataIngestion.env.aktoTrafficBatchTimeSecs }}
+        # Auto-wired to the mini-runtime broker in this release.
+        - name: AKTO_KAFKA_BROKER_URL
+          value: {{ include "akto-regional-setup.dataIngestion.brokerUrl" . | quote }}
+        - name: AKTO_KAFKA_PRODUCER_BATCH_SIZE
+          value: {{ quote .Values.dataIngestion.env.aktoKafkaProducerBatchSize }}
+        - name: AKTO_KAFKA_PRODUCER_LINGER_MS
+          value: {{ quote .Values.dataIngestion.env.aktoKafkaProducerLingerMs }}
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: {{ quote .Values.dataIngestion.env.aktoKafkaTopicName }}
+        - name: BLOCK_LOGS
+          value: {{ quote .Values.dataIngestion.env.blockLogs }}
+        - name: AKTO_DI_AUTHENTICATE
+          value: {{ quote .Values.dataIngestion.env.authenticate }}
+        {{- with .Values.dataIngestion.env.rsaPublicKey }}
+        - name: RSA_PUBLIC_KEY
+          value: {{ quote . }}
+        {{- end }}
+        {{- include "akto-regional-setup.dataIngestion.revokedTokensEnv" . | nindent 8 }}
+        {{- with .Values.dataIngestion.env.runtimeMode }}
+        - name: RUNTIME_MODE
+          value: {{ quote . }}
+        {{- end }}
+        - name: ENABLE_GUARDRAILS
+          value: {{ quote .Values.dataIngestion.env.enableGuardrails }}
+        {{- with (include "akto-regional-setup.dataIngestion.guardrailsUrl" .) }}
+        # Auto-wired to the guardrails service in this release.
+        - name: GUARDRAILS_SERVICE_URL
+          value: {{ quote . }}
+        {{- end }}
+        - name: GUARDRAILS_CLIENT_TIMEOUT_MS
+          value: {{ quote .Values.dataIngestion.env.guardrailsClientTimeoutMs }}
+        # Auto-wired to the central cloud.
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ include "akto-regional-setup.central.databaseAbstractorUrl" . | quote }}
+        {{- include "akto-regional-setup.central.tokenEnv" . | nindent 8 }}
+        {{- include "akto-regional-setup.kafka.clientSaslEnv" (list . .Values.miniRuntime.external) | nindent 8 }}
+        resources:
+          {{- toYaml .Values.dataIngestion.resources | nindent 10 }}
+        volumeMounts:
+          {{- include "akto-regional-setup.keyVault.volumeMounts" . | nindent 8 }}
+      volumes:
+        {{- include "akto-regional-setup.keyVault.volumes" . | nindent 6 }}
+      {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "data-ingestion") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "data-ingestion") | nindent 4 }}
+  {{- with .Values.dataIngestion.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.dataIngestion.service.type }}
+  selector:
+    {{- include "akto-regional-setup.componentSelectorLabels" (list . "data-ingestion") | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ .Values.dataIngestion.service.port }}
+    targetPort: {{ .Values.dataIngestion.service.targetPort }}
+    protocol: TCP
+{{- end }}

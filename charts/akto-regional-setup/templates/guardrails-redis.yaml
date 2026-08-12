@@ -1,0 +1,115 @@
+{{- if .Values.guardrailsRedis.enabled }}
+# =============================================================================
+# Dedicated redis-stack-server instance backing guardrailsService's semantic
+# cache. Must stay redis-stack-server (not plain redis/redis): the cache
+# needs the RediSearch module (FT.* commands).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "guardrails-redis") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "guardrails-redis") | nindent 4 }}
+spec:
+  replicas: {{ .Values.guardrailsRedis.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "akto-regional-setup.componentSelectorLabels" (list . "guardrails-redis") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-regional-setup.componentSelectorLabels" (list . "guardrails-redis") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-regional-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: redis
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.guardrailsRedis.image.repository }}:{{ .Values.guardrailsRedis.image.tag }}"
+        imagePullPolicy: {{ .Values.guardrailsRedis.image.pullPolicy }}
+        command: ["/bin/sh", "-c"]
+        args:
+          - exec redis-stack-server --appendonly yes --requirepass "$(REDIS_PASSWORD)"
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.keyVault.secretName }}
+              key: {{ .Values.guardrailsRedis.passwordKey | default "guardrailsRedisPassword" }}
+        ports:
+        - name: redis
+          containerPort: 6379
+          protocol: TCP
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep -q PONG"]
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 5
+        readinessProbe:
+          exec:
+            command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep -q PONG"]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+        resources:
+          {{- toYaml .Values.guardrailsRedis.resources | nindent 10 }}
+        volumeMounts:
+          {{- include "akto-regional-setup.keyVault.volumeMounts" . | nindent 8 }}
+        {{- if .Values.guardrailsRedis.persistence.enabled }}
+        - name: redis-data
+          mountPath: /data
+        {{- end }}
+      volumes:
+        {{- include "akto-regional-setup.keyVault.volumes" . | nindent 6 }}
+      {{- if .Values.guardrailsRedis.persistence.enabled }}
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: {{ include "akto-regional-setup.componentName" (list . "guardrails-redis") }}-data
+      {{- end }}
+      {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
+---
+{{- if .Values.guardrailsRedis.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "guardrails-redis") }}-data
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "guardrails-redis") | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- with .Values.guardrailsRedis.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.guardrailsRedis.persistence.size | quote }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "guardrails-redis") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "guardrails-redis") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "akto-regional-setup.componentSelectorLabels" (list . "guardrails-redis") | nindent 4 }}
+  ports:
+  - name: redis
+    port: {{ .Values.guardrailsRedis.service.port }}
+    targetPort: redis
+    protocol: TCP
+{{- end }}

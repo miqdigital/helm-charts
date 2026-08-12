@@ -1,0 +1,79 @@
+Akto Regional Cloud is installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Components deployed:
+{{ if .Values.miniRuntime.enabled }}  [x]{{ else }}  [ ]{{ end }} mini-runtime
+{{ if .Values.threatClient.enabled }}  [x]{{ else }}  [ ]{{ end }} threat-client
+{{ if .Values.dataIngestion.enabled }}  [x]{{ else }}  [ ]{{ end }} data-ingestion
+{{ if .Values.guardrailsService.http.enabled }}  [x]{{ else }}  [ ]{{ end }} guardrails-service (http)
+{{ if .Values.guardrailsService.kafka.enabled }}  [x]{{ else }}  [ ]{{ end }} guardrails-service (kafka)
+{{ if .Values.agentGuard.enabled }}  [x]{{ else }}  [ ]{{ end }} agent-guard
+{{ if .Values.anonymizer.enabled }}  [x]{{ else }}  [ ]{{ end }} anonymizer
+{{ if .Values.embedder.enabled }}  [x]{{ else }}  [ ]{{ end }} embedder
+{{ if .Values.guardrailsKafka.enabled }}  [x]{{ else }}  [ ]{{ end }} guardrails-kafka
+
+Check everything is up:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+=============================================================================
+Central cloud wiring (applied automatically to every component)
+=============================================================================
+  database abstractor : {{ include "akto-regional-setup.central.databaseAbstractorUrl" . }}
+  threat backend      : {{ include "akto-regional-setup.central.threatBackendUrl" . }}
+  malicious events    : {{ include "akto-regional-setup.central.threatDetectionApiUrl" . }}
+{{- if not .Values.central.databaseAbstractorUrl }}
+
+  !! central.databaseAbstractorUrl is unset - falling back to Akto SaaS.
+     Point it at your own central install:
+       --set central.databaseAbstractorUrl="https://cyborg.example.com"
+{{- end }}
+{{- if not .Values.central.threatBackendUrl }}
+
+  !! central.threatBackendUrl is unset - falling back to Akto SaaS.
+     Point it at your own central install:
+       --set central.threatBackendUrl="https://tbs.example.com"
+{{- end }}
+
+  Central token: read from Secret "{{ .Values.global.keyVault.secretName }}"
+  (key "{{ .Values.central.databaseAbstractorTokenKey | default "databaseAbstractorToken" }}"), synced by
+  SecretProviderClass "{{ .Values.global.keyVault.secretProviderClass }}". Calls to
+  central will be rejected with 401 if that key isn't actually synced - this
+  chart has no plaintext fallback to check at install time.
+
+{{- if .Values.miniRuntime.enabled }}
+
+Traffic bus (in-cluster Kafka others produce into):
+  {{ include "akto-regional-setup.miniRuntime.kafkaUrl" . }}
+{{- end }}
+{{- if .Values.dataIngestion.enabled }}
+
+Send traffic to the ingestion service:
+{{- if eq .Values.dataIngestion.service.type "LoadBalancer" }}
+  kubectl get svc -n {{ .Release.Namespace }} {{ include "akto-regional-setup.componentName" (list . "data-ingestion") }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+{{- else }}
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "akto-regional-setup.componentName" (list . "data-ingestion") }} {{ .Values.dataIngestion.service.port }}:{{ .Values.dataIngestion.service.port }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.networkPolicy.enabled }}
+
+=============================================================================
+NetworkPolicy is ENABLED - outbound traffic is default-deny
+=============================================================================
+Each component may only reach DNS, other pods in this release, and the CIDRs in
+networkPolicy.egressAllowlist (RFC1918 private space unless you changed it).
+
+Central is in a DIFFERENT cluster. If its address is not inside those ranges,
+regional components cannot reach it - add it:
+
+  --set networkPolicy.egressAllowlist[3].cidr=<central.ip/32>
+
+{{- if .Values.agentGuard.enabled }}
+
+Agent Guard also calls model providers (Vertex / Azure Foundry / OpenAI /
+Anthropic). Those are external too - allowlist them:
+
+  --set networkPolicy.components.agentGuard.egressAllowlist[0].cidr=<provider/32>
+{{- end }}
+
+Verify:  kubectl get networkpolicy -n {{ .Release.Namespace }}
+{{- end }}

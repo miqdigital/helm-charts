@@ -1,0 +1,63 @@
+{{- if .Values.guardrailsKafka.enabled }}
+apiVersion: apps/v1
+kind: {{ if .Values.guardrailsKafka.persistence.enabled }}StatefulSet{{ else }}Deployment{{ end }}
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "guardrails-kafka") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "guardrails-kafka") | nindent 4 }}
+spec:
+  replicas: 1
+  {{- if .Values.guardrailsKafka.persistence.enabled }}
+  serviceName: {{ include "akto-regional-setup.componentName" (list . "guardrails-kafka") }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "akto-regional-setup.componentSelectorLabels" (list . "guardrails-kafka") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-regional-setup.componentSelectorLabels" (list . "guardrails-kafka") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-regional-setup.serviceAccountName" . }}
+      containers:
+      {{- include "akto-regional-setup.kafka.brokerContainer" (list . "guardrails-kafka" (dict "image" .Values.guardrailsKafka.image "clusterId" .Values.guardrailsKafka.clusterId "createTopics" .Values.guardrailsKafka.createTopics "logRetentionHours" .Values.guardrailsKafka.logRetentionHours "resources" .Values.guardrailsKafka.resources) .Values.guardrailsKafka.service.kafkaPort) | nindent 6 }}
+        {{- if .Values.guardrailsKafka.persistence.enabled }}
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/kafka/data
+        {{- end }}
+      {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
+  {{- if .Values.guardrailsKafka.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      {{- with .Values.guardrailsKafka.persistence.storageClass }}
+      storageClassName: {{ . }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.guardrailsKafka.persistence.size }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "guardrails-kafka") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "guardrails-kafka") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "akto-regional-setup.componentSelectorLabels" (list . "guardrails-kafka") | nindent 4 }}
+  ports:
+  - name: kafka
+    port: {{ .Values.guardrailsKafka.service.kafkaPort }}
+    targetPort: {{ .Values.guardrailsKafka.service.kafkaPort }}
+    protocol: TCP
+{{- end }}

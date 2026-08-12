@@ -1,0 +1,46 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $root := . -}}
+{{- $components := list
+  (dict "component" "dashboard"            "enabled" .Values.dashboard.enabled          "overrides" .Values.networkPolicy.components.dashboard)
+  (dict "component" "database-abstractor"  "enabled" .Values.databaseAbstractor.enabled "overrides" .Values.networkPolicy.components.databaseAbstractor)
+  (dict "component" "threat-backend"       "enabled" .Values.threatBackend.enabled      "overrides" .Values.networkPolicy.components.threatBackend)
+-}}
+{{- $wp := .Values.databaseAbstractor.writePipeline -}}
+{{- if and .Values.databaseAbstractor.enabled $wp.enabled }}
+{{- $components = append $components (dict "component" "database-abstractor-kafka"     "enabled" true "overrides" .Values.networkPolicy.components.databaseAbstractor) }}
+{{- $components = append $components (dict "component" "database-abstractor-consumer" "enabled" true "overrides" .Values.networkPolicy.components.databaseAbstractor) }}
+{{- if $wp.consumerTraffic.enabled }}
+{{- $components = append $components (dict "component" "database-abstractor-consumer-traffic" "enabled" true "overrides" .Values.networkPolicy.components.databaseAbstractor) }}
+{{- end }}
+{{- range $wp.dedicatedConsumers }}
+{{- $components = append $components (dict "component" (printf "database-abstractor-consumer-%s" .name) "enabled" true "overrides" $root.Values.networkPolicy.components.databaseAbstractor) }}
+{{- end }}
+{{- end }}
+{{- range $components }}
+{{- if .enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list $root .component) }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list $root .component) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list $root .component) | nindent 6 }}
+  policyTypes:
+  - Egress
+  {{- if $root.Values.networkPolicy.restrictIngress }}
+  - Ingress
+  {{- end }}
+  # Everything not matched below is DENIED.
+  egress:
+    {{- include "akto-central-setup.networkPolicy.egressRules" (list $root .overrides) | nindent 2 }}
+  {{- if $root.Values.networkPolicy.restrictIngress }}
+  ingress:
+    {{- include "akto-central-setup.networkPolicy.ingressRules" (list $root) | nindent 2 }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

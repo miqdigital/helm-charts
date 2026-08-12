@@ -1,0 +1,491 @@
+# =============================================================================
+# Akto Central Cloud
+# =============================================================================
+# One chart, three components: dashboard, database-abstractor, threat-backend.
+#
+# Everything an operator normally has to set lives in `global` below. Every
+# cross-service URL (dashboard -> threat backend, etc.) is computed by the
+# chart, so a working install is a single command:
+#
+#   helm install akto-central-setup akto/akto-central-setup -n akto \
+#     --set global.keyVault.secretProviderClass=akto-keyvault
+#
+# Every secret in this chart - Mongo connection string, Elasticsearch host/API
+# key, mTLS keystore/truststore passwords - comes exclusively from Azure Key
+# Vault via that one SecretProviderClass. There is no plaintext values.yaml
+# fallback and no bring-your-own-Kubernetes-Secret escape hatch: the
+# SecretProviderClass (created outside this chart) must sync every key this
+# chart references into the Kubernetes Secret named by global.keyVault.secretName.
+#
+# =============================================================================
+
+nameOverride: ""
+fullnameOverride: ""
+
+# -----------------------------------------------------------------------------
+# Global - shared by every component in this chart.
+# -----------------------------------------------------------------------------
+global:
+  # Akto account/config identifiers, stamped onto every component.
+  accountName: Helios
+  configName: staging
+
+  kubernetesClusterDomain: cluster.local
+
+  imagePullSecrets: []
+
+  # ---------------------------------------------------------------------------
+  # Azure Key Vault. The only source of secrets anywhere in this chart - see
+  # the note at the top of this file. Point secretProviderClass at a
+  # SecretProviderClass (created outside this chart, see README) that syncs:
+  #   - aktoMongoConn                      (always required)
+  #   - esHost, esApiKey                   (if using Elasticsearch-backed search)
+  #   - tlsKeystorePassword, tlsTruststorePassword  (if global.tls.enabled)
+  # into the Kubernetes Secret named secretName below.
+  # ---------------------------------------------------------------------------
+  keyVault:
+    secretProviderClass: akto-keyvault
+    secretName: akto-secrets
+
+  # ---------------------------------------------------------------------------
+  # Certificate-based auth (x509 / mutual TLS) to Mongo and Elasticsearch.
+  # ---------------------------------------------------------------------------
+  # All three components are JVM services whose Mongo driver and HTTP client
+  # take TLS material from the JVM's own keystore/truststore. So the chart
+  # mounts the certificates and points the JVM at them - no application change
+  # is involved.
+  #
+  # Turning this on lets you drop password auth entirely:
+  #   global.mongo.x509=true          -> MONGODB-X509, no user/password
+  #   global.elasticsearch.mutualTls  -> client cert instead of an API key
+  #
+  # See the chart README for generating the stores with cert-manager.
+  # ---------------------------------------------------------------------------
+  tls:
+    enabled: false
+
+    # Secret holding the certificate material itself (keystore/truststore
+    # files, not the passwords protecting them - those come from Key Vault,
+    # see keystorePasswordKey/truststorePasswordKey below). This one stays a
+    # plain Kubernetes Secret you create with cert-manager or similar, since
+    # it's mounted as files, not read as an env var.
+    secretName: akto-db-certs
+
+    # pkcs12 | jks -> the Secret already holds Java keystores (recommended;
+    #                 cert-manager can emit these directly).
+    # pem          -> the Secret holds PEM files and an init container converts
+    #                 them to a PKCS12 keystore/truststore at pod start.
+    format: pkcs12
+
+    # Keys inside the Secret for the pkcs12/jks formats.
+    keystoreKey: keystore.p12
+    truststoreKey: truststore.p12
+
+    # Keys inside the Secret for the pem format.
+    pem:
+      certKey: tls.crt
+      keyKey: tls.key
+      caKey: ca.crt
+      # Needs both openssl and keytool. Any JDK image works.
+      image:
+        repository: eclipse-temurin
+        tag: "21-jdk"
+        pullPolicy: Always
+
+    # Keys inside global.keyVault.secretName holding the keystore/truststore
+    # passwords - sourced from Key Vault like every other secret in this
+    # chart, injected via secretKeyRef and interpolated into the JVM options
+    # so they never appear literally in the rendered manifest.
+    keystorePasswordKey: tlsKeystorePassword
+    truststorePasswordKey: tlsTruststorePassword
+
+    # The JVM has ONE truststore, and it is used for every outbound TLS
+    # connection - not just the database. Replacing it with a truststore that
+    # only holds your private CA will break calls to any publicly-signed
+    # endpoint. Leave this true and the init container starts from the JDK's
+    # bundled CA list and adds your CA to it.
+    # Only meaningful for format: pem.
+    includeSystemCAs: true
+
+    # Where the stores are mounted inside the containers.
+    mountPath: /etc/akto/tls
+
+    # Permissions the init container gives the generated stores (pem format).
+    # The Akto images run as an unprivileged user, so the root-owned 0600 file
+    # openssl produces by default is unreadable to them. 0644 matches how
+    # Kubernetes mounts Secret volumes and the file stays inside the pod.
+    storeFileMode: "0644"
+
+    # The chart writes the JVM flags into this variable. Change it if an image
+    # already consumes JAVA_TOOL_OPTIONS for something else.
+    javaOptsEnvVar: JAVA_TOOL_OPTIONS
+    # Extra flags appended to the same variable.
+    extraJavaOpts: ""
+
+  # Mongo is shared by all three components; they must point at the SAME
+  # instance/database. AKTO_MONGO_CONN always comes from global.keyVault -
+  # there is no plaintext connection-string field here.
+  mongo:
+    # Key inside global.keyVault.secretName holding the connection string.
+    secretKey: aktoMongoConn
+    # Authenticate with a client certificate instead of a password. Requires
+    # global.tls.enabled. Put "authMechanism=MONGODB-X509&tls=true" directly
+    # in the connection string you sync into Key Vault - the chart can't
+    # rewrite a value it never sees in plaintext, this flag only makes it
+    # fail fast if global.tls.enabled isn't also set.
+    x509: false
+
+  # Elasticsearch backs the dashboard's agentic-session/prompt search and the
+  # database-abstractor's query logging. Both esHost and esApiKey come from
+  # global.keyVault - sync an empty string for esHost there to disable
+  # ES-backed features entirely (they no-op when unset).
+  elasticsearch:
+    # ELASTICSEARCH (default) or AZURE_ADX.
+    searchBackend: "ELASTICSEARCH"
+    indexAgentQuery: "agent_query_logs"
+    # Keys inside global.keyVault.secretName.
+    esHostSecretKey: esHost
+    esApiKeySecretKey: esApiKey
+    # Present a client certificate to Elasticsearch. Requires
+    # global.tls.enabled. The API key is only sent when non-empty, so sync an
+    # empty string for esApiKey in Key Vault for certificate-only auth.
+    mutualTls: false
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Scheduling, applied to every component.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podSecurityContext: {}
+securityContext: {}
+
+# Adds keel.sh annotations so an existing cluster-wide Keel installation will
+# auto-update these images. This chart does NOT deploy Keel itself.
+imageAutoUpdate:
+  enabled: false
+  pollSchedule: "@every 60m"
+
+# =============================================================================
+# Network Policy - restricts OUTBOUND (egress) traffic.
+# =============================================================================
+# With this enabled each component gets a NetworkPolicy whose policyTypes
+# include Egress. In Kubernetes that means: traffic matching a rule below is
+# allowed, and EVERYTHING ELSE IS DENIED. That is what keeps the dashboard from
+# reaching the public internet.
+#
+# The default allowlist is RFC1918 private space only, i.e. "internal network
+# only, no internet". If your Mongo/Elasticsearch lives on a public endpoint
+# (Mongo Atlas, Elastic Cloud) you MUST add its CIDR to egressAllowlist below,
+# or those components will fail to connect.
+#
+# NOTE: enforcement requires a CNI that implements NetworkPolicy (Calico,
+# Cilium, Azure NPM, ...). On a CNI that ignores them the objects are still
+# created but nothing is restricted.
+# -----------------------------------------------------------------------------
+networkPolicy:
+  enabled: true
+
+  # DNS resolution. Leave on - almost nothing works without it.
+  allowDNS: true
+  dnsNamespaceSelector:
+    kubernetes.io/metadata.name: kube-system
+
+  # Let the components of this release talk to each other (dashboard ->
+  # threat backend, dashboard -> database abstractor).
+  allowIntraRelease: true
+
+  # Also write an Ingress policy restricting who may connect IN to these pods.
+  # Off by default so LoadBalancers/ingress controllers keep working.
+  restrictIngress: false
+  # Only consulted when restrictIngress is true. Intra-release traffic is
+  # always permitted; these add callers from outside the release.
+  ingressAllowlist: []
+  ingressNamespaces: []
+
+  # Egress allowlist applied to EVERY component.
+  # Each entry: cidr (required), except (optional []string), ports (optional
+  # list of {port, protocol}). Omit ports to allow all ports to that CIDR.
+  egressAllowlist:
+    - cidr: 10.0.0.0/8
+    - cidr: 172.16.0.0/12
+    - cidr: 192.168.0.0/16
+
+  # Allow egress to whole namespaces by label selector.
+  egressNamespaces: []
+  #  - kubernetes.io/metadata.name: akto-data
+
+  # Per-component extras, merged with the global lists above. Use this to give
+  # one component a hole the others don't get.
+  components:
+    dashboard:
+      egressAllowlist: []
+      egressNamespaces: []
+    databaseAbstractor:
+      egressAllowlist: []
+      egressNamespaces: []
+    threatBackend:
+      egressAllowlist: []
+      egressNamespaces: []
+
+# =============================================================================
+# Dashboard
+# =============================================================================
+dashboard:
+  enabled: true
+  replicas: 1
+
+  image:
+    repository: public.ecr.aws/aktosecurity/akto-api-security-dashboard
+    tag: "1.69.2_latest"
+    pullPolicy: Always
+
+  service:
+    type: LoadBalancer
+    port: 8080
+    targetPort: 8080
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+
+  env:
+    aktoInstanceType: DASHBOARD
+    # on_prem (default) or local_deploy.
+    onPrem: true
+    aktoKafkaBrokerMal: localhost:29092
+    aktoKafkaBrokerUrl: 127.0.0.1:29092
+    aktoKafkaGroupIdConfig: asdf
+    aktoKafkaMaxPollRecordsConfig: "100"
+    aktoKafkaTopicName: akto.api.logs
+    aktoTrafficBatchSize: "100"
+    aktoTrafficBatchTimeSecs: "10"
+    puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+    aktoLogLevel: INFO
+    # Leave blank to auto-target the threat backend deployed by this chart.
+    # Set it only to point at an external/SaaS threat backend.
+    threatDetectionBackendUrl: ""
+
+  resources:
+    requests:
+      cpu: 1
+      memory: "4Gi"
+    limits:
+      cpu: 2
+      memory: "8Gi"
+
+# =============================================================================
+# Database Abstractor
+# =============================================================================
+databaseAbstractor:
+  enabled: true
+  replicas: 1
+
+  image:
+    repository: public.ecr.aws/aktosecurity/akto-api-security-database-abstractor
+    tag: 1.66.9_local
+    pullPolicy: Always
+
+  # ClusterIP on purpose - database-abstractor is a backend data-access layer,
+  # not something that should ever get a public IP. If a caller outside this
+  # cluster (e.g. akto-regional in a different cluster) needs to reach it,
+  # that requires your own private connectivity between the clusters (VPN,
+  # peering, private endpoint) - not something this chart sets up.
+  service:
+    type: ClusterIP
+    port: 9000
+    targetPort: 8080
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+
+  env:
+    aktoInstanceType: DASHBOARD
+    aktoLogLevel: INFO
+
+  resources:
+    requests:
+      cpu: 1
+      memory: "4Gi"
+    limits:
+      cpu: 2
+      memory: "8Gi"
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+
+  # ---------------------------------------------------------------------------
+  # Kafka write-scaling pipeline. Mirrors the producer/consumer split already
+  # running in prod via docker-compose-producer-writer-log-ingestion.yml:
+  # writes get shipped to Kafka instead of hitting Mongo synchronously on the
+  # request path, and separate consumer pods drain the topic(s) into Mongo/ES
+  # off that path. Off by default - when disabled, the databaseAbstractor
+  # Deployment above is unaffected and behaves exactly as it does today.
+  #
+  # IMPORTANT: this pipeline's Kafka broker deliberately does NOT reuse
+  # threat-backend's/mini-runtime's bundled brokers, and the consumer/producer
+  # pods below deliberately do NOT set IS_KUBERNETES=true. The app's Kafka
+  # client (KafkaUtils.initKafkaConsumer / getBrokerUrl) hardcodes the broker
+  # address to 127.0.0.1:29092 for every read path whenever IS_KUBERNETES=true
+  # - that assumes Kafka is a same-pod sidecar, which is fine for a single
+  # pod but breaks the moment more than one pod (producer + N consumers) needs
+  # to share the same topic data. Leaving IS_KUBERNETES unset on these pods
+  # makes the client honor AKTO_KAFKA_BROKER_URL as given, pointed at this
+  # pipeline's own standalone broker Service instead.
+  # ---------------------------------------------------------------------------
+  writePipeline:
+    enabled: false
+
+    # Dedicated single-node Kafka broker (KRaft, no Zookeeper - matches the
+    # pattern already used for threat-backend's bundled broker rather than the
+    # older Zookeeper-based image the docker-compose file still uses).
+    kafka:
+      image:
+        repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
+        tag: "8.2.2-1-ubi9"
+        pullPolicy: Always
+      topics:
+        main: akto.trafficdata
+        traffic: akto.secondary.trafficMetrics
+        fastDiscovery: akto.fast-discovery.writes
+      # A single broker can only ever serve replicationFactor 1, regardless of
+      # what a multi-broker cluster might use - partitions is the only knob.
+      partitions: 3
+      resources:
+        requests:
+          cpu: 500m
+          memory: "1Gi"
+          ephemeral-storage: "500Mi"
+        limits:
+          cpu: 1
+          memory: "2Gi"
+          ephemeral-storage: "11Gi"
+
+    # The producer role is just the databaseAbstractor Deployment above with
+    # these env vars added on top - it still serves HTTP, nothing else about
+    # it changes. There is no separate producer Deployment.
+    producer:
+      batchSize: 10
+      lingerMs: 10
+      # Runs the traffic-merging cron in this pod. Only one producer replica
+      # should have this on if you scale replicas > 1.
+      triggerMergingCron: false
+
+    # Consumer: reads the main write topic, writes to Mongo/ES off the request
+    # path. Also runs the fast-discovery consumer in the same process (matches
+    # docker-writes-consumer.env). No Service - see the template for why.
+    consumer:
+      replicas: 1
+      groupId: asdf
+      maxPollRecords: 100
+      fastDiscoveryEnabled: true
+      resources:
+        requests:
+          cpu: 500m
+          memory: "1Gi"
+        limits:
+          cpu: 1
+          memory: "2Gi"
+
+    # Second consumer dedicated to the secondary "traffic" topic, split off so
+    # a spike there doesn't starve the main topic's consumer (mirrors
+    # akto-api-security-writes-consumer-traffic in the docker-compose).
+    consumerTraffic:
+      enabled: true
+      replicas: 1
+      groupId: asdf
+      maxPollRecords: 100
+      resources:
+        requests:
+          cpu: 500m
+          memory: "1Gi"
+        limits:
+          cpu: 1
+          memory: "2Gi"
+
+    # One dedicated consumer Deployment per entry, each reading its own
+    # per-account topic (<topics.main>_<accountId>) instead of sharing the
+    # default one - mirrors akto-api-security-writes-consumer-2 in the
+    # docker-compose, generalized to N accounts. Every accountId listed here
+    # is automatically also added to the producer's AKTO_KAFKA_ACCOUNT_ID, so
+    # the producer actually routes that account's writes to the per-account
+    # topic instead of the shared one - without that, this consumer would sit
+    # subscribed to a topic nothing ever publishes to.
+    # Example:
+    #   dedicatedConsumers:
+    #     - name: acme-corp
+    #       accountId: "1736798101"
+    dedicatedConsumers: []
+
+# =============================================================================
+# Threat Backend
+# =============================================================================
+# Runs the threat backend API plus its own single-node Kafka broker sidecar.
+# The API listens on 9090; Kafka is an internal detail exposed on 9092 for
+# regional threat clients that stream events in.
+# =============================================================================
+threatBackend:
+  enabled: true
+  replicas: 1
+
+  image:
+    repository: aktosecurity/akto-threat-detection-backend
+    tag: "1.15.7"
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    # The threat backend HTTP API. This is what the dashboard and any regional
+    # guardrails/threat-client talk to.
+    httpPort: 9090
+    # The bundled Kafka broker.
+    kafkaPort: 9092
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+
+  env:
+    aktoLogLevel: INFO
+    # Health endpoint staleness threshold.
+    healthDeepThresholdMs: "300000"
+
+  resources:
+    requests:
+      cpu: 1
+      memory: "1Gi"
+    limits:
+      cpu: 2
+      memory: "2Gi"
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 80
+
+  # Bundled single-node Kafka broker (KRaft mode, no Zookeeper).
+  kafka:
+    image:
+      repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
+      tag: "8.2.2-1-ubi9"
+      pullPolicy: Always
+    clusterId: "c6a1b8e2-4f2a-4b2a-9c3f-1a2b3c4d5e6f"
+    createTopics: "akto.api.logs:3:3"
+    cleanupPolicy: delete
+    logCleanerEnable: "true"
+    logRetentionBytes: "10737418240"
+    logRetentionCheckIntervalMs: "60000"
+    logRetentionHours: "5"
+    logSegmentBytes: "104857600"
+    offsetsTopicReplicationFactor: "1"
+    transactionStateLogMinIsr: "1"
+    transactionStateLogReplicationFactor: "1"
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 1
+        memory: "4Gi"

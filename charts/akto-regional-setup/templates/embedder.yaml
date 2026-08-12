@@ -1,0 +1,62 @@
+{{- if .Values.embedder.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "embedder") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "embedder") | nindent 4 }}
+spec:
+  replicas: {{ .Values.embedder.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-regional-setup.componentSelectorLabels" (list . "embedder") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-regional-setup.componentSelectorLabels" (list . "embedder") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-regional-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: embedder
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.embedder.image.repository }}:{{ .Values.embedder.image.tag }}"
+        imagePullPolicy: {{ .Values.embedder.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.embedder.service.targetPort }}
+          protocol: TCP
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: PORT
+          value: {{ quote .Values.embedder.service.targetPort }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.global.kubernetesClusterDomain }}
+        {{- include "akto-regional-setup.probes" (list .Values.embedder .Values.embedder.service.targetPort) | nindent 8 }}
+        resources:
+          {{- toYaml .Values.embedder.resources | nindent 10 }}
+      {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "embedder") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "embedder") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "akto-regional-setup.componentSelectorLabels" (list . "embedder") | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ .Values.embedder.service.port }}
+    targetPort: {{ .Values.embedder.service.targetPort }}
+    protocol: TCP
+{{- end }}
