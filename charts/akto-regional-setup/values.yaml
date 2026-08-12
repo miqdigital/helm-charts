@@ -475,6 +475,9 @@ agentGuard:
     # provider-routing JSON below. None of this is a credential, so it's a
     # plain value here (--set/-f), not Key Vault. Set only the field(s) for
     # the provider(s) you actually use; leave the rest blank.
+    vertexAiProject: ""
+    vertexAiLocation: ""
+    vertexAiEndpointId: ""
     qwen3guardProject: ""
     qwen3guardLocation: ""
     qwen3guardEndpointId: ""
@@ -534,9 +537,9 @@ agentGuard:
   # optional: true, so a missing key just leaves that env var unset).
   #
   # Keys expected in Key Vault (fixed - not configurable per-install):
-  #   qwen3guardSaKeyJson, gemmaVertexSaKeyJson, qwen3guardFoundryApiKey,
-  #   gemmaFoundryApiKey, azureFoundryApiKey, anthropicFoundryApiKey,
-  #   anthropicApiKey, openaiApiKey
+  #   vertexAiSaKeyJson, qwen3guardSaKeyJson, gemmaVertexSaKeyJson,
+  #   qwen3guardFoundryApiKey, gemmaFoundryApiKey, azureFoundryApiKey,
+  #   anthropicFoundryApiKey, anthropicApiKey, openaiApiKey
   #
   # NOTE: reaching these providers is OUTBOUND traffic. With networkPolicy
   # enabled you must allowlist them under

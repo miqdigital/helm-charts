@@ -226,6 +226,7 @@ rest unsynced. (env var name, Key Vault key name) pairs.
 */}}
 {{- define "akto-regional-setup.agentGuard.secretEnv" -}}
 {{- $pairs := list
+  (list "VERTEX_AI_SA_KEY_JSON" "vertexAiSaKeyJson")
   (list "QWEN3GUARD_SA_KEY_JSON" "qwen3guardSaKeyJson")
   (list "GEMMA_VERTEX_SA_KEY_JSON" "gemmaVertexSaKeyJson")
   (list "QWEN3GUARD_FOUNDRY_API_KEY" "qwen3guardFoundryApiKey")
@@ -253,6 +254,9 @@ Vault. (env var name, agentGuard.env key name) pairs.
 */}}
 {{- define "akto-regional-setup.agentGuard.providerEnv" -}}
 {{- $pairs := list
+  (list "VERTEX_AI_PROJECT" "vertexAiProject")
+  (list "VERTEX_AI_LOCATION" "vertexAiLocation")
+  (list "VERTEX_AI_ENDPOINT_ID" "vertexAiEndpointId")
   (list "QWEN3GUARD_PROJECT" "qwen3guardProject")
   (list "QWEN3GUARD_LOCATION" "qwen3guardLocation")
   (list "QWEN3GUARD_ENDPOINT_ID" "qwen3guardEndpointId")
