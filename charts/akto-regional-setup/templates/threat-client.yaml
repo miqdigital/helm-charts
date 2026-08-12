@@ -1,0 +1,99 @@
+{{- if .Values.threatClient.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "threat-client") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "threat-client") | nindent 4 }}
+  {{- if .Values.imageAutoUpdate.enabled }}
+  annotations:
+    keel.sh/policy: force
+    keel.sh/match-tag: "true"
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: {{ quote .Values.imageAutoUpdate.pollSchedule }}
+    keel.sh/monitorContainers: "akto-api-security-threat-client"
+  {{- end }}
+spec:
+  replicas: {{ .Values.threatClient.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-regional-setup.componentSelectorLabels" (list . "threat-client") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-regional-setup.componentSelectorLabels" (list . "threat-client") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-regional-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: Always
+      containers:
+      - name: akto-api-security-threat-client
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: {{ include "akto-regional-setup.image" .Values.threatClient.image | quote }}
+        imagePullPolicy: {{ .Values.threatClient.image.pullPolicy }}
+        env:
+        {{- include "akto-regional-setup.commonEnv" . | nindent 8 }}
+        - name: RUNTIME_MODE
+          value: "hybrid"
+        - name: AKTO_INSTANCE_TYPE
+          value: {{ quote .Values.threatClient.env.aktoInstanceType }}
+        - name: AGGREGATION_RULES_ENABLED
+          value: {{ quote .Values.threatClient.env.aggregationRulesEnabled }}
+        - name: USE_HOSTNAME
+          value: {{ quote .Values.threatClient.env.useHostName }}
+        - name: AKTO_THREAT_DETECTION_POSTGRES
+          value: {{ quote .Values.threatClient.env.postgresUrl }}
+        {{- include "akto-regional-setup.threatClient.postgresEnv" . | nindent 8 }}
+        - name: AKTO_TRAFFIC_KAFKA_BOOTSTRAP_SERVER
+          value: {{ include "akto-regional-setup.threatClient.trafficBroker" . | quote }}
+        - name: AKTO_INTERNAL_KAFKA_BOOTSTRAP_SERVER
+          value: {{ include "akto-regional-setup.threatClient.trafficBroker" . | quote }}
+        # Auto-wired to the central cloud.
+        - name: AKTO_THREAT_PROTECTION_BACKEND_URL
+          value: {{ include "akto-regional-setup.central.threatBackendUrl" . | quote }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ include "akto-regional-setup.central.databaseAbstractorUrl" . | quote }}
+        {{- include "akto-regional-setup.central.tokenEnv" . | nindent 8 }}
+        # The threat client authenticates to the threat backend with the same token.
+        - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
+          {{- include "akto-regional-setup.central.tokenSecretKeyRef" . | nindent 10 }}
+        {{- include "akto-regional-setup.kafka.clientSaslEnv" (list . .Values.threatClient.external) | nindent 8 }}
+        resources:
+          {{- toYaml .Values.threatClient.resources | nindent 10 }}
+        volumeMounts:
+          {{- include "akto-regional-setup.keyVault.volumeMounts" . | nindent 8 }}
+      {{- if not .Values.threatClient.external.enabled }}
+      {{- include "akto-regional-setup.kafka.brokerContainer" (list . "threat-client" .Values.threatClient.kafka .Values.threatClient.service.kafkaPort) | nindent 6 }}
+      {{- end }}
+      volumes:
+        {{- include "akto-regional-setup.keyVault.volumes" . | nindent 6 }}
+      {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
+{{- if not .Values.threatClient.external.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "threat-client") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "threat-client") | nindent 4 }}
+  {{- with .Values.threatClient.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.threatClient.service.type }}
+  selector:
+    {{- include "akto-regional-setup.componentSelectorLabels" (list . "threat-client") | nindent 4 }}
+  ports:
+  - name: kafka
+    port: {{ .Values.threatClient.service.kafkaPort }}
+    targetPort: {{ .Values.threatClient.service.kafkaPort }}
+    protocol: TCP
+{{- end }}
+{{- end }}

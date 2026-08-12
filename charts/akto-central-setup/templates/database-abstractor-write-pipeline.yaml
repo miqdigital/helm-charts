@@ -1,0 +1,344 @@
+{{- if and .Values.databaseAbstractor.enabled .Values.databaseAbstractor.writePipeline.enabled }}
+{{- $wp := .Values.databaseAbstractor.writePipeline }}
+{{- $kafkaName := "database-abstractor-kafka" }}
+{{- $kafkaSvc := include "akto-central-setup.componentName" (list . $kafkaName) }}
+# =============================================================================
+# Dedicated single-node Kafka broker (KRaft) for the write pipeline. Kept
+# separate from threat-backend's bundled broker on purpose: different
+# lifecycle and retention needs, and it isolates blast radius if this
+# pipeline falls over.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $kafkaSvc }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . $kafkaName) | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list . $kafkaName) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list . $kafkaName) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" . }}
+      containers:
+      - name: kafka
+        image: "{{ $wp.kafka.image.repository }}:{{ $wp.kafka.image.tag }}"
+        imagePullPolicy: {{ $wp.kafka.image.pullPolicy }}
+        ports:
+        - name: kafka
+          containerPort: 9092
+        - name: kafka-ctrl
+          containerPort: 9093
+        env:
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ $kafkaSvc }}.{{ .Release.Namespace }}.svc.{{ .Values.global.kubernetesClusterDomain }}:9092"
+        - name: KAFKA_LISTENERS
+          value: "CONTROLLER://0.0.0.0:9093,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:9092"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT"
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: "LISTENER_DOCKER_EXTERNAL_DIFFHOST"
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@localhost:9093"
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_NODE_ID
+          value: "1"
+        - name: KAFKA_BROKER_ID
+          value: "1"
+        - name: CLUSTER_ID
+          value: "c6a1b8e2-4f2a-4b2a-9c3f-1a2b3c4d5e6a"
+        - name: KAFKA_CREATE_TOPICS
+          value: {{ printf "%s:%v:1,%s:%v:1,%s:%v:1" $wp.kafka.topics.main $wp.kafka.partitions $wp.kafka.topics.traffic $wp.kafka.partitions $wp.kafka.topics.fastDiscovery $wp.kafka.partitions | quote }}
+        - name: KAFKA_CLEANUP_POLICY
+          value: "delete"
+        - name: KAFKA_LOG_CLEANER_ENABLE
+          value: "true"
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: "5"
+        - name: KAFKA_LOG_RETENTION_BYTES
+          value: "10737418240"
+        - name: KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS
+          value: "60000"
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: "104857600"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.global.kubernetesClusterDomain }}
+        resources:
+          {{- toYaml $wp.kafka.resources | nindent 10 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $kafkaSvc }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . $kafkaName) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "akto-central-setup.componentSelectorLabels" (list . $kafkaName) | nindent 4 }}
+  ports:
+  - name: kafka
+    port: 9092
+    targetPort: 9092
+    protocol: TCP
+---
+# =============================================================================
+# Consumer - reads the main write topic and (optionally) runs the
+# fast-discovery consumer in the same process. No Service, no HTTP probes:
+# InitializerListener.java calls KafkaUtils.initKafkaConsumer() directly from
+# contextInitialized(), which blocks in the read loop forever - this pod never
+# meaningfully finishes starting an HTTP listener, matching how the
+# docker-compose consumer runs today (no ports exposed there either).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "database-abstractor-consumer") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "database-abstractor-consumer") | nindent 4 }}
+spec:
+  replicas: {{ $wp.consumer.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list . "database-abstractor-consumer") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list . "database-abstractor-consumer") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" . }}
+      {{- with (include "akto-central-setup.tls.initContainers" .) }}
+      initContainers:
+        {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+      - name: akto-api-security-database-abstractor-consumer
+        image: "{{ .Values.databaseAbstractor.image.repository }}:{{ .Values.databaseAbstractor.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.databaseAbstractor.image.pullPolicy }}
+        env:
+        {{- include "akto-central-setup.writePipeline.commonEnv" . | nindent 8 }}
+        - name: AKTO_INSTANCE_TYPE
+          value: {{ quote .Values.databaseAbstractor.env.aktoInstanceType }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.databaseAbstractor.env.aktoLogLevel }}
+        - name: KAFKA_READ_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_BROKER_URL
+          value: {{ include "akto-central-setup.writePipeline.kafkaBrokerUrl" . | quote }}
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: {{ $wp.kafka.topics.main | quote }}
+        - name: AKTO_KAFKA_GROUP_ID_CONFIG
+          value: {{ $wp.consumer.groupId | quote }}
+        - name: AKTO_KAFKA_MAX_POLL_RECORDS_CONFIG
+          value: {{ $wp.consumer.maxPollRecords | quote }}
+        {{- if $wp.consumer.fastDiscoveryEnabled }}
+        - name: FAST_DISCOVERY_KAFKA_ENABLED
+          value: "true"
+        - name: FAST_DISCOVERY_KAFKA_TOPIC_NAME
+          value: {{ $wp.kafka.topics.fastDiscovery | quote }}
+        {{- end }}
+        {{- include "akto-central-setup.mongoEnv" . | nindent 8 }}
+        {{- include "akto-central-setup.elasticsearchEnv" . | nindent 8 }}
+        {{- include "akto-central-setup.tls.env" . | nindent 8 }}
+        resources:
+          {{- toYaml $wp.consumer.resources | nindent 10 }}
+        {{- with (include "akto-central-setup.volumeMounts" .) }}
+        volumeMounts:
+          {{- . | nindent 8 }}
+        {{- end }}
+      {{- with (include "akto-central-setup.volumes" .) }}
+      volumes:
+        {{- . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- if $wp.consumerTraffic.enabled }}
+---
+# =============================================================================
+# Second consumer, dedicated to the secondary "traffic" topic - split off so a
+# spike there doesn't starve the main topic's consumer (mirrors
+# akto-api-security-writes-consumer-traffic in the docker-compose).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "database-abstractor-consumer-traffic") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "database-abstractor-consumer-traffic") | nindent 4 }}
+spec:
+  replicas: {{ $wp.consumerTraffic.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list . "database-abstractor-consumer-traffic") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list . "database-abstractor-consumer-traffic") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" . }}
+      {{- with (include "akto-central-setup.tls.initContainers" .) }}
+      initContainers:
+        {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+      - name: akto-api-security-database-abstractor-consumer-traffic
+        image: "{{ .Values.databaseAbstractor.image.repository }}:{{ .Values.databaseAbstractor.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.databaseAbstractor.image.pullPolicy }}
+        env:
+        {{- include "akto-central-setup.writePipeline.commonEnv" . | nindent 8 }}
+        - name: AKTO_INSTANCE_TYPE
+          value: {{ quote .Values.databaseAbstractor.env.aktoInstanceType }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.databaseAbstractor.env.aktoLogLevel }}
+        - name: KAFKA_READ_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_BROKER_URL
+          value: {{ include "akto-central-setup.writePipeline.kafkaBrokerUrl" . | quote }}
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: {{ $wp.kafka.topics.traffic | quote }}
+        - name: AKTO_KAFKA_GROUP_ID_CONFIG
+          value: {{ $wp.consumerTraffic.groupId | quote }}
+        - name: AKTO_KAFKA_MAX_POLL_RECORDS_CONFIG
+          value: {{ $wp.consumerTraffic.maxPollRecords | quote }}
+        {{- include "akto-central-setup.mongoEnv" . | nindent 8 }}
+        {{- include "akto-central-setup.elasticsearchEnv" . | nindent 8 }}
+        {{- include "akto-central-setup.tls.env" . | nindent 8 }}
+        resources:
+          {{- toYaml $wp.consumerTraffic.resources | nindent 10 }}
+        {{- with (include "akto-central-setup.volumeMounts" .) }}
+        volumeMounts:
+          {{- . | nindent 8 }}
+        {{- end }}
+      {{- with (include "akto-central-setup.volumes" .) }}
+      volumes:
+        {{- . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- range $wp.dedicatedConsumers }}
+{{- $dc := . }}
+---
+# =============================================================================
+# Dedicated consumer for account {{ $dc.accountId }} ({{ $dc.name }}) - reads
+# its own per-account topic instead of sharing the default one. Mirrors
+# akto-api-security-writes-consumer-2 in the docker-compose, generalized to N.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list $ (printf "database-abstractor-consumer-%s" $dc.name)) }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list $ (printf "database-abstractor-consumer-%s" $dc.name)) | nindent 4 }}
+spec:
+  replicas: {{ $dc.replicas | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list $ (printf "database-abstractor-consumer-%s" $dc.name)) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list $ (printf "database-abstractor-consumer-%s" $dc.name)) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" $ }}
+      {{- with (include "akto-central-setup.tls.initContainers" $) }}
+      initContainers:
+        {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+      - name: akto-api-security-database-abstractor-consumer
+        image: "{{ $.Values.databaseAbstractor.image.repository }}:{{ $.Values.databaseAbstractor.image.tag | default $.Chart.AppVersion }}"
+        imagePullPolicy: {{ $.Values.databaseAbstractor.image.pullPolicy }}
+        env:
+        {{- include "akto-central-setup.writePipeline.commonEnv" $ | nindent 8 }}
+        - name: AKTO_INSTANCE_TYPE
+          value: {{ quote $.Values.databaseAbstractor.env.aktoInstanceType }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote $.Values.databaseAbstractor.env.aktoLogLevel }}
+        - name: KAFKA_READ_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_BROKER_URL
+          value: {{ include "akto-central-setup.writePipeline.kafkaBrokerUrl" $ | quote }}
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: {{ $wp.kafka.topics.main | quote }}
+        - name: AKTO_KAFKA_ACCOUNT_ID
+          value: {{ $dc.accountId | quote }}
+        - name: AKTO_KAFKA_GROUP_ID_CONFIG
+          value: {{ $wp.consumer.groupId | quote }}
+        - name: AKTO_KAFKA_MAX_POLL_RECORDS_CONFIG
+          value: {{ $wp.consumer.maxPollRecords | quote }}
+        {{- include "akto-central-setup.mongoEnv" $ | nindent 8 }}
+        {{- include "akto-central-setup.elasticsearchEnv" $ | nindent 8 }}
+        {{- include "akto-central-setup.tls.env" $ | nindent 8 }}
+        resources:
+          {{- toYaml ($dc.resources | default $wp.consumer.resources) | nindent 10 }}
+        {{- with (include "akto-central-setup.volumeMounts" $) }}
+        volumeMounts:
+          {{- . | nindent 8 }}
+        {{- end }}
+      {{- with (include "akto-central-setup.volumes" $) }}
+      volumes:
+        {{- . | nindent 6 }}
+      {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}

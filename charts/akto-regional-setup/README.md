@@ -1,0 +1,239 @@
+# Akto Regional Cloud
+
+One chart for everything that runs at the edge:
+
+| Component | What it does | Default |
+|---|---|---|
+| `mini-runtime` | Parses mirrored traffic; hosts the traffic Kafka bus | on |
+| `threat-client` | Detects malicious traffic, reports to central | on |
+| `data-ingestion` | HTTP front door traffic is posted to | on |
+| `guardrails-service` (http) | AI guardrails entrypoint | on |
+| `agent-guard` | Runs the guardrail scanners | on |
+| `anonymizer` | PII masking used by agent-guard | on |
+| `guardrails-service` (kafka) | Kafka-consumer flavour of guardrails | off |
+| `guardrails-kafka` | Dedicated broker for the above | off |
+| `embedder` | Semantic-cache embeddings | off |
+| `guardrails-redis` | Bundled redis-stack-server backing the semantic cache | off |
+
+This replaces installing `akto-mini-runtime`, `akto-threat-client`,
+`data-ingestion-service` and `akto-ai-guardrails-v2` separately and then
+hand-wiring six URLs between them and central.
+
+## Install
+
+Every secret this chart needs - the central auth token, and optionally
+threat-client's Postgres credentials, external-Kafka SASL credentials, and
+agent-guard's model-provider API keys - comes from Azure Key Vault. There is
+no plaintext-token install path: create a SecretProviderClass first that
+syncs at least a `databaseAbstractorToken` key into a Secret, then:
+
+```bash
+helm repo add akto https://akto-api-security.github.io/helm-charts
+helm repo update akto
+
+helm install akto-regional-setup akto/akto-regional-setup -n akto-regional --create-namespace \
+  --set central.databaseAbstractorUrl="https://cyborg.example.com" \
+  --set central.threatBackendUrl="https://tbs.example.com" \
+  --set global.keyVault.secretProviderClass="akto-keyvault"
+```
+
+Get those two URLs from the `akto-central-setup` install notes.
+
+- `threatBackendUrl`: central runs in a different cluster, so use its
+  **external** address (its `service.type` can be set to `LoadBalancer`),
+  including the port if you expose it directly (e.g. `http://20.75.204.53:9090`).
+- `databaseAbstractorUrl`: `database-abstractor` is **ClusterIP only, always**
+  on the central side (no public IP, by design). If central and regional
+  share one cluster, its ClusterIP DNS name works as-is. If they're separate
+  clusters, you need your own private connectivity to it first (VPN, peering,
+  a private endpoint) — not something either chart sets up.
+
+Verify:
+
+```bash
+kubectl get pods -n akto-regional -l app.kubernetes.io/instance=akto-regional-setup
+```
+
+`mini-runtime` and `threat-client` are 2/2 — the second container is each one's
+Kafka broker.
+
+## Auto-wiring
+
+Everything below is computed by the chart. These are exactly the `--set` flags
+and `kubectl set env` commands this chart exists to eliminate:
+
+| Consumer | Variable | Resolved to |
+|---|---|---|
+| mini-runtime, threat-client, data-ingestion, guardrails, agent-guard | `DATABASE_ABSTRACTOR_SERVICE_URL` | `central.databaseAbstractorUrl` |
+| all of the above | `DATABASE_ABSTRACTOR_SERVICE_TOKEN` | the Key Vault-synced Secret, via `secretKeyRef` |
+| threat-client | `AKTO_THREAT_PROTECTION_BACKEND_URL` | `central.threatBackendUrl` |
+| guardrails | `THREAT_BACKEND_URL` | `central.threatBackendUrl` |
+| guardrails | `THREAT_DETECTION_API_URL` | `central.threatBackendUrl` + `/api/threat_detection/record_malicious_event` |
+| data-ingestion | `AKTO_KAFKA_BROKER_URL` | the mini-runtime broker in this release |
+| data-ingestion | `GUARDRAILS_SERVICE_URL` | the guardrails service in this release |
+| guardrails | `SCANNER_API_URL` | agent-guard in this release |
+| guardrails | `EMBEDDER_URL` | embedder in this release, when enabled |
+| agent-guard | `ANONYMIZER_URL` | anonymizer in this release |
+| threat-client | traffic bootstrap servers | its own broker, or mini-runtime's |
+
+The token is never written into a Deployment spec — it's read via `secretKeyRef`
+from the same Key Vault-synced Secret every other secret in this chart uses. If
+your SecretProviderClass syncs it under a different key name:
+
+```bash
+--set central.databaseAbstractorTokenKey=myTokenKeyName
+```
+
+Any auto-wired value can still be overridden explicitly, e.g.
+`dataIngestion.env.kafkaBrokerUrl`, `guardrailsService.env.scannerApiUrl`.
+
+## Restricting outbound traffic (NetworkPolicy)
+
+**Enabled by default** — same mechanism as `akto-central-setup`: each component gets a
+`policyTypes: [Egress]` policy, so outbound is default-deny and only the chart's
+rules are allowed.
+
+Allowed by default: DNS, other pods in this release, and
+`10.0.0.0/8` + `172.16.0.0/12` + `192.168.0.0/16`.
+
+Two things regional needs that central doesn't:
+
+**1. Central is in another cluster.** If its address is not in private space,
+regional cannot reach it. Add it:
+
+```bash
+--set 'networkPolicy.egressAllowlist[3].cidr=203.0.113.10/32'
+```
+
+**2. Agent Guard calls model providers.** Vertex AI, Azure AI Foundry, OpenAI and
+Anthropic are all external. Allowlist them on that component only:
+
+```yaml
+networkPolicy:
+  components:
+    agentGuard:
+      egressAllowlist:
+        - cidr: 203.0.113.0/24
+          ports:
+            - port: 443
+              protocol: TCP
+```
+
+Turn it off with `--set networkPolicy.enabled=false`.
+
+> **Enforcement requires a NetworkPolicy-capable CNI** (Calico, Cilium, Azure
+> NPM). On a CNI that ignores NetworkPolicy the objects are created but nothing
+> is restricted.
+
+## Common configurations
+
+**Point at an existing Kafka (MSK, Confluent Cloud) instead of the bundled broker:**
+
+Sync the SASL username/password into Key Vault under the keys named by
+`miniRuntime.external.usernameKey`/`passwordKey` (defaults:
+`miniRuntimeKafkaUsername` / `miniRuntimeKafkaPassword`), then:
+
+```bash
+--set miniRuntime.external.enabled=true \
+--set miniRuntime.external.brokerUrl="b-1.msk.amazonaws.com:9096" \
+--set miniRuntime.external.saslEnabled=true \
+--set miniRuntime.external.saslMechanism=SCRAM-SHA-512 \
+--set miniRuntime.external.securityProtocol=SASL_SSL
+```
+
+**Have the threat client read mini-runtime's bus instead of its own broker:**
+
+```bash
+--set threatClient.external.enabled=true
+```
+
+Leave `brokerUrl` blank and it targets mini-runtime automatically.
+
+**Guardrails inline on ingested traffic:**
+
+```bash
+--set dataIngestion.env.enableGuardrails=true
+```
+
+**Kafka-mode guardrails with its own broker:**
+
+```bash
+--set guardrailsService.kafka.enabled=true --set guardrailsKafka.enabled=true
+```
+
+**Semantic cache for guardrails (bundled Redis + embedder):** both are needed
+together - the cache can't do anything without embeddings, and vice versa.
+Sync a real password under `guardrailsRedis.passwordKey` (default
+`guardrailsRedisPassword`) into Key Vault first - **required**, not optional,
+once you turn this on:
+
+```bash
+--set guardrailsRedis.enabled=true --set embedder.enabled=true
+```
+
+Point at an external Redis instead (must have the RediSearch module -
+redis-stack-server, not plain redis) by leaving `guardrailsRedis.enabled=false`
+and syncing a full connection string under `guardrailsService.env.redisUrlKey`
+(default `guardrailsRedisUrl`) instead - optional, cache just stays off
+(fail-open) if left unsynced.
+
+**Model-provider credentials:** sync only the key(s) for the provider(s) you
+use into Key Vault - e.g. `openaiApiKey` and `openaiModel` for OpenAI. Every
+key is read with `optional: true`, so anything left unsynced simply leaves
+that env var unset rather than failing the install. See the full list of
+expected key names in `values.yaml` under `agentGuard.secrets`.
+
+**Run only part of the stack** — every component has an `enabled` flag:
+
+```bash
+--set guardrailsService.http.enabled=false --set agentGuard.enabled=false \
+--set anonymizer.enabled=false
+```
+
+## Values reference
+
+`helm show values akto/akto-regional-setup` prints the annotated file.
+
+| Key | Default | Notes |
+|---|---|---|
+| `central.databaseAbstractorUrl` | `""` → Akto SaaS | Your central install |
+| `central.threatBackendUrl` | `""` → Akto SaaS | Your central install |
+| `global.keyVault.secretProviderClass` | `akto-keyvault` | The only source of every secret in this chart |
+| `central.databaseAbstractorTokenKey` | `databaseAbstractorToken` | Key inside the synced Secret |
+| `global.accountName` / `configName` | `Helios` / `staging` | |
+| `global.aktoLogLevel` | `INFO` | Applied to every component |
+| `miniRuntime.enabled` | `true` | Hosts the traffic Kafka bus |
+| `threatClient.enabled` | `true` | Own Kafka sidecar by default |
+| `dataIngestion.enabled` | `true` | |
+| `guardrailsService.http.enabled` | `true` | |
+| `guardrailsService.kafka.enabled` | `false` | |
+| `agentGuard.enabled` | `true` | |
+| `anonymizer.enabled` | `true` | |
+| `embedder.enabled` | `false` | Only useful with an external Redis |
+| `guardrailsKafka.enabled` | `false` | |
+| `networkPolicy.enabled` | `true` | Default-deny egress |
+
+## Migrating from the old charts
+
+The old charts are unchanged and still installable. To move over:
+
+1. Install `akto-regional-setup` into a new namespace with your `central` values.
+2. Confirm traffic still flows and threat/guardrails events reach central.
+3. Repoint traffic senders at the new `data-ingestion` Service.
+4. Uninstall `akto-mini-runtime`, `akto-threat-client`,
+   `data-ingestion-service`, `akto-ai-guardrails-v2`.
+
+Value paths changed and `--reuse-values` from an old release will **not** carry
+over. Notable differences:
+
+- **The threat client is its own Deployment**, not a container inside
+  mini-runtime. It has its own resources, replicas and NetworkPolicy.
+- **Redis and fluent-bit are not deployed.** The guardrails semantic cache needs
+  a Redis with RediSearch; sync its connection URL into Key Vault under the key
+  named by `guardrailsService.env.redisUrlKey` and set `embedder.enabled=true`.
+  Leaving that key unsynced keeps the cache off, which is fail-open and safe.
+- **One token, one Secret, always Key Vault.** Each component no longer has its
+  own token value, and there is no plaintext or bring-your-own-Secret path for
+  any credential in this chart - see [Install](#install).
+- **Keel is not deployed.** `imageAutoUpdate.enabled=true` only adds the
+  keel.sh annotations.

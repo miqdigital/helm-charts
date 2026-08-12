@@ -1,0 +1,64 @@
+{{- if .Values.anonymizer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "anonymizer") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "anonymizer") | nindent 4 }}
+spec:
+  replicas: {{ .Values.anonymizer.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-regional-setup.componentSelectorLabels" (list . "anonymizer") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-regional-setup.componentSelectorLabels" (list . "anonymizer") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-regional-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: anonymizer
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.anonymizer.image.repository }}:{{ .Values.anonymizer.image.tag }}"
+        imagePullPolicy: {{ .Values.anonymizer.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.anonymizer.service.targetPort }}
+          protocol: TCP
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: PORT
+          value: {{ quote .Values.anonymizer.service.targetPort }}
+        - name: SPACY_MODEL
+          value: {{ quote .Values.anonymizer.env.spacyModel }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.global.kubernetesClusterDomain }}
+        {{- include "akto-regional-setup.probes" (list .Values.anonymizer .Values.anonymizer.service.targetPort) | nindent 8 }}
+        resources:
+          {{- toYaml .Values.anonymizer.resources | nindent 10 }}
+      {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "anonymizer") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "anonymizer") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "akto-regional-setup.componentSelectorLabels" (list . "anonymizer") | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ .Values.anonymizer.service.port }}
+    targetPort: {{ .Values.anonymizer.service.targetPort }}
+    protocol: TCP
+{{- end }}

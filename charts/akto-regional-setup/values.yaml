@@ -1,0 +1,643 @@
+# =============================================================================
+# Akto Regional Cloud
+# =============================================================================
+# One chart for everything that runs at the edge: mini-runtime, threat client,
+# data ingestion and the AI guardrails stack.
+#
+# The `central` block below is the ONLY thing most installs need to fill in.
+# Every other cross-service URL - which Kafka the ingestion service produces
+# to, where guardrails finds agent-guard, where the threat client reports to -
+# is computed by the chart.
+#
+#   helm install akto-regional-setup akto/akto-regional-setup -n akto-regional \
+#     --set central.databaseAbstractorUrl="https://cyborg.example.com" \
+#     --set central.threatBackendUrl="https://tbs.example.com" \
+#     --set global.keyVault.secretProviderClass="akto-keyvault"
+#
+# Every secret this chart needs - the central auth token, threat-client's
+# Postgres credentials, any external-Kafka SASL credentials, agent-guard's
+# model-provider API keys - comes exclusively from Azure Key Vault via that
+# one SecretProviderClass. There is no plaintext values.yaml fallback and no
+# bring-your-own-Kubernetes-Secret escape hatch anywhere in this chart: the
+# SecretProviderClass (created outside this chart) must sync every key this
+# chart references into the Kubernetes Secret named by
+# global.keyVault.secretName. See the README for the full list of keys.
+#
+# =============================================================================
+
+nameOverride: ""
+fullnameOverride: ""
+
+# =============================================================================
+# Central cloud connection - THE block to configure.
+# =============================================================================
+# Regional and central are separate clusters, so these are external addresses
+# (LoadBalancer / ingress / private link) of your akto-central-setup install. The
+# akto-central-setup chart prints them at the end of its install.
+# -----------------------------------------------------------------------------
+central:
+  # Akto database abstractor. Leave blank to use Akto SaaS (https://cyborg.akto.io).
+  databaseAbstractorUrl: ""
+  # Akto threat backend. Leave blank to use Akto SaaS (https://tbs.akto.io).
+  # Remember the port if you expose it directly, e.g. http://1.2.3.4:9090
+  threatBackendUrl: ""
+
+  # Key inside global.keyVault.secretName holding the token every regional
+  # component uses to authenticate to central.
+  databaseAbstractorTokenKey: databaseAbstractorToken
+
+# -----------------------------------------------------------------------------
+# Global - shared by every component.
+# -----------------------------------------------------------------------------
+global:
+  accountName: Helios
+  configName: staging
+  aktoLogLevel: INFO
+  kubernetesClusterDomain: cluster.local
+  imagePullSecrets: []
+
+  # ---------------------------------------------------------------------------
+  # Azure Key Vault. The only source of secrets anywhere in this chart - see
+  # the note at the top of this file.
+  # ---------------------------------------------------------------------------
+  keyVault:
+    secretProviderClass: akto-keyvault
+    secretName: akto-secrets
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podSecurityContext: {}
+securityContext: {}
+
+busybox:
+  image:
+    repository: busybox
+    digest: sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f
+
+imageAutoUpdate:
+  enabled: false
+  pollSchedule: "@every 60m"
+
+# =============================================================================
+# Network Policy - restricts OUTBOUND (egress) traffic.
+# =============================================================================
+# Same mechanism as the akto-central-setup chart: declaring policyTypes: [Egress]
+# makes the pod default-deny outbound, so only the rules below are allowed.
+#
+# IMPORTANT for regional: central lives in a DIFFERENT cluster, so its address
+# must be reachable through this allowlist. If your central endpoints are on
+# public IPs, add them explicitly - the RFC1918 defaults will not cover them.
+#
+# Enforcement requires a NetworkPolicy-capable CNI (Calico, Cilium, Azure NPM).
+# -----------------------------------------------------------------------------
+networkPolicy:
+  enabled: true
+
+  allowDNS: true
+  dnsNamespaceSelector:
+    kubernetes.io/metadata.name: kube-system
+
+  # Components of this release talking to each other (ingestion -> kafka,
+  # guardrails -> agent-guard, ...).
+  allowIntraRelease: true
+
+  restrictIngress: false
+  ingressAllowlist: []
+  ingressNamespaces: []
+
+  # Applied to every component. Default is internal/private space only.
+  egressAllowlist:
+    - cidr: 10.0.0.0/8
+    - cidr: 172.16.0.0/12
+    - cidr: 192.168.0.0/16
+
+  egressNamespaces: []
+
+  # Per-component extras, merged with the global lists above. Model-provider
+  # egress (Vertex/Azure Foundry/OpenAI/Anthropic) belongs on agentGuard.
+  components:
+    miniRuntime:
+      egressAllowlist: []
+      egressNamespaces: []
+    threatClient:
+      egressAllowlist: []
+      egressNamespaces: []
+    dataIngestion:
+      egressAllowlist: []
+      egressNamespaces: []
+    guardrailsService:
+      egressAllowlist: []
+      egressNamespaces: []
+    agentGuard:
+      egressAllowlist: []
+      egressNamespaces: []
+    embedder:
+      egressAllowlist: []
+      egressNamespaces: []
+    anonymizer:
+      egressAllowlist: []
+      egressNamespaces: []
+    guardrailsKafka:
+      egressAllowlist: []
+      egressNamespaces: []
+    guardrailsRedis:
+      egressAllowlist: []
+      egressNamespaces: []
+
+# =============================================================================
+# 1. Mini Runtime - parses mirrored traffic and ships it to central.
+# =============================================================================
+# Runs the runtime process plus its own single-node Kafka broker. That broker is
+# also the traffic bus the data ingestion service produces into.
+# =============================================================================
+miniRuntime:
+  enabled: true
+  replicas: 1
+
+  image:
+    repository: aktosecurity/mini-runtime
+    tag: "1.72.15_local"
+    # Set digest to pin by sha256 instead of tag.
+    digest: ""
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    kafkaPort: 9092
+    annotations: {}
+
+  env:
+    aktoInstanceType: RUNTIME
+    aktoKafkaGroupIdConfig: asdf
+    aktoKafkaMaxPollRecordsConfig: "100"
+    aktoKafkaTopicName: akto.api.logs
+    aktoTrafficBatchSize: "100"
+    aktoTrafficBatchTimeSecs: "10"
+    puppeteerReplayServiceUrl: http://akto-puppeteer-replay:3000
+    aktoRunMcpJobs: "false"
+    sendToThreatEnabled: "true"
+    useHostName: "true"
+
+  resources:
+    requests:
+      cpu: 1
+      memory: "2Gi"
+    limits:
+      cpu: 2
+      memory: "4Gi"
+
+  # Bundled broker. Set external.enabled to point at an existing Kafka instead.
+  kafka:
+    clusterId: "b1c2d3e4-5f6a-4b7c-8d9e-0a1b2c3d4e5f"
+    createTopics: "akto.api.logs:3:1"
+    logRetentionHours: "5"
+    image:
+      repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
+      tag: "8.2.2-1-ubi9"
+      pullPolicy: Always
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 1
+        memory: "2Gi"
+
+  # Use an existing Kafka cluster (MSK, Confluent Cloud, ...) instead of the
+  # bundled broker. When enabled the bundled broker container is not created.
+  external:
+    enabled: false
+    brokerUrl: ""
+    saslEnabled: false
+    saslMechanism: "SCRAM-SHA-512"
+    securityProtocol: "SASL_SSL"
+    # Keys inside global.keyVault.secretName holding the SASL credentials.
+    usernameKey: miniRuntimeKafkaUsername
+    passwordKey: miniRuntimeKafkaPassword
+
+# =============================================================================
+# 2. Threat Client - detects malicious traffic and reports to central.
+# =============================================================================
+threatClient:
+  enabled: true
+  replicas: 1
+
+  image:
+    repository: public.ecr.aws/aktosecurity/akto-threat-detection
+    tag: "1.15.7"
+    digest: ""
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    kafkaPort: 9092
+    annotations: {}
+
+  env:
+    aktoInstanceType: THREAT_CLIENT
+    aggregationRulesEnabled: "false"
+    useHostName: "true"
+    # Postgres backing the threat client's local state.
+    postgresUrl: "jdbc:postgresql://postgres.default.svc.cluster.local:5432/akto"
+    # Keys inside global.keyVault.secretName holding the Postgres credentials.
+    postgresUserKey: threatClientPostgresUser
+    postgresPasswordKey: threatClientPostgresPassword
+
+  resources:
+    requests:
+      cpu: 1
+      memory: "2Gi"
+    limits:
+      cpu: 1.5
+      memory: "2.5Gi"
+
+  # Bundled broker for the alerts topic.
+  kafka:
+    clusterId: "a1b2c3d4-5e6f-4a1b-8c2d-3e4f5a6b7c8d"
+    createTopics: "akto.threat_detection.alerts:3:1"
+    logRetentionHours: "5"
+    image:
+      repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
+      tag: "8.2.2-1-ubi9"
+      pullPolicy: Always
+    resources:
+      requests:
+        cpu: 1
+        memory: "2Gi"
+      limits:
+        cpu: 1
+        memory: "2Gi"
+
+  # Consume traffic from an existing Kafka instead of the bundled broker.
+  # Leave brokerUrl blank while miniRuntime.enabled=true and it auto-targets
+  # the mini-runtime broker in this release.
+  external:
+    enabled: false
+    brokerUrl: ""
+    saslEnabled: false
+    saslMechanism: "SCRAM-SHA-512"
+    securityProtocol: "SASL_SSL"
+    # Keys inside global.keyVault.secretName holding the SASL credentials.
+    usernameKey: threatClientKafkaUsername
+    passwordKey: threatClientKafkaPassword
+
+# =============================================================================
+# 3. Data Ingestion Service - HTTP front door for traffic.
+# =============================================================================
+dataIngestion:
+  enabled: true
+  replicas: 1
+
+  image:
+    repository: aktosecurity/data-ingestion-service
+    tag: "1.5.2"
+    digest: ""
+    pullPolicy: Always
+
+  service:
+    type: LoadBalancer
+    port: 8080
+    targetPort: 8080
+    annotations: {}
+
+  env:
+    aktoTrafficBatchSize: "100"
+    aktoTrafficBatchTimeSecs: "10"
+    aktoKafkaProducerBatchSize: "10"
+    aktoKafkaProducerLingerMs: "10"
+    aktoKafkaTopicName: "akto.api.logs"
+    blockLogs: "false"
+    runtimeMode: ""
+    # Require a signed JWT on inbound traffic.
+    authenticate: "false"
+    # PUBLIC key used to verify those JWTs - not a credential.
+    rsaPublicKey: ""
+    # Key inside global.keyVault.secretName holding the comma-separated list
+    # of tokens that must never authenticate. Optional - leave unsynced (or
+    # sync an empty string) if you don't need this.
+    revokedTokensKey: diRevokedTokens
+    # Kafka to produce into. Blank auto-targets the mini-runtime broker in this
+    # release; set it to use something else.
+    kafkaBrokerUrl: ""
+    # Call guardrails inline on ingested traffic. Blank guardrailsServiceUrl
+    # auto-targets the guardrails service in this release.
+    enableGuardrails: "false"
+    guardrailsServiceUrl: ""
+    guardrailsClientTimeoutMs: "5000"
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: "512Mi"
+    limits:
+      cpu: 1
+      memory: "1Gi"
+
+# =============================================================================
+# 4. Guardrails Service - the AI guardrails entrypoint.
+# =============================================================================
+# Two independently deployable flavours: an HTTP proxy and a Kafka consumer.
+# =============================================================================
+guardrailsService:
+  image:
+    repository: aktosecurity/guardrails-service
+    tag: "2.14.2"
+    pullPolicy: Always
+
+  env:
+    nhiEnabled: "true"
+    nhiScanIntervalMin: "30"
+    scanTimeoutSec: "40"
+    guardrailsValidationTimeoutMs: "40000"
+    guardrailsSkipPaths: ""
+    logLevel: info
+    # Semantic cache - fail-open, stays off until wired to a Redis. Set
+    # guardrailsRedis.enabled=true to use the bundled one below, or leave it
+    # false and sync a full connection string under redisUrlKey instead to
+    # point at your own external Redis (must have the RediSearch module -
+    # redis-stack-server, not plain redis - either way).
+    cacheMode: "decide"
+    # Key inside global.keyVault.secretName holding an EXTERNAL Redis's full
+    # connection URL (may embed credentials, e.g. redis://:pass@host:6379).
+    # Only consulted when guardrailsRedis.enabled=false.
+    redisUrlKey: guardrailsRedisUrl
+    # Blank auto-targets the embedder in this release when it is enabled.
+    embedderUrl: ""
+    # Blank auto-targets agent-guard in this release. Required if agentGuard
+    # is disabled.
+    scannerApiUrl: ""
+    # PUBLIC JWT verification key.
+    rsaPublicKey: ""
+
+  http:
+    enabled: true
+    replicas: 1
+    # ClusterIP on purpose - not something that should ever get a public IP.
+    # Only dataIngestion (regional) and dashboard (central) are public.
+    service:
+      type: ClusterIP
+      port: 9091
+      targetPort: 9091
+      annotations: {}
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2
+        memory: 2Gi
+    livenessProbe:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 60
+      periodSeconds: 20
+      timeoutSeconds: 15
+      failureThreshold: 5
+    readinessProbe:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 10
+      failureThreshold: 5
+
+  kafka:
+    enabled: false
+    replicas: 1
+    # Kafka to consume from. Blank auto-targets guardrailsKafka when it is
+    # enabled, else the mini-runtime broker.
+    brokerUrl: ""
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2
+        memory: 2Gi
+
+# =============================================================================
+# 5. Agent Guard - runs the guardrail scanners.
+# =============================================================================
+agentGuard:
+  enabled: true
+  replicas: 1
+
+  image:
+    repository: aktosecurity/akto-agent-guard-worker
+    tag: "1.1.6"
+    pullPolicy: Always
+
+  service:
+    port: 8090
+    targetPort: 8090
+
+  env:
+    slackWebhookUrl: ""
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+
+  livenessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 60
+    periodSeconds: 20
+    timeoutSeconds: 15
+    failureThreshold: 5
+  readinessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 5
+
+  # Model-provider credentials. Every one of these comes from Key Vault -
+  # sync only the key(s) for the provider(s) you actually use into
+  # global.keyVault.secretName; leave the rest unsynced (each is read with
+  # optional: true, so a missing key just leaves that env var unset).
+  #
+  # Keys expected in Key Vault (fixed - not configurable per-install):
+  #   qwen3guardSaKeyJson, qwen3guardProject, qwen3guardLocation,
+  #   qwen3guardEndpointId, qwen3guardDedicatedDns, gemmaVertexSaKeyJson,
+  #   gemmaVertexProject, gemmaVertexLocation, gemmaVertexEndpointId,
+  #   gemmaVertexDedicatedDns, qwen3guardFoundryBaseUrl,
+  #   qwen3guardFoundryApiKey, qwen3guardFoundryDeployment,
+  #   qwen3guardFoundryModel, gemmaFoundryBaseUrl, gemmaFoundryApiKey,
+  #   gemmaFoundryDeployment, gemmaFoundryModel, azureFoundryBaseUrl,
+  #   azureFoundryApiKey, azureFoundryDeployment, azureFoundryModel,
+  #   anthropicFoundryBaseUrl, anthropicFoundryApiKey,
+  #   anthropicFoundryDeployment, anthropicFoundryModel, anthropicApiKey,
+  #   anthropicModel, openaiApiKey, openaiModel, openaiCompatibleBaseUrl,
+  #   defaultModelConfigJson
+  #
+  # NOTE: reaching these providers is OUTBOUND traffic. With networkPolicy
+  # enabled you must allowlist them under
+  # networkPolicy.components.agentGuard.egressAllowlist.
+
+# =============================================================================
+# 6. Anonymizer - PII masking used by Agent Guard.
+# =============================================================================
+anonymizer:
+  enabled: true
+  replicas: 1
+
+  image:
+    repository: aktosecurity/akto-agent-guard-anonymizer
+    tag: "1.1.6"
+    pullPolicy: Always
+
+  service:
+    port: 8093
+    targetPort: 8093
+
+  env:
+    spacyModel: "en_core_web_sm"
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+
+  livenessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 10
+  readinessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 5
+
+# =============================================================================
+# 7. Embedder - only needed for the guardrails semantic cache.
+# =============================================================================
+# The cache also needs a Redis with RediSearch, which this chart does not
+# deploy. Enable this and set guardrailsService.env.redisUrl if you run one.
+# =============================================================================
+embedder:
+  enabled: false
+  replicas: 1
+
+  image:
+    repository: aktosecurity/akto-agent-guard-embedder
+    tag: "1.1.6"
+    pullPolicy: Always
+
+  service:
+    port: 8094
+    targetPort: 8094
+
+  resources:
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
+
+  livenessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 60
+    periodSeconds: 20
+    timeoutSeconds: 15
+    failureThreshold: 5
+  readinessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 5
+
+# =============================================================================
+# 8. Guardrails Kafka - dedicated broker for the Kafka-mode guardrails service.
+# =============================================================================
+guardrailsKafka:
+  enabled: false
+
+  image:
+    repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
+    tag: "8.2.2-1-ubi9"
+    pullPolicy: Always
+
+  service:
+    kafkaPort: 9092
+
+  clusterId: "c6a1b8e2-4f2a-4b2a-9c3f-1a2b3c4d5e6f"
+  createTopics: "akto.guardrails:3:1"
+  logRetentionHours: "5"
+
+  persistence:
+    enabled: false
+    size: 20Gi
+    storageClass: ""
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+
+# =============================================================================
+# 9. Guardrails Redis - backs guardrailsService's semantic cache. Off by
+# default, same as embedder - both are needed together for the cache to
+# actually do anything (see guardrailsService.env.cacheMode).
+# =============================================================================
+# Must stay redis-stack-server, not plain redis: the cache needs the
+# RediSearch module (FT.* commands). The password comes from Key Vault, same
+# as every other secret in this chart - no chart-managed/auto-generated
+# Kubernetes Secret. REQUIRED once enabled=true (not optional): sync a real
+# value under passwordKey before turning this on, or the Deployment won't
+# start at all - a missing key here fails loudly by design rather than
+# silently authenticating with a broken/mismatched password.
+# =============================================================================
+guardrailsRedis:
+  enabled: false
+  replicas: 1
+
+  image:
+    repository: redis/redis-stack-server
+    tag: "7.4.0-v1"
+    pullPolicy: Always
+
+  # Key inside global.keyVault.secretName holding the Redis password.
+  passwordKey: guardrailsRedisPassword
+
+  service:
+    port: 6379
+
+  persistence:
+    enabled: false
+    size: 10Gi
+    storageClass: ""
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 2Gi

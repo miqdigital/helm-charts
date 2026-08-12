@@ -1,0 +1,42 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $root := . -}}
+{{- $components := list
+  (dict "component" "mini-runtime"           "enabled" .Values.miniRuntime.enabled             "overrides" .Values.networkPolicy.components.miniRuntime)
+  (dict "component" "threat-client"          "enabled" .Values.threatClient.enabled            "overrides" .Values.networkPolicy.components.threatClient)
+  (dict "component" "data-ingestion"         "enabled" .Values.dataIngestion.enabled           "overrides" .Values.networkPolicy.components.dataIngestion)
+  (dict "component" "guardrails-service-http" "enabled" .Values.guardrailsService.http.enabled  "overrides" .Values.networkPolicy.components.guardrailsService)
+  (dict "component" "guardrails-service-kafka" "enabled" .Values.guardrailsService.kafka.enabled "overrides" .Values.networkPolicy.components.guardrailsService)
+  (dict "component" "agent-guard"            "enabled" .Values.agentGuard.enabled              "overrides" .Values.networkPolicy.components.agentGuard)
+  (dict "component" "anonymizer"             "enabled" .Values.anonymizer.enabled              "overrides" .Values.networkPolicy.components.anonymizer)
+  (dict "component" "embedder"               "enabled" .Values.embedder.enabled                "overrides" .Values.networkPolicy.components.embedder)
+  (dict "component" "guardrails-kafka"       "enabled" .Values.guardrailsKafka.enabled         "overrides" .Values.networkPolicy.components.guardrailsKafka)
+  (dict "component" "guardrails-redis"       "enabled" .Values.guardrailsRedis.enabled         "overrides" .Values.networkPolicy.components.guardrailsRedis)
+-}}
+{{- range $components }}
+{{- if .enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list $root .component) }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list $root .component) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "akto-regional-setup.componentSelectorLabels" (list $root .component) | nindent 6 }}
+  policyTypes:
+  - Egress
+  {{- if $root.Values.networkPolicy.restrictIngress }}
+  - Ingress
+  {{- end }}
+  # Everything not matched below is DENIED.
+  egress:
+    {{- include "akto-regional-setup.networkPolicy.egressRules" (list $root .overrides) | nindent 2 }}
+  {{- if $root.Values.networkPolicy.restrictIngress }}
+  ingress:
+    {{- include "akto-regional-setup.networkPolicy.ingressRules" (list $root) | nindent 2 }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

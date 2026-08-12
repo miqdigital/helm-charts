@@ -1,0 +1,45 @@
+{{- if and .Values.databaseAbstractor.enabled .Values.databaseAbstractor.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "database-abstractor") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "database-abstractor") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-central-setup.componentName" (list . "database-abstractor") }}
+  minReplicas: {{ .Values.databaseAbstractor.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.databaseAbstractor.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.databaseAbstractor.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if and .Values.threatBackend.enabled .Values.threatBackend.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "threat-backend") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "threat-backend") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-central-setup.componentName" (list . "threat-backend") }}
+  minReplicas: {{ .Values.threatBackend.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.threatBackend.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.threatBackend.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

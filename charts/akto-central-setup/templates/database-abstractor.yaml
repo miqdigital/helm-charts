@@ -1,0 +1,122 @@
+{{- if .Values.databaseAbstractor.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "database-abstractor") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "database-abstractor") | nindent 4 }}
+  {{- if .Values.imageAutoUpdate.enabled }}
+  annotations:
+    keel.sh/policy: force
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: {{ quote .Values.imageAutoUpdate.pollSchedule }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.databaseAbstractor.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list . "database-abstractor") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list . "database-abstractor") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: Always
+      {{- with (include "akto-central-setup.tls.initContainers" .) }}
+      initContainers:
+        {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+      - name: akto-api-security-database-abstractor
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.databaseAbstractor.image.repository }}:{{ .Values.databaseAbstractor.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.databaseAbstractor.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.databaseAbstractor.service.targetPort }}
+          protocol: TCP
+        env:
+        {{- include "akto-central-setup.commonEnv" . | nindent 8 }}
+        - name: AKTO_INSTANCE_TYPE
+          value: {{ quote .Values.databaseAbstractor.env.aktoInstanceType }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.databaseAbstractor.env.aktoLogLevel }}
+        {{- if .Values.databaseAbstractor.writePipeline.enabled }}
+        {{- $wp := .Values.databaseAbstractor.writePipeline }}
+        - name: KAFKA_WRITE_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_BROKER_URL
+          value: {{ include "akto-central-setup.writePipeline.kafkaBrokerUrl" . | quote }}
+        - name: AKTO_KAFKA_TOPIC_NAME
+          value: {{ $wp.kafka.topics.main | quote }}
+        - name: AKTO_KAFKA_TOPIC_NAME_TRAFFIC
+          value: {{ $wp.kafka.topics.traffic | quote }}
+        - name: AKTO_KAFKA_PRODUCER_BATCH_SIZE
+          value: {{ $wp.producer.batchSize | quote }}
+        - name: AKTO_KAFKA_PRODUCER_LINGER_MS
+          value: {{ $wp.producer.lingerMs | quote }}
+        - name: TRIGGER_MERGING_CRON
+          value: {{ $wp.producer.triggerMergingCron | quote }}
+        {{- if $wp.dedicatedConsumers }}
+        {{- $ids := list }}
+        {{- range $wp.dedicatedConsumers }}
+        {{- $ids = append $ids (toString .accountId) }}
+        {{- end }}
+        - name: AKTO_KAFKA_ACCOUNT_ID
+          value: {{ join "," $ids | quote }}
+        {{- end }}
+        {{- end }}
+        {{- include "akto-central-setup.mongoEnv" . | nindent 8 }}
+        {{- include "akto-central-setup.elasticsearchEnv" . | nindent 8 }}
+        {{- include "akto-central-setup.tls.env" . | nindent 8 }}
+        resources:
+          {{- toYaml .Values.databaseAbstractor.resources | nindent 10 }}
+        {{- with (include "akto-central-setup.volumeMounts" .) }}
+        volumeMounts:
+          {{- . | nindent 8 }}
+        {{- end }}
+      {{- with (include "akto-central-setup.volumes" .) }}
+      volumes:
+        {{- . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "database-abstractor") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "database-abstractor") | nindent 4 }}
+  {{- with .Values.databaseAbstractor.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.databaseAbstractor.service.type }}
+  selector:
+    {{- include "akto-central-setup.componentSelectorLabels" (list . "database-abstractor") | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ .Values.databaseAbstractor.service.port }}
+    targetPort: {{ .Values.databaseAbstractor.service.targetPort }}
+    protocol: TCP
+{{- end }}
