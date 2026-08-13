@@ -129,11 +129,13 @@ Vault - sync an empty string for esHost to disable ES-backed features.
     secretKeyRef:
       name: {{ .Values.global.keyVault.secretName }}
       key: {{ .Values.global.elasticsearch.esHostSecretKey | default "esHost" }}
+      optional: true
 - name: ES_API_KEY
   valueFrom:
     secretKeyRef:
       name: {{ .Values.global.keyVault.secretName }}
       key: {{ .Values.global.elasticsearch.esApiKeySecretKey | default "esApiKey" }}
+      optional: true
 {{- end }}
 
 {{/*
