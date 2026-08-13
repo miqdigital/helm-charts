@@ -10,7 +10,7 @@ One chart for everything that runs at the edge:
 | `guardrails-service` (http) | AI guardrails entrypoint | on |
 | `agent-guard` | Runs the guardrail scanners | on |
 | `anonymizer` | PII masking used by agent-guard | on |
-| `guardrails-service` (kafka) | Kafka-consumer flavour of guardrails | off |
+| `guardrails-service` (kafka) | Kafka-consumer flavour of guardrails | on |
 | `guardrails-kafka` | Dedicated broker for the above | off |
 | `embedder` | Semantic-cache embeddings | on |
 | `guardrails-redis` | Bundled redis-stack-server backing the semantic cache | on |
@@ -157,10 +157,18 @@ Leave `brokerUrl` blank and it targets mini-runtime automatically.
 --set dataIngestion.env.enableGuardrails=false
 ```
 
-**Kafka-mode guardrails with its own broker:**
+**Kafka-mode guardrails (`guardrailsService.kafka`) is on by default** - `/api/ingestData` callers can set `publishToGuardrails=true` on their request independent of the HTTP-proxy path, and that flag isn't limited to code in this repo (whatever your real traffic source is may set it). Without a consumer running, those messages would just accumulate unread in the `akto.guardrails` topic. It auto-targets the mini-runtime broker by default - no separate broker needed.
+
+Give it its own dedicated broker instead of sharing mini-runtime's:
 
 ```bash
---set guardrailsService.kafka.enabled=true --set guardrailsKafka.enabled=true
+--set guardrailsKafka.enabled=true
+```
+
+Turn Kafka-mode off entirely, only if you're certain nothing in your setup ever sets `publishToGuardrails`:
+
+```bash
+--set guardrailsService.kafka.enabled=false
 ```
 
 **Semantic cache for guardrails (bundled Redis + embedder):** both are on by
@@ -209,7 +217,7 @@ IDs, and `defaultModelConfigJson` - isn't a secret, so it's a plain
 | `threatClient.enabled` | `true` | Own Kafka sidecar by default |
 | `dataIngestion.enabled` | `true` | |
 | `guardrailsService.http.enabled` | `true` | |
-| `guardrailsService.kafka.enabled` | `false` | |
+| `guardrailsService.kafka.enabled` | `true` | Auto-targets mini-runtime's broker unless `guardrailsKafka.enabled` |
 | `agentGuard.enabled` | `true` | |
 | `anonymizer.enabled` | `true` | |
 | `embedder.enabled` | `true` | Semantic cache - needed together with `guardrailsRedis.enabled` |
