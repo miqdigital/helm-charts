@@ -148,22 +148,6 @@ appears in a Deployment spec.
 {{- end }}
 
 {{/*
-Threat client's Postgres credentials, always via secretKeyRef.
-*/}}
-{{- define "akto-regional-setup.threatClient.postgresEnv" -}}
-- name: AKTO_THREAT_DETECTION_POSTGRES_USER
-  valueFrom:
-    secretKeyRef:
-      name: {{ .Values.global.keyVault.secretName }}
-      key: {{ .Values.threatClient.env.postgresUserKey | default "threatClientPostgresUser" }}
-- name: AKTO_THREAT_DETECTION_POSTGRES_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: {{ .Values.global.keyVault.secretName }}
-      key: {{ .Values.threatClient.env.postgresPasswordKey | default "threatClientPostgresPassword" }}
-{{- end }}
-
-{{/*
 AKTO_DI_REVOKED_TOKENS - optional, so it's fine to leave unsynced.
 */}}
 {{- define "akto-regional-setup.dataIngestion.revokedTokensEnv" -}}

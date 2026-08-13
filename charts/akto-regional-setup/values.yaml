@@ -17,9 +17,9 @@
 # below, matching the SecretProviderClass name this doc's setup always uses -
 # only override it if you named yours something else.)
 #
-# Every secret this chart needs - the central auth token, threat-client's
-# Postgres credentials, any external-Kafka SASL credentials, agent-guard's
-# model-provider API keys - comes exclusively from Azure Key Vault via that
+# Every secret this chart needs - the central auth token, any external-Kafka
+# SASL credentials, agent-guard's model-provider API keys - comes exclusively
+# from Azure Key Vault via that
 # one SecretProviderClass. There is no plaintext values.yaml fallback and no
 # bring-your-own-Kubernetes-Secret escape hatch anywhere in this chart: the
 # SecretProviderClass (created outside this chart) must sync every key this
@@ -271,11 +271,6 @@ threatClient:
     aktoInstanceType: THREAT_CLIENT
     aggregationRulesEnabled: "false"
     useHostName: "true"
-    # Postgres backing the threat client's local state.
-    postgresUrl: "jdbc:postgresql://postgres.default.svc.cluster.local:5432/akto"
-    # Keys inside global.keyVault.secretName holding the Postgres credentials.
-    postgresUserKey: threatClientPostgresUser
-    postgresPasswordKey: threatClientPostgresPassword
 
   resources:
     requests:
@@ -603,7 +598,7 @@ anonymizer:
 # deploy. Enable this and set guardrailsService.env.redisUrl if you run one.
 # =============================================================================
 embedder:
-  enabled: false
+  enabled: true
   replicas: 1
 
   image:
@@ -670,20 +665,20 @@ guardrailsKafka:
       memory: 2Gi
 
 # =============================================================================
-# 9. Guardrails Redis - backs guardrailsService's semantic cache. Off by
+# 9. Guardrails Redis - backs guardrailsService's semantic cache. On by
 # default, same as embedder - both are needed together for the cache to
 # actually do anything (see guardrailsService.env.cacheMode).
 # =============================================================================
 # Must stay redis-stack-server, not plain redis: the cache needs the
 # RediSearch module (FT.* commands). The password comes from Key Vault, same
 # as every other secret in this chart - no chart-managed/auto-generated
-# Kubernetes Secret. REQUIRED once enabled=true (not optional): sync a real
-# value under passwordKey before turning this on, or the Deployment won't
-# start at all - a missing key here fails loudly by design rather than
-# silently authenticating with a broken/mismatched password.
+# Kubernetes Secret. REQUIRED given the default above (not optional): sync a
+# real value under passwordKey, or the Deployment won't start at all - a
+# missing key here fails loudly by design rather than silently authenticating
+# with a broken/mismatched password.
 # =============================================================================
 guardrailsRedis:
-  enabled: false
+  enabled: true
   replicas: 1
 
   image:
