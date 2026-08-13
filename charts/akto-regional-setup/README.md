@@ -12,8 +12,8 @@ One chart for everything that runs at the edge:
 | `anonymizer` | PII masking used by agent-guard | on |
 | `guardrails-service` (kafka) | Kafka-consumer flavour of guardrails | off |
 | `guardrails-kafka` | Dedicated broker for the above | off |
-| `embedder` | Semantic-cache embeddings | off |
-| `guardrails-redis` | Bundled redis-stack-server backing the semantic cache | off |
+| `embedder` | Semantic-cache embeddings | on |
+| `guardrails-redis` | Bundled redis-stack-server backing the semantic cache | on |
 
 This replaces installing `akto-mini-runtime`, `akto-threat-client`,
 `data-ingestion-service` and `akto-ai-guardrails-v2` separately and then
@@ -22,8 +22,8 @@ hand-wiring six URLs between them and central.
 ## Install
 
 Every secret this chart needs - the central auth token, and optionally
-threat-client's Postgres credentials, external-Kafka SASL credentials, and
-agent-guard's model-provider API keys - comes from Azure Key Vault. There is
+external-Kafka SASL credentials and agent-guard's model-provider API keys -
+comes from Azure Key Vault. There is
 no plaintext-token install path: create a SecretProviderClass first that
 syncs at least a `databaseAbstractorToken` key into a Secret, then:
 
@@ -163,21 +163,20 @@ Leave `brokerUrl` blank and it targets mini-runtime automatically.
 --set guardrailsService.kafka.enabled=true --set guardrailsKafka.enabled=true
 ```
 
-**Semantic cache for guardrails (bundled Redis + embedder):** both are needed
-together - the cache can't do anything without embeddings, and vice versa.
-Sync a real password under `guardrailsRedis.passwordKey` (default
-`guardrailsRedisPassword`) into Key Vault first - **required**, not optional,
-once you turn this on:
-
-```bash
---set guardrailsRedis.enabled=true --set embedder.enabled=true
-```
+**Semantic cache for guardrails (bundled Redis + embedder):** both are on by
+default and needed together - the cache can't do anything without embeddings,
+and vice versa. Sync a real password under `guardrailsRedis.passwordKey`
+(default `guardrailsRedisPassword`) into Key Vault - **required, not
+optional**, given the default above: the Deployment won't start at all
+without it.
 
 Point at an external Redis instead (must have the RediSearch module -
-redis-stack-server, not plain redis) by leaving `guardrailsRedis.enabled=false`
+redis-stack-server, not plain redis) by setting `guardrailsRedis.enabled=false`
 and syncing a full connection string under `guardrailsService.env.redisUrlKey`
-(default `guardrailsRedisUrl`) instead - optional, cache just stays off
-(fail-open) if left unsynced.
+(default `guardrailsRedisUrl`) instead. Turn the whole semantic cache off
+entirely by setting both `guardrailsRedis.enabled=false` and
+`embedder.enabled=false` - the cache just stays off (fail-open) with neither
+configured.
 
 **Model-provider config:** split by whether it's a credential. API
 keys/service-account key JSON go through Key Vault same as everything else -
@@ -213,7 +212,8 @@ IDs, and `defaultModelConfigJson` - isn't a secret, so it's a plain
 | `guardrailsService.kafka.enabled` | `false` | |
 | `agentGuard.enabled` | `true` | |
 | `anonymizer.enabled` | `true` | |
-| `embedder.enabled` | `false` | Only useful with an external Redis |
+| `embedder.enabled` | `true` | Semantic cache - needed together with `guardrailsRedis.enabled` |
+| `guardrailsRedis.enabled` | `true` | Bundled redis-stack-server for the semantic cache |
 | `guardrailsKafka.enabled` | `false` | |
 | `networkPolicy.enabled` | `true` | Default-deny egress |
 

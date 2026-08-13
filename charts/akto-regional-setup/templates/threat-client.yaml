@@ -47,9 +47,6 @@ spec:
           value: {{ quote .Values.threatClient.env.aggregationRulesEnabled }}
         - name: USE_HOSTNAME
           value: {{ quote .Values.threatClient.env.useHostName }}
-        - name: AKTO_THREAT_DETECTION_POSTGRES
-          value: {{ quote .Values.threatClient.env.postgresUrl }}
-        {{- include "akto-regional-setup.threatClient.postgresEnv" . | nindent 8 }}
         - name: AKTO_TRAFFIC_KAFKA_BOOTSTRAP_SERVER
           value: {{ include "akto-regional-setup.threatClient.trafficBroker" . | quote }}
         - name: AKTO_INTERNAL_KAFKA_BOOTSTRAP_SERVER
