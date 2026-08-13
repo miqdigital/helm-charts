@@ -13,10 +13,23 @@ where $componentOverrides is the matching entry under
 networkPolicy.components.* (may be an empty dict).
 ------------------------------------------------------------------------------
 */}}
+{{/*
+RFC1918 private ranges, always allowed for egress regardless of what's in
+networkPolicy.egressAllowlist. Hardcoded here (not a values.yaml default) so
+that field can safely start empty and be purely additive - see the comment on
+networkPolicy.egressAllowlist in values.yaml for why that matters with --set.
+*/}}
+{{- define "akto-central-setup.networkPolicy.baseEgressAllowlist" -}}
+- cidr: 10.0.0.0/8
+- cidr: 172.16.0.0/12
+- cidr: 192.168.0.0/16
+{{- end }}
+
 {{- define "akto-central-setup.networkPolicy.egressRules" -}}
 {{- $ctx := index . 0 -}}
 {{- $extra := index . 1 | default dict -}}
 {{- $np := $ctx.Values.networkPolicy -}}
+{{- $base := include "akto-central-setup.networkPolicy.baseEgressAllowlist" . | fromYamlArray -}}
 {{- if $np.allowDNS }}
 # DNS - required for any Service name to resolve.
 - to:
@@ -36,7 +49,7 @@ networkPolicy.components.* (may be an empty dict).
       matchLabels:
         app.kubernetes.io/instance: {{ $ctx.Release.Name }}
 {{- end }}
-{{- range concat ($np.egressAllowlist | default list) ($extra.egressAllowlist | default list) }}
+{{- range concat $base ($np.egressAllowlist | default list) ($extra.egressAllowlist | default list) }}
 - to:
   - ipBlock:
       cidr: {{ .cidr }}

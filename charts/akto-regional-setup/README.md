@@ -99,10 +99,12 @@ Allowed by default: DNS, other pods in this release, and
 Two things regional needs that central doesn't:
 
 **1. Central is in another cluster.** If its address is not in private space,
-regional cannot reach it. Add it:
+regional cannot reach it. `egressAllowlist` is empty by default and purely
+additive to the private ranges above (which are hardcoded, not part of this
+list), so index from `[0]`:
 
 ```bash
---set 'networkPolicy.egressAllowlist[3].cidr=203.0.113.10/32'
+--set 'networkPolicy.egressAllowlist[0].cidr=203.0.113.10/32'
 ```
 
 **2. Agent Guard calls model providers.** Vertex AI, Azure AI Foundry, OpenAI and
