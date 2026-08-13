@@ -11,8 +11,11 @@
 #
 #   helm install akto-regional-setup akto/akto-regional-setup -n akto-regional \
 #     --set central.databaseAbstractorUrl="https://cyborg.example.com" \
-#     --set central.threatBackendUrl="https://tbs.example.com" \
-#     --set global.keyVault.secretProviderClass="akto-keyvault"
+#     --set central.threatBackendUrl="https://tbs.example.com"
+#
+# (global.keyVault.secretProviderClass already defaults to "akto-keyvault"
+# below, matching the SecretProviderClass name this doc's setup always uses -
+# only override it if you named yours something else.)
 #
 # Every secret this chart needs - the central auth token, threat-client's
 # Postgres credentials, any external-Kafka SASL credentials, agent-guard's
@@ -111,11 +114,17 @@ networkPolicy:
   ingressAllowlist: []
   ingressNamespaces: []
 
-  # Applied to every component. Default is internal/private space only.
-  egressAllowlist:
-    - cidr: 10.0.0.0/8
-    - cidr: 172.16.0.0/12
-    - cidr: 192.168.0.0/16
+  # Applied to every component, IN ADDITION TO the RFC1918 private ranges
+  # (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), which are always allowed and
+  # not listed here - so this is empty by default, and every entry you add is
+  # purely additive.
+  #
+  # Add entries with --set 'networkPolicy.egressAllowlist[0].cidr=<ip>/32',
+  # [1] for a second, etc. - safe to index from 0 because this list starts
+  # empty. (Helm's --set replaces an array wholesale rather than merging by
+  # index, so indexing into a list that already had entries would silently
+  # null out the earlier ones - keeping this empty by default avoids that.)
+  egressAllowlist: []
 
   egressNamespaces: []
 

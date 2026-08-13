@@ -17,27 +17,30 @@ Every secret this chart needs - the Mongo connection string, and optionally
 Elasticsearch's host/API key and the mTLS keystore/truststore passwords -
 comes from Azure Key Vault. There is no plaintext-connection-string install
 path and no bring-your-own-Kubernetes-Secret option: create a
-SecretProviderClass first (see your Key Vault setup docs) that syncs at least
-an `aktoMongoConn` key into a Secret, then:
+SecretProviderClass named `akto-keyvault` first (see your Key Vault setup
+docs) that syncs at least an `aktoMongoConn` key into a Secret, then:
 
 ```bash
 helm repo add akto https://akto-api-security.github.io/helm-charts
 helm repo update akto
 
-helm install akto-central-setup akto/akto-central-setup -n akto --create-namespace \
-  --set global.keyVault.secretProviderClass=akto-keyvault
+helm install akto-central-setup akto/akto-central-setup -n akto --create-namespace
 ```
 
-That is the whole install. There is no second command to point the dashboard at
-the threat backend — see [Auto-wiring](#auto-wiring).
+That is the whole install - no flags. mTLS to Mongo (`global.tls.enabled`,
+`global.mongo.x509`) and the SecretProviderClass name (`akto-keyvault`) are
+already this chart's defaults; see
+[Certificate auth to Mongo and Elasticsearch](#certificate-auth-to-mongo-and-elasticsearch)
+if you need to turn mTLS off instead. There is no second command to point the
+dashboard at the threat backend either — see [Auto-wiring](#auto-wiring).
 
-If your SecretProviderClass syncs into a Secret with a name other than the
-default `akto-secrets`, or your `aktoMongoConn` key is named something other
-than `aktoMongoConn`:
+If your SecretProviderClass is named something other than `akto-keyvault`, or
+syncs into a Secret with a name other than the default `akto-secrets`, or your
+`aktoMongoConn` key is named something other than `aktoMongoConn`:
 
 ```bash
 helm install akto-central-setup akto/akto-central-setup -n akto --create-namespace \
-  --set global.keyVault.secretProviderClass=akto-keyvault \
+  --set global.keyVault.secretProviderClass=my-spc \
   --set global.keyVault.secretName=my-synced-secret \
   --set global.mongo.secretKey=myMongoConnKey
 ```
@@ -97,18 +100,24 @@ the standard `javax.net.ssl.*` system properties.
 
 ### With ready-made Java keystores (recommended)
 
-Put a PKCS12 keystore and truststore in a Secret (this one holds the
-certificate *files* - it stays a plain Kubernetes Secret, since it's mounted
-as files, not read as an env var), then sync the passwords that protect them
-into Key Vault as `tlsKeystorePassword` / `tlsTruststorePassword`, and the
-x509-enabled connection string as your `aktoMongoConn` value:
+Put a PKCS12 keystore and truststore in a Secret named `akto-db-certs` (this
+one holds the certificate *files* - it stays a plain Kubernetes Secret, since
+it's mounted as files, not read as an env var), then sync the passwords that
+protect them into Key Vault as `tlsKeystorePassword` / `tlsTruststorePassword`,
+and the x509-enabled connection string as your `aktoMongoConn` value. This is
+already the chart's default (`global.tls.enabled`/`global.mongo.x509` are
+`true`, `global.tls.secretName` is already `akto-db-certs`), so the install
+itself needs nothing extra:
+
+```bash
+helm install akto-central-setup akto/akto-central-setup -n akto
+```
+
+If you also want certificate auth to Elasticsearch instead of an API key
+(off by default):
 
 ```bash
 helm install akto-central-setup akto/akto-central-setup -n akto \
-  --set global.keyVault.secretProviderClass=akto-keyvault \
-  --set global.tls.enabled=true \
-  --set global.tls.secretName=akto-db-certs \
-  --set global.mongo.x509=true \
   --set global.elasticsearch.mutualTls=true
 ```
 
@@ -139,14 +148,28 @@ reads both exclusively from there, never from `akto-tls-pw` directly.
 ### With PEM files
 
 Set `global.tls.format=pem` and the chart runs an init container that converts
-`tls.crt` / `tls.key` / `ca.crt` into PKCS12 at pod start:
+`tls.crt` / `tls.key` / `ca.crt` into PKCS12 at pod start (`global.tls.enabled`,
+`global.mongo.x509` and `global.tls.secretName=akto-db-certs` are already the
+defaults, so `format` is the only override needed):
 
 ```bash
---set global.tls.enabled=true \
---set global.tls.format=pem \
---set global.tls.secretName=akto-db-certs \
---set global.mongo.x509=true
+--set global.tls.format=pem
 ```
+
+### Turning mTLS off
+
+If you want plain password auth to Mongo and an API key to Elasticsearch
+instead (both are on by default):
+
+```bash
+helm install akto-central-setup akto/akto-central-setup -n akto \
+  --set global.tls.enabled=false \
+  --set global.mongo.x509=false
+```
+(`global.elasticsearch.mutualTls` is already `false` by default - nothing to
+change there.) With `global.tls.enabled=false`, no `akto-db-certs` Secret is
+required at all - just put a plain username/password connection string in
+`aktoMongoConn`.
 
 ### What the chart does
 
@@ -211,10 +234,12 @@ Allowed by default:
 ### If Mongo or Elasticsearch is on a public endpoint
 
 Mongo Atlas / Elastic Cloud are **outside** those private ranges, so add them or
-those components will not connect:
+those components will not connect. `egressAllowlist` is empty by default and
+purely additive to the private ranges above (which are hardcoded, not part of
+this list), so index from `[0]`:
 
 ```bash
---set 'networkPolicy.egressAllowlist[3].cidr=203.0.113.10/32'
+--set 'networkPolicy.egressAllowlist[0].cidr=203.0.113.10/32'
 ```
 
 Restrict to specific ports as well:

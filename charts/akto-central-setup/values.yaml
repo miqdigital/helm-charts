@@ -5,17 +5,19 @@
 #
 # Everything an operator normally has to set lives in `global` below. Every
 # cross-service URL (dashboard -> threat backend, etc.) is computed by the
-# chart, so a working install is a single command:
+# chart, and this deployment's architecture (mTLS to Mongo via Atlas client
+# certificate, ES via API key) is already the default below - not a per-run
+# flag - so a working install is:
 #
-#   helm install akto-central-setup akto/akto-central-setup -n akto \
-#     --set global.keyVault.secretProviderClass=akto-keyvault
+#   helm install akto-central-setup akto/akto-central-setup -n akto
 #
 # Every secret in this chart - Mongo connection string, Elasticsearch host/API
 # key, mTLS keystore/truststore passwords - comes exclusively from Azure Key
-# Vault via that one SecretProviderClass. There is no plaintext values.yaml
-# fallback and no bring-your-own-Kubernetes-Secret escape hatch: the
-# SecretProviderClass (created outside this chart) must sync every key this
-# chart references into the Kubernetes Secret named by global.keyVault.secretName.
+# Vault via the SecretProviderClass named below (global.keyVault). There is no
+# plaintext values.yaml fallback and no bring-your-own-Kubernetes-Secret escape
+# hatch: the SecretProviderClass (created outside this chart) must sync every
+# key this chart references into the Kubernetes Secret named by
+# global.keyVault.secretName.
 #
 # =============================================================================
 
@@ -55,14 +57,14 @@ global:
   # mounts the certificates and points the JVM at them - no application change
   # is involved.
   #
-  # Turning this on lets you drop password auth entirely:
-  #   global.mongo.x509=true          -> MONGODB-X509, no user/password
-  #   global.elasticsearch.mutualTls  -> client cert instead of an API key
+  # On by default - this deployment's Mongo is Atlas with a client
+  # certificate, no password path. Set false only if you're deliberately
+  # moving to plain password auth (and set global.mongo.x509 false too).
   #
   # See the chart README for generating the stores with cert-manager.
   # ---------------------------------------------------------------------------
   tls:
-    enabled: false
+    enabled: true
 
     # Secret holding the certificate material itself (keystore/truststore
     # files, not the passwords protecting them - those come from Key Vault,
@@ -128,12 +130,13 @@ global:
   mongo:
     # Key inside global.keyVault.secretName holding the connection string.
     secretKey: aktoMongoConn
-    # Authenticate with a client certificate instead of a password. Requires
+    # Authenticate with a client certificate instead of a password. On by
+    # default - matches this deployment's Atlas setup. Requires
     # global.tls.enabled. Put "authMechanism=MONGODB-X509&tls=true" directly
     # in the connection string you sync into Key Vault - the chart can't
     # rewrite a value it never sees in plaintext, this flag only makes it
     # fail fast if global.tls.enabled isn't also set.
-    x509: false
+    x509: true
 
   # Elasticsearch backs the dashboard's agentic-session/prompt search and the
   # database-abstractor's query logging. Both esHost and esApiKey come from
@@ -206,13 +209,22 @@ networkPolicy:
   ingressAllowlist: []
   ingressNamespaces: []
 
-  # Egress allowlist applied to EVERY component.
+  # Egress allowlist applied to EVERY component, IN ADDITION TO the RFC1918
+  # private ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), which are
+  # always allowed and not listed here - so this is empty by default, and
+  # every entry you add here is purely additive.
+  #
+  # Add entries with --set 'networkPolicy.egressAllowlist[0].cidr=<ip>/32',
+  # [1] for a second, etc. - safe to index from 0 because this list starts
+  # empty. (Helm's --set replaces an array wholesale rather than merging by
+  # index, so indexing into a list that already had entries - like the old
+  # RFC1918 defaults used to be here - would silently null out the earlier
+  # ones. Keeping this empty by default, with the private ranges hardcoded in
+  # the template instead, avoids that trap entirely.)
+  #
   # Each entry: cidr (required), except (optional []string), ports (optional
   # list of {port, protocol}). Omit ports to allow all ports to that CIDR.
-  egressAllowlist:
-    - cidr: 10.0.0.0/8
-    - cidr: 172.16.0.0/12
-    - cidr: 192.168.0.0/16
+  egressAllowlist: []
 
   # Allow egress to whole namespaces by label selector.
   egressNamespaces: []
@@ -247,8 +259,9 @@ dashboard:
     type: LoadBalancer
     port: 8080
     targetPort: 8080
-    annotations:
-      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    # No internal annotation - dashboard is meant to be public. On Azure, a
+    # LoadBalancer service with no annotations gets a public IP by default.
+    annotations: {}
 
   env:
     aktoInstanceType: DASHBOARD
@@ -296,8 +309,11 @@ databaseAbstractor:
     type: ClusterIP
     port: 9000
     targetPort: 8080
+    # Always internal, even if type is changed to LoadBalancer for a
+    # cross-cluster setup - this must never get a public IP. Baked in here so
+    # switching the type alone can't accidentally expose it publicly.
     annotations:
-      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/azure-load-balancer-internal: "true"
 
   env:
     aktoInstanceType: DASHBOARD
@@ -443,8 +459,11 @@ threatBackend:
     httpPort: 9090
     # The bundled Kafka broker.
     kafkaPort: 9092
+    # Always internal, even if type is changed to LoadBalancer for a
+    # cross-cluster setup - this must never get a public IP. Baked in here so
+    # switching the type alone can't accidentally expose it publicly.
     annotations:
-      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/azure-load-balancer-internal: "true"
 
   env:
     aktoLogLevel: INFO
