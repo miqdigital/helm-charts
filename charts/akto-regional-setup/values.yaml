@@ -317,7 +317,7 @@ dataIngestion:
 
   image:
     repository: aktosecurity/data-ingestion-service
-    tag: "1.5.2"
+    tag: "1.5.3"
     digest: ""
     pullPolicy: Always
 
