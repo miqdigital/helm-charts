@@ -436,10 +436,19 @@ guardrailsService:
       failureThreshold: 5
 
   kafka:
-    enabled: false
+    # On by default - IngestionAction.ingestData() (the /api/ingestData
+    # endpoint) publishes to the akto.guardrails topic whenever a caller's
+    # request sets publishToGuardrails=true, independent of the HTTP-proxy
+    # path above and independent of anything in this repo's own code (that
+    # flag comes from whatever real client calls /api/ingestData, which isn't
+    # necessarily code in this monorepo). If nothing consumes that topic,
+    # messages just accumulate silently. Leave this on unless you're certain
+    # nothing in your setup ever sets that flag.
+    enabled: true
     replicas: 1
     # Kafka to consume from. Blank auto-targets guardrailsKafka when it is
-    # enabled, else the mini-runtime broker.
+    # enabled, else the mini-runtime broker (the default here - no separate
+    # broker needed unless you turn guardrailsKafka.enabled on too).
     brokerUrl: ""
     # Env var names below are the app's actual config (apps/guardrails-service
     # container/src/config.go), not guessed - don't rename without checking there.
