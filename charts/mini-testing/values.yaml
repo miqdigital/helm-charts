@@ -3,6 +3,12 @@ tokens:
     proxyUri: ""
     noProxy: ""
 
+# Busybox image for init containers
+busybox:
+  image:
+    repository: busybox
+    digest: sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f
+
 testing:
   aktoApiSecurityTesting:
     env:
@@ -29,7 +35,7 @@ testing:
 
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-mini-testing
-      tag: 1.70.6_local
+      tag: 1.72.6_local
     imagePullPolicy: Always
     resources:
       requests:
@@ -151,17 +157,22 @@ testing:
 
   kafka1:
     env:
+      # add advertised listeners if you want to override the default listeners
+      kafkaAdvertisedListeners: ""
       kafkaBrokerId: "1"
       kafkaCleanupPolicy: delete
       kafkaCreateTopics: akto.test.messages:1:1
       kafkaInterBrokerListenerName: LISTENER_DOCKER_EXTERNAL_LOCALHOST
-      kafkaListenerSecurityProtocolMap: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,
-        LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
+      kafkaListenerSecurityProtocolMap: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT
+      kafkaListenerSecurityProtocolMapSsl: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED:SSL
+      kafkaListenerSecurityProtocolMapSasl: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT,LISTENER_DOCKER_EXTERNAL_LOCALHOST:SASL_PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST:SASL_PLAINTEXT
+      kafkaListenerSecurityProtocolMapSaslTls: CONTROLLER:PLAINTEXT,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL:SASL_SSL,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL:SASL_PLAINTEXT
       kafkaProcessRoles: "broker,controller"
       kafkaNodeId: "1"
       kafkaControllerQuorumVoters: "1@localhost:9094"
       kafkaControllerListenerNames: "CONTROLLER"
-      kafkaListeners: "CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:9092"
+      # add listeners if you want to override the default listeners
+      kafkaListeners: ""
       kafkaLogCleanerEnable: "true"
       kafkaLogRetentionBytes: "10737418240"
       kafkaLogRetentionCheckIntervalMs: "60000"
@@ -171,6 +182,31 @@ testing:
       kafkaTransactionStateLogMinIsr: "1"
       kafkaTransactionStateLogReplicationFactor: "1"
       kafkaClusterId: "d7b2c9f3-5a3b-4c3b-8d4a-2b3c4d5e6f7a"
+      sslKeystoreLocation: "/etc/kafka/ssl/secrets/server.keystore.jks"
+      sslKeystorePassword: "password"
+      sslKeyPassword: "password"
+      sslTruststoreLocation: "/etc/kafka/ssl/secrets/server.truststore.jks"
+      sslTruststorePassword: "password"
+      sslBaseMountPath: "/etc/kafka/ssl/secrets"
+      # Name of an existing secret holding the keystore/truststore files
+      sslSecretName: "kafka-certs"
+      useSecretsForSaslCredentials: false
+      saslCredentialsSecrets:
+        # Name of an existing secret with "username" and "password" keys.
+        # Leave empty to let the chart create the secret from the values below.
+        existingSecret: ""
+        username: ""
+        password: ""
+      saslUsername: ""
+      saslPassword: ""
+      # SASL mechanism: PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
+      saslMechanism: "SCRAM-SHA-512"
+    useTls: false
+    useSasl: false
+    # Format the broker storage with the SCRAM user before starting Kafka.
+    # Needed for SCRAM-SHA-256/512, since the credentials live in the metadata
+    # log. Ignored for the PLAIN mechanism.
+    autoFormatWithScram: false
     image:
       repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
       tag: 8.2.2-1-ubi9
@@ -181,9 +217,25 @@ testing:
       limits:
         cpu: 2
         memory: "4Gi"
+  # Kafka listener ports, picked based on kafka1.useSasl / kafka1.useTls
   ports:
-  - port: 9092
-    targetPort: 9092
+    default:
+    - port: 9092
+      targetPort: 9092
+    tls:
+    - name: plaintext
+      port: 9092
+      targetPort: 9092
+    - name: ssl
+      port: 9093
+      targetPort: 9093
+    sasl:
+    - name: sasl-plaintext
+      port: 9092
+      targetPort: 9092
+    - name: sasl-ssl
+      port: 9093
+      targetPort: 9093
   type: ClusterIP
 
 keel:
