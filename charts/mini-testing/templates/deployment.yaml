@@ -102,6 +102,55 @@ spec:
         app: {{ include "akto.fullname" . }}
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
+      {{- if and (eq .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled "true") .Values.testing.kafka1.useSasl }}
+      initContainers:
+      - name: generate-jaas-config
+        image: {{ .Values.busybox.image.repository }}@{{ .Values.busybox.image.digest }}
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            mkdir -p /etc/kafka/secrets
+            {{- if eq .Values.testing.kafka1.env.saslMechanism "PLAIN" }}
+            cat > /etc/kafka/secrets/kafka_server_jaas.conf <<EOF
+            KafkaServer {
+              org.apache.kafka.common.security.plain.PlainLoginModule required
+              username="${KAFKA_SASL_USERNAME}"
+              password="${KAFKA_SASL_PASSWORD}"
+              user_${KAFKA_SASL_USERNAME}="${KAFKA_SASL_PASSWORD}";
+            };
+            EOF
+            {{- else }}
+            cat > /etc/kafka/secrets/kafka_server_jaas.conf <<EOF
+            KafkaServer {
+              org.apache.kafka.common.security.scram.ScramLoginModule required
+              username="${KAFKA_SASL_USERNAME}"
+              password="${KAFKA_SASL_PASSWORD}";
+            };
+            EOF
+            {{- end }}
+            echo "JAAS config generated successfully"
+        env:
+        {{- if .Values.testing.kafka1.env.useSecretsForSaslCredentials }}
+        - name: KAFKA_SASL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.testing.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-testing-sasl" (include "akto.fullname" .)) }}
+              key: username
+        - name: KAFKA_SASL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.testing.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-testing-sasl" (include "akto.fullname" .)) }}
+              key: password
+        {{- else }}
+        - name: KAFKA_SASL_USERNAME
+          value: {{ quote .Values.testing.kafka1.env.saslUsername }}
+        - name: KAFKA_SASL_PASSWORD
+          value: {{ quote .Values.testing.kafka1.env.saslPassword }}
+        {{- end }}
+        volumeMounts:
+        - name: kafka-jaas-config
+          mountPath: /etc/kafka/secrets
+      {{- end }}
       containers:
       - env:
         - name: MY_POD_NAMESPACE
@@ -154,6 +203,45 @@ spec:
         - name: PROMETHEUS_SERVER_PORT
           value: {{ quote .Values.testing.prometheusServer.port }}
         {{ end }}
+        {{- if .Values.testing.kafka1.useSasl }}
+        - name: KAFKA_AUTH_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_SASL_ENABLED
+          value: "true"
+        - name: AKTO_KAFKA_SASL_MECHANISM
+          value: {{ quote .Values.testing.kafka1.env.saslMechanism }}
+        {{- if .Values.testing.kafka1.env.useSecretsForSaslCredentials }}
+        - name: KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.testing.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-testing-sasl" (include "akto.fullname" .)) }}
+              key: username
+        - name: KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.testing.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-testing-sasl" (include "akto.fullname" .)) }}
+              key: password
+        - name: AKTO_KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.testing.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-testing-sasl" (include "akto.fullname" .)) }}
+              key: username
+        - name: AKTO_KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.testing.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-testing-sasl" (include "akto.fullname" .)) }}
+              key: password
+        {{- else }}
+        - name: KAFKA_USERNAME
+          value: {{ quote .Values.testing.kafka1.env.saslUsername }}
+        - name: KAFKA_PASSWORD
+          value: {{ quote .Values.testing.kafka1.env.saslPassword }}
+        - name: AKTO_KAFKA_USERNAME
+          value: {{ quote .Values.testing.kafka1.env.saslUsername }}
+        - name: AKTO_KAFKA_PASSWORD
+          value: {{ quote .Values.testing.kafka1.env.saslPassword }}
+        {{- end }}
+        {{- end }}
         image: {{ .Values.testing.aktoApiSecurityTesting.image.repository }}:{{ .Values.testing.aktoApiSecurityTesting.image.tag
           | default .Chart.AppVersion }}
         name: akto-api-security-testing
@@ -233,7 +321,18 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: KAFKA_ADVERTISED_LISTENERS
-          value: "LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{.Release.Name}}.{{.Release.Namespace}}.svc.cluster.local:9092"
+          value: >-
+            {{- if .Values.testing.kafka1.env.kafkaAdvertisedListeners }}
+              {{ .Values.testing.kafka1.env.kafkaAdvertisedListeners }}
+            {{- else if and .Values.testing.kafka1.useSasl .Values.testing.kafka1.useTls }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.testing.ports.sasl 1).port }}
+            {{- else if .Values.testing.kafka1.useSasl }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://{{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.testing.ports.sasl 0).port }}
+            {{- else if .Values.testing.kafka1.useTls }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.testing.ports.tls 0).port }},LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED://{{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.testing.ports.tls 1).port }}
+            {{- else }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST://localhost:29092, LISTENER_DOCKER_EXTERNAL_DIFFHOST://{{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ (index .Values.testing.ports.default 0).port }}
+            {{- end }}
         - name: KAFKA_BROKER_ID
           value: {{ quote .Values.testing.kafka1.env.kafkaBrokerId }}
         - name: KAFKA_CLEANUP_POLICY
@@ -241,9 +340,25 @@ spec:
         - name: KAFKA_CREATE_TOPICS
           value: {{ quote .Values.testing.kafka1.env.kafkaCreateTopics }}
         - name: KAFKA_INTER_BROKER_LISTENER_NAME
-          value: {{ quote .Values.testing.kafka1.env.kafkaInterBrokerListenerName }}
+          value: >-
+            {{- if .Values.testing.kafka1.env.kafkaAdvertisedListeners }}
+              {{ .Values.testing.kafka1.env.kafkaInterBrokerListenerName }}
+            {{- else if .Values.testing.kafka1.useSasl }}
+              LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL
+            {{- else }}
+              {{ .Values.testing.kafka1.env.kafkaInterBrokerListenerName }}
+            {{- end }}
         - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
-          value: {{ quote .Values.testing.kafka1.env.kafkaListenerSecurityProtocolMap }}
+          value: >-
+            {{- if and .Values.testing.kafka1.useSasl .Values.testing.kafka1.useTls }}
+              {{ .Values.testing.kafka1.env.kafkaListenerSecurityProtocolMapSaslTls }}
+            {{- else if .Values.testing.kafka1.useSasl }}
+              {{ .Values.testing.kafka1.env.kafkaListenerSecurityProtocolMapSasl }}
+            {{- else if .Values.testing.kafka1.useTls }}
+              {{ .Values.testing.kafka1.env.kafkaListenerSecurityProtocolMapSsl }}
+            {{- else }}
+              {{ .Values.testing.kafka1.env.kafkaListenerSecurityProtocolMap }}
+            {{- end }}
         - name: KAFKA_PROCESS_ROLES
           value: {{ quote .Values.testing.kafka1.env.kafkaProcessRoles }}
         - name: KAFKA_NODE_ID
@@ -253,7 +368,16 @@ spec:
         - name: KAFKA_CONTROLLER_LISTENER_NAMES
           value: {{ quote .Values.testing.kafka1.env.kafkaControllerListenerNames }}
         - name: KAFKA_LISTENERS
-          value: {{ quote .Values.testing.kafka1.env.kafkaListeners }}
+          value: >-
+            {{- if .Values.testing.kafka1.env.kafkaListeners }}
+              {{ .Values.testing.kafka1.env.kafkaListeners }}
+            {{- else if .Values.testing.kafka1.useSasl }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST_SASL://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST_SASL://0.0.0.0:{{ if .Values.testing.kafka1.useTls }}{{ (index .Values.testing.ports.sasl 1).port }}{{ else }}{{ (index .Values.testing.ports.sasl 0).port }}{{ end }}
+            {{- else if .Values.testing.kafka1.useTls }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:{{ (index .Values.testing.ports.tls 0).port }},LISTENER_DOCKER_EXTERNAL_DIFFHOST_ENCRYPTED://0.0.0.0:{{ (index .Values.testing.ports.tls 1).port }}
+            {{- else }}
+              CONTROLLER://0.0.0.0:9094,LISTENER_DOCKER_EXTERNAL_LOCALHOST://0.0.0.0:29092,LISTENER_DOCKER_EXTERNAL_DIFFHOST://0.0.0.0:{{ (index .Values.testing.ports.default 0).port }}
+            {{- end }}
         - name: KAFKA_LOG_CLEANER_ENABLE
           value: {{ quote .Values.testing.kafka1.env.kafkaLogCleanerEnable }}
         - name: KAFKA_LOG_RETENTION_BYTES
@@ -276,8 +400,80 @@ spec:
           value: {{ quote .Values.testing.kafka1.env.kafkaClusterId }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if .Values.testing.kafka1.useTls }}
+        - name: KAFKA_SSL_KEYSTORE_LOCATION
+          value: {{ quote .Values.testing.kafka1.env.sslKeystoreLocation }}
+        - name: KAFKA_SSL_KEYSTORE_PASSWORD
+          value: {{ quote .Values.testing.kafka1.env.sslKeystorePassword }}
+        - name: KAFKA_SSL_KEY_PASSWORD
+          value: {{ quote .Values.testing.kafka1.env.sslKeyPassword }}
+        - name: KAFKA_SSL_TRUSTSTORE_LOCATION
+          value: {{ quote .Values.testing.kafka1.env.sslTruststoreLocation }}
+        - name: KAFKA_SSL_TRUSTSTORE_PASSWORD
+          value: {{ quote .Values.testing.kafka1.env.sslTruststorePassword }}
+        {{- end }}
+        {{- if .Values.testing.kafka1.useSasl }}
+        - name: KAFKA_OPTS
+          value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
+        - name: KAFKA_SASL_ENABLED_MECHANISMS
+          value: {{ quote .Values.testing.kafka1.env.saslMechanism }}
+        - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
+          value: {{ quote .Values.testing.kafka1.env.saslMechanism }}
+        {{- end }}
+        {{- if and .Values.testing.kafka1.useSasl (or (eq .Values.testing.kafka1.env.saslMechanism "SCRAM-SHA-256") (eq .Values.testing.kafka1.env.saslMechanism "SCRAM-SHA-512")) }}
+        - name: KAFKA_SCRAM_USERNAME
+          {{- if .Values.testing.kafka1.env.useSecretsForSaslCredentials }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.testing.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-testing-sasl" (include "akto.fullname" .)) }}
+              key: username
+          {{- else }}
+          value: {{ quote .Values.testing.kafka1.env.saslUsername }}
+          {{- end }}
+        - name: KAFKA_SCRAM_PASSWORD
+          {{- if .Values.testing.kafka1.env.useSecretsForSaslCredentials }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.testing.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-mini-testing-sasl" (include "akto.fullname" .)) }}
+              key: password
+          {{- else }}
+          value: {{ quote .Values.testing.kafka1.env.saslPassword }}
+          {{- end }}
+        - name: KAFKA_SCRAM_MECHANISM
+          value: {{ quote .Values.testing.kafka1.env.saslMechanism }}
+        {{- end }}
         image: {{ .Values.testing.kafka1.image.repository }}:{{ .Values.testing.kafka1.image.tag
           | default .Chart.AppVersion }}
+        {{- if .Values.testing.kafka1.autoFormatWithScram }}
+        command:
+          - bash
+          - -c
+          - |
+            # Format storage with the SCRAM user whenever the data dir is fresh.
+            # The broker storage is ephemeral here, so this runs on every new pod.
+            if [ ! -f /var/lib/kafka/data/.kafka-formatted ]; then
+              echo "Formatting Kafka storage with SCRAM user"
+
+              # Generate server.properties using Confluent's configure script
+              /etc/confluent/docker/configure
+
+              kafka-storage format \
+                --config /etc/kafka/kafka.properties \
+                --cluster-id "${CLUSTER_ID}" \
+                --add-scram "${KAFKA_SCRAM_MECHANISM}=[name=${KAFKA_SCRAM_USERNAME},password=${KAFKA_SCRAM_PASSWORD}]" || {
+                  echo "ERROR: Failed to format storage with SCRAM"
+                  exit 1
+                }
+
+              touch /var/lib/kafka/data/.kafka-formatted
+              echo "SUCCESS: Storage formatted with SCRAM user"
+            else
+              echo "Storage already formatted - skipping format step"
+            fi
+
+            echo "Starting Kafka broker with SASL authentication..."
+            exec /etc/confluent/docker/run
+        {{- end }}
         name: kafka1
         ports:
         - containerPort: 9092
@@ -285,5 +481,28 @@ spec:
         - containerPort: 29092
         - containerPort: 9999
         resources: {{- toYaml .Values.testing.kafka1.resources | nindent 10 }}
+        {{- if or .Values.testing.kafka1.useSasl .Values.testing.kafka1.useTls }}
+        volumeMounts:
+        {{- if .Values.testing.kafka1.useSasl }}
+        - name: kafka-jaas-config
+          mountPath: /etc/kafka/secrets
+        {{- end }}
+        {{- if .Values.testing.kafka1.useTls }}
+        - name: kafka-certs
+          mountPath: {{ quote .Values.testing.kafka1.env.sslBaseMountPath }}
+        {{- end }}
+        {{- end }}
     {{end}}
       restartPolicy: Always
+      {{- if and (eq .Values.testing.aktoApiSecurityTesting.env.newTestingEnabled "true") (or .Values.testing.kafka1.useSasl .Values.testing.kafka1.useTls) }}
+      volumes:
+      {{- if .Values.testing.kafka1.useSasl }}
+      - name: kafka-jaas-config
+        emptyDir: {}
+      {{- end }}
+      {{- if .Values.testing.kafka1.useTls }}
+      - name: kafka-certs
+        secret:
+          secretName: {{ quote .Values.testing.kafka1.env.sslSecretName }}
+      {{- end }}
+      {{- end }}
