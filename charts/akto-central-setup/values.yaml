@@ -233,22 +233,8 @@ networkPolicy:
   # Per-component extras, merged with the global lists above. Use this to give
   # one component a hole the others don't get.
   components:
-    # GitHub's own published CIDR ranges (api.github.com/meta - web/api/git
-    # categories), not this deployment's environment - same for every
-    # customer, so this is a real chart default, unlike the Mongo/ES IPs
-    # (those are genuinely per-environment and stay as --set overrides, not
-    # values here). Only dashboard needs this: it periodically syncs PII-type
-    # definitions and test templates from github.com/raw.githubusercontent.com
-    # (InitializerListener's scheduled jobs) - database-abstractor/threat-backend
-    # never call GitHub, so this stays scoped to dashboard only, not the global
-    # list above. raw.githubusercontent.com resolves inside 185.199.108.0/22
-    # (GitHub's own Pages CDN range), not a separate third-party CDN.
     dashboard:
-      egressAllowlist:
-        - cidr: 192.30.252.0/22
-        - cidr: 185.199.108.0/22
-        - cidr: 140.82.112.0/20
-        - cidr: 143.55.64.0/20
+      egressAllowlist: []
       egressNamespaces: []
     databaseAbstractor:
       egressAllowlist: []
