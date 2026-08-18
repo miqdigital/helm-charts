@@ -282,11 +282,17 @@ dashboard:
 
   resources:
     requests:
-      cpu: 1
+      cpu: 2
       memory: "4Gi"
     limits:
-      cpu: 2
+      cpu: 4
       memory: "8Gi"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
 # =============================================================================
 # Database Abstractor
@@ -328,10 +334,10 @@ databaseAbstractor:
       memory: "8Gi"
 
   autoscaling:
-    enabled: false
+    enabled: true
     minReplicas: 1
-    maxReplicas: 3
-    targetCPUUtilizationPercentage: 80
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
 
   # ---------------------------------------------------------------------------
   # Kafka write-scaling pipeline. Mirrors the producer/consumer split already
@@ -372,12 +378,12 @@ databaseAbstractor:
       partitions: 3
       resources:
         requests:
-          cpu: 500m
-          memory: "1Gi"
-          ephemeral-storage: "500Mi"
-        limits:
           cpu: 1
           memory: "2Gi"
+          ephemeral-storage: "500Mi"
+        limits:
+          cpu: 2
+          memory: "11Gi"
           ephemeral-storage: "11Gi"
 
     # The producer role is just the databaseAbstractor Deployment above with
@@ -400,11 +406,11 @@ databaseAbstractor:
       fastDiscoveryEnabled: true
       resources:
         requests:
-          cpu: 500m
-          memory: "1Gi"
-        limits:
           cpu: 1
           memory: "2Gi"
+        limits:
+          cpu: 2
+          memory: "4Gi"
 
     # Second consumer dedicated to the secondary "traffic" topic, split off so
     # a spike there doesn't starve the main topic's consumer (mirrors
@@ -473,18 +479,18 @@ threatBackend:
   resources:
     requests:
       cpu: 1
-      memory: "1Gi"
+      memory: "4Gi"
     limits:
       cpu: 2
-      memory: "2Gi"
+      memory: "8Gi"
 
   autoscaling:
     # The old standalone threat-backend chart always ran this HPA unconditionally -
     # default stays on here to match that behavior.
     enabled: true
     minReplicas: 1
-    maxReplicas: 2
-    targetCPUUtilizationPercentage: 80
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
   # Bundled single-node Kafka broker (KRaft mode, no Zookeeper).
   kafka:
@@ -508,5 +514,5 @@ threatBackend:
         cpu: 1
         memory: "2Gi"
       limits:
-        cpu: 1
+        cpu: 2
         memory: "4Gi"

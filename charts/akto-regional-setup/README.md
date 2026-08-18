@@ -188,17 +188,21 @@ configured.
 
 **Model-provider config:** split by whether it's a credential. API
 keys/service-account key JSON go through Key Vault same as everything else -
-e.g. `openaiApiKey` (see `values.yaml` under `agentGuard.secrets` for the full
-list; each is `optional: true`, unsynced just leaves that env var unset).
+e.g. `openaiApiKey` (see the comment above `agentGuard.env` in `values.yaml`
+for the full list of expected Key Vault key names; each is read with
+`optional: true`, so an unsynced one just leaves that env var unset).
 Everything else - base URLs, deployment/model names, project/location/endpoint
 IDs, and `defaultModelConfigJson` - isn't a secret, so it's a plain
 `--set`/`-f` value under `agentGuard.env` instead, e.g. `openaiModel`.
 
-**Run only part of the stack** — every component has an `enabled` flag:
+**Run only part of the stack** — every component has an `enabled` flag. To turn off
+AI guardrails entirely, disable both the http and kafka entrypoints (kafka is on by
+default) along with agent-guard/anonymizer, or rendering fails fast with
+`scannerApiUrl must be set when agentGuard.enabled=false`:
 
 ```bash
---set guardrailsService.http.enabled=false --set agentGuard.enabled=false \
---set anonymizer.enabled=false
+--set guardrailsService.http.enabled=false --set guardrailsService.kafka.enabled=false \
+--set agentGuard.enabled=false --set anonymizer.enabled=false
 ```
 
 ## Values reference

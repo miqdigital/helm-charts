@@ -169,18 +169,19 @@ miniRuntime:
   enabled: true
   replicas: 1
 
-  # Off by default, unlike threat-backend/database-abstractor's autoscaling.
-  # Reason: the bundled Kafka broker is a per-pod sidecar, not a shared
-  # cluster - it's also the regional traffic bus other components read/write
-  # via this Service's DNS name. Scaling past 1 replica splits that bus across
-  # N independent single-node brokers behind one ClusterIP, so producers and
-  # consumers can land on different, inconsistent brokers. Only turn this on
-  # if miniRuntime.external.enabled=true (a real external Kafka cluster).
+  # Enabled per this deployment's agreed sizing (client resource sheet), despite
+  # the risk below - accepted knowingly, not the chart's general recommendation.
+  # The bundled Kafka broker is a per-pod sidecar, not a shared cluster - it's
+  # also the regional traffic bus other components read/write via this
+  # Service's DNS name. Scaling past 1 replica splits that bus across N
+  # independent single-node brokers behind one ClusterIP, so producers and
+  # consumers can land on different, inconsistent brokers, unless
+  # miniRuntime.external.enabled=true (a real external Kafka cluster).
   autoscaling:
-    enabled: false
+    enabled: true
     minReplicas: 1
-    maxReplicas: 2
-    targetCPUUtilizationPercentage: 80
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
   image:
     repository: aktosecurity/mini-runtime
@@ -213,10 +214,10 @@ miniRuntime:
   resources:
     requests:
       cpu: 1
-      memory: "2Gi"
+      memory: "4Gi"
     limits:
       cpu: 2
-      memory: "4Gi"
+      memory: "8Gi"
 
   # Bundled broker. Set external.enabled to point at an existing Kafka instead.
   kafka:
@@ -233,8 +234,8 @@ miniRuntime:
         memory: "2Gi"
         ephemeral-storage: "500Mi"
       limits:
-        cpu: 1
-        memory: "2Gi"
+        cpu: 2
+        memory: "11Gi"
         ephemeral-storage: "11Gi"
 
   # Use an existing Kafka cluster (MSK, Confluent Cloud, ...) instead of the
@@ -275,10 +276,16 @@ threatClient:
   resources:
     requests:
       cpu: 1
-      memory: "2Gi"
+      memory: "4Gi"
     limits:
-      cpu: 1.5
-      memory: "2.5Gi"
+      cpu: 2
+      memory: "8Gi"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
   # Bundled broker for the alerts topic.
   kafka:
@@ -295,8 +302,8 @@ threatClient:
         memory: "2Gi"
         ephemeral-storage: "500Mi"
       limits:
-        cpu: 1
-        memory: "2Gi"
+        cpu: 2
+        memory: "4Gi"
         ephemeral-storage: "4Gi"
 
   # Consume traffic from an existing Kafka instead of the bundled broker.
@@ -361,11 +368,17 @@ dataIngestion:
 
   resources:
     requests:
-      cpu: 500m
-      memory: "512Mi"
+      cpu: 2
+      memory: "4Gi"
     limits:
-      cpu: 1
-      memory: "1Gi"
+      cpu: 4
+      memory: "8Gi"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
 # =============================================================================
 # 4. Guardrails Service - the AI guardrails entrypoint.
@@ -415,11 +428,16 @@ guardrailsService:
       annotations: {}
     resources:
       requests:
-        cpu: 500m
-        memory: 1Gi
-      limits:
         cpu: 2
-        memory: 2Gi
+        memory: 4Gi
+      limits:
+        cpu: 4
+        memory: 8Gi
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
     livenessProbe:
       enabled: true
       path: /health
@@ -458,11 +476,16 @@ guardrailsService:
     batchLingerSec: "5"
     resources:
       requests:
-        cpu: 500m
-        memory: 1Gi
-      limits:
         cpu: 2
-        memory: 2Gi
+        memory: 4Gi
+      limits:
+        cpu: 4
+        memory: 8Gi
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
 
 # =============================================================================
 # 5. Agent Guard - runs the guardrail scanners.
@@ -523,11 +546,17 @@ agentGuard:
 
   resources:
     requests:
-      cpu: 500m
-      memory: 1Gi
+      cpu: 1
+      memory: 2Gi
     limits:
       cpu: 2
-      memory: 2Gi
+      memory: 4Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
   livenessProbe:
     enabled: true
@@ -579,11 +608,17 @@ anonymizer:
 
   resources:
     requests:
-      cpu: 500m
-      memory: 1Gi
-    limits:
       cpu: 1
       memory: 2Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
   livenessProbe:
     enabled: true
@@ -626,6 +661,12 @@ embedder:
     limits:
       cpu: 2
       memory: 4Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
   livenessProbe:
     enabled: true
@@ -708,8 +749,8 @@ guardrailsRedis:
 
   resources:
     requests:
-      cpu: 250m
-      memory: 512Mi
+      cpu: 1
+      memory: 4Gi
     limits:
       cpu: 1
-      memory: 2Gi
+      memory: 8Gi
