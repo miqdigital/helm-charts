@@ -20,3 +20,164 @@ spec:
         type: Utilization
         averageUtilization: {{ .Values.miniRuntime.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}
+{{- if and .Values.threatClient.enabled .Values.threatClient.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "threat-client") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "threat-client") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-regional-setup.componentName" (list . "threat-client") }}
+  minReplicas: {{ .Values.threatClient.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.threatClient.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.threatClient.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if and .Values.dataIngestion.enabled .Values.dataIngestion.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "data-ingestion") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "data-ingestion") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-regional-setup.componentName" (list . "data-ingestion") }}
+  minReplicas: {{ .Values.dataIngestion.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.dataIngestion.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.dataIngestion.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if and .Values.guardrailsService.http.enabled .Values.guardrailsService.http.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "guardrails-service-http") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "guardrails-service-http") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-regional-setup.componentName" (list . "guardrails-service-http") }}
+  minReplicas: {{ .Values.guardrailsService.http.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.guardrailsService.http.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.guardrailsService.http.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if and .Values.guardrailsService.kafka.enabled .Values.guardrailsService.kafka.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "guardrails-service-kafka") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "guardrails-service-kafka") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-regional-setup.componentName" (list . "guardrails-service-kafka") }}
+  minReplicas: {{ .Values.guardrailsService.kafka.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.guardrailsService.kafka.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.guardrailsService.kafka.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if and .Values.agentGuard.enabled .Values.agentGuard.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "agent-guard") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "agent-guard") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-regional-setup.componentName" (list . "agent-guard") }}
+  minReplicas: {{ .Values.agentGuard.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.agentGuard.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.agentGuard.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if and .Values.anonymizer.enabled .Values.anonymizer.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "anonymizer") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "anonymizer") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-regional-setup.componentName" (list . "anonymizer") }}
+  minReplicas: {{ .Values.anonymizer.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.anonymizer.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.anonymizer.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if and .Values.embedder.enabled .Values.embedder.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "embedder") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "embedder") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-regional-setup.componentName" (list . "embedder") }}
+  minReplicas: {{ .Values.embedder.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.embedder.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.embedder.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

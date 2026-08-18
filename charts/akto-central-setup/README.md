@@ -318,7 +318,7 @@ component. `helm show values akto/akto-central-setup` prints the annotated file.
 | `dashboard.enabled` | `true` | |
 | `dashboard.service.type` | `LoadBalancer` | |
 | `databaseAbstractor.enabled` | `true` | |
-| `databaseAbstractor.autoscaling.enabled` | `false` | HPA on CPU |
+| `databaseAbstractor.autoscaling.enabled` | `true` | HPA on CPU |
 | `threatBackend.enabled` | `true` | |
 | `threatBackend.service.httpPort` | `9090` | The API port |
 | `threatBackend.service.kafkaPort` | `9092` | Bundled broker |
