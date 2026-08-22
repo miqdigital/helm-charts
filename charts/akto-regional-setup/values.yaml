@@ -72,7 +72,12 @@ serviceAccount:
   name: ""
   annotations: {}
 
-nodeSelector: {}
+# Scheduling, applied to every component. Defaults to a CPU-only nodepool
+# label so these pods don't land on a GPU nodepool if the cluster has one -
+# change the key/value to match your cluster's actual CPU nodepool label, or
+# set to {} if you don't need this.
+nodeSelector:
+  workload: cpu
 tolerations: []
 affinity: {}
 podSecurityContext: {}
@@ -185,7 +190,7 @@ miniRuntime:
 
   image:
     repository: aktosecurity/mini-runtime
-    tag: "1.72.15_local"
+    tag: "1.72.15"
     # Set digest to pin by sha256 instead of tag.
     digest: ""
     pullPolicy: Always
@@ -732,8 +737,8 @@ guardrailsRedis:
   replicas: 1
 
   image:
-    repository: redis/redis-stack-server
-    tag: "7.4.0-v1"
+    repository: public.ecr.aws/aktosecurity/redis-stack-server
+    tag: "7.4.0"
     pullPolicy: Always
 
   # Key inside global.keyVault.secretName holding the Redis password.
