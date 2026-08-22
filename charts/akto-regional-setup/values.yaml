@@ -231,7 +231,7 @@ miniRuntime:
     logRetentionHours: "5"
     image:
       repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
-      tag: "8.2.2-1-ubi9"
+      tag: "8.2.2"
       pullPolicy: Always
     resources:
       requests:
@@ -299,7 +299,7 @@ threatClient:
     logRetentionHours: "5"
     image:
       repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
-      tag: "8.2.2-1-ubi9"
+      tag: "8.2.2"
       pullPolicy: Always
     resources:
       requests:
@@ -696,7 +696,7 @@ guardrailsKafka:
 
   image:
     repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
-    tag: "8.2.2-1-ubi9"
+    tag: "8.2.2"
     pullPolicy: Always
 
   service:
