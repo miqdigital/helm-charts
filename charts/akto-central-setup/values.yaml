@@ -91,7 +91,7 @@ global:
       # Needs both openssl and keytool. Any JDK image works.
       image:
         repository: eclipse-temurin
-        tag: "21-jdk"
+        tag: "21"
         pullPolicy: Always
 
     # Keys inside global.keyVault.secretName holding the keystore/truststore
@@ -159,8 +159,12 @@ serviceAccount:
   name: ""
   annotations: {}
 
-# Scheduling, applied to every component.
-nodeSelector: {}
+# Scheduling, applied to every component. Defaults to a CPU-only nodepool
+# label so these pods don't land on a GPU nodepool if the cluster has one -
+# change the key/value to match your cluster's actual CPU nodepool label, or
+# set to {} if you don't need this.
+nodeSelector:
+  workload: cpu
 tolerations: []
 affinity: {}
 podSecurityContext: {}
@@ -252,7 +256,7 @@ dashboard:
 
   image:
     repository: public.ecr.aws/aktosecurity/akto-api-security-dashboard
-    tag: "1.69.2_latest"
+    tag: "1.69.2"
     pullPolicy: Always
 
   service:
@@ -303,7 +307,7 @@ databaseAbstractor:
 
   image:
     repository: public.ecr.aws/aktosecurity/akto-api-security-database-abstractor
-    tag: 1.66.9_local
+    tag: "1.66.9"
     pullPolicy: Always
 
   # ClusterIP on purpose - database-abstractor is a backend data-access layer,
