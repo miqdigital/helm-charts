@@ -1,0 +1,91 @@
+{{- if .Values.guardrailsThreatBuffer.enabled }}
+{{/*
+Guardrails threat forwarder: drains the malicious-event buffer that
+guardrails-service writes and forwards each event to the central threat
+backend, retrying a failing backend without committing. An outage of central -
+or of the WAN link to it - costs latency and duplicate events, never events.
+
+Runs the threat-client image in forwarder mode. It is a SEPARATE deployment on
+purpose: GUARDRAILS_THREAT_CLIENT_ENABLED makes Main skip the detector boot
+path entirely, so setting it on the threat-client deployment would silently
+stop traffic threat detection. That deployment stays a pure detector.
+
+Forwarder mode needs no Mongo, Redis, Postgres or Hyperscan, and skips the
+cyborg feature-access gate - so it keeps draining even while central is
+unreachable. Stateless: consumer offsets live in Kafka, so there is no volume.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "guardrails-threat-forwarder") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "guardrails-threat-forwarder") | nindent 4 }}
+  {{- if .Values.imageAutoUpdate.enabled }}
+  annotations:
+    keel.sh/policy: force
+    keel.sh/match-tag: "true"
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: {{ quote .Values.imageAutoUpdate.pollSchedule }}
+    keel.sh/monitorContainers: "guardrails-threat-forwarder"
+  {{- end }}
+spec:
+  replicas: {{ .Values.guardrailsThreatBuffer.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-regional-setup.componentSelectorLabels" (list . "guardrails-threat-forwarder") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-regional-setup.componentSelectorLabels" (list . "guardrails-threat-forwarder") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-regional-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: Always
+      containers:
+      - name: guardrails-threat-forwarder
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: {{ include "akto-regional-setup.image" .Values.threatClient.image | quote }}
+        imagePullPolicy: {{ .Values.threatClient.image.pullPolicy }}
+        env:
+        {{- include "akto-regional-setup.commonEnv" . | nindent 8 }}
+        - name: RUNTIME_MODE
+          value: "hybrid"
+        - name: GUARDRAILS_THREAT_CLIENT_ENABLED
+          value: "true"
+        {{/* Resolved through the same helper as the producer, so the two cannot drift. */}}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_BROKER_URL
+          value: {{ include "akto-regional-setup.threatBuffer.broker" . | quote }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_TOPIC
+          value: {{ quote .Values.guardrailsThreatBuffer.kafkaTopic }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_GROUP_ID
+          value: {{ quote .Values.guardrailsThreatBuffer.kafkaGroupId }}
+        - name: GUARDRAILS_THREAT_CLIENT_MAX_BACKOFF_SEC
+          value: {{ quote .Values.guardrailsThreatBuffer.maxBackoffSec }}
+        - name: GUARDRAILS_THREAT_CLIENT_BATCH_SIZE
+          value: {{ quote .Values.guardrailsThreatBuffer.batchSize }}
+        {{/*
+        Same destination and same token the inline POST would have used, so the
+        buffered and direct paths are interchangeable.
+        */}}
+        - name: AKTO_THREAT_PROTECTION_BACKEND_URL
+          value: {{ include "akto-regional-setup.central.threatBackendUrl" . | quote }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ include "akto-regional-setup.central.databaseAbstractorUrl" . | quote }}
+        {{- include "akto-regional-setup.central.tokenEnv" . | nindent 8 }}
+        - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
+          {{- include "akto-regional-setup.central.tokenSecretKeyRef" . | nindent 10 }}
+        {{- include "akto-regional-setup.kafka.clientSaslEnv" (list . .Values.threatClient.external) | nindent 8 }}
+        resources:
+          {{- toYaml .Values.guardrailsThreatBuffer.resources | nindent 10 }}
+        volumeMounts:
+          {{- include "akto-regional-setup.keyVault.volumeMounts" . | nindent 8 }}
+      volumes:
+        {{- include "akto-regional-setup.keyVault.volumes" . | nindent 6 }}
+      {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
+{{- end }}
