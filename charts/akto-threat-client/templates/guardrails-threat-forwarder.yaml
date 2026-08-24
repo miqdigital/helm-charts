@@ -27,18 +27,7 @@ spec:
         app: {{ include "akto.fullname" . }}-guardrails-threat-forwarder
       {{- include "akto.selectorLabels" . | nindent 8 }}
     spec:
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "akto.scheduling" . | nindent 6 }}
       containers:
       - name: guardrails-threat-forwarder
         image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}{{ if .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}@{{ .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}{{ else }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag | default .Chart.AppVersion }}{{ end }}
@@ -47,7 +36,7 @@ spec:
         - name: GUARDRAILS_THREAT_CLIENT_ENABLED
           value: "true"
         - name: RUNTIME_MODE
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.runtimeMode | default "hybrid" }}
+          value: "hybrid"
         - name: GUARDRAILS_THREAT_CLIENT_KAFKA_BROKER_URL
           value: {{ include "akto.guardrailForwarder.broker" . | quote }}
         - name: GUARDRAILS_THREAT_CLIENT_KAFKA_TOPIC
@@ -69,20 +58,7 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         {{- include "akto.guardrailForwarder.kafkaAuthEnv" . | nindent 8 }}
         resources: {{- toYaml .Values.threat_client.guardrailForwarder.resources | nindent 10 }}
-        {{- if .Values.keyVault.enabled }}
-        volumeMounts:
-        - name: secrets-store
-          mountPath: /mnt/secrets-store
-          readOnly: true
-        {{- end }}
+        {{- include "akto.keyVault.volumeMounts" . | nindent 8 }}
       restartPolicy: Always
-      {{- if .Values.keyVault.enabled }}
-      volumes:
-      - name: secrets-store
-        csi:
-          driver: secrets-store.csi.k8s.io
-          readOnly: true
-          volumeAttributes:
-            secretProviderClass: {{ .Values.keyVault.secretProviderClass | default "akto-keyvault" }}
-      {{- end }}
+      {{- include "akto.keyVault.volumes" . | nindent 6 }}
 {{- end }}

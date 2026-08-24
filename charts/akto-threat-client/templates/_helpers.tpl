@@ -159,3 +159,41 @@ deployment.yaml: Key Vault, then an existing Secret, then a plain value.
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{/* Pod scheduling, shared shape across deployments. */}}
+{{- define "akto.scheduling" -}}
+{{- with .Values.nodeSelector }}
+nodeSelector:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.tolerations }}
+tolerations:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.affinity }}
+affinity:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/* Key Vault CSI mount; empty when Key Vault is off. */}}
+{{- define "akto.keyVault.volumeMounts" -}}
+{{- if .Values.keyVault.enabled }}
+volumeMounts:
+- name: secrets-store
+  mountPath: /mnt/secrets-store
+  readOnly: true
+{{- end }}
+{{- end }}
+
+{{- define "akto.keyVault.volumes" -}}
+{{- if .Values.keyVault.enabled }}
+volumes:
+- name: secrets-store
+  csi:
+    driver: secrets-store.csi.k8s.io
+    readOnly: true
+    volumeAttributes:
+      secretProviderClass: {{ .Values.keyVault.secretProviderClass | default "akto-keyvault" }}
+{{- end }}
+{{- end }}
