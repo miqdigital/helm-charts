@@ -107,6 +107,7 @@ spec:
         {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- include "akto-ai-guardrails-v2.threatBuffer.env" . | nindent 8 }}
         {{- if .Values.guardrailsService.http.livenessProbe.enabled }}
         livenessProbe:
           httpGet:
@@ -296,6 +297,7 @@ spec:
         {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- include "akto-ai-guardrails-v2.threatBuffer.env" . | nindent 8 }}
         resources:
           {{- toYaml .Values.guardrailsService.kafka.resources | nindent 10 }}
         {{- if .Values.guardrailsService.kafka.env.useKeyVaultForDbToken }}

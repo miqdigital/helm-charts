@@ -408,6 +408,23 @@ Where guardrails-service sends scan requests.
 {{- end }}
 
 {{/*
+Kafka carrying the malicious-event buffer. Producer and forwarder both resolve
+through this helper so they cannot drift apart - a mismatch would be silent.
+Not the threat client's own broker: that is a sidecar addressed as localhost.
+*/}}
+{{- define "akto-regional-setup.threatBuffer.broker" -}}
+{{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
+{{- .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
+{{- else if .Values.guardrailsKafka.enabled -}}
+{{- include "akto-regional-setup.guardrailsKafka.url" . -}}
+{{- else if .Values.miniRuntime.enabled -}}
+{{- include "akto-regional-setup.miniRuntime.kafkaUrl" . -}}
+{{- else -}}
+{{- fail "guardrailsThreatBuffer.enabled=true but no broker available - set guardrailsThreatBuffer.kafkaBrokerUrl, or enable guardrailsKafka or miniRuntime" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Kafka the Kafka-mode guardrails service consumes from.
 */}}
 {{- define "akto-regional-setup.guardrails.kafkaBroker" -}}

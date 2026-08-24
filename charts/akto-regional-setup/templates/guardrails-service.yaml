@@ -47,6 +47,17 @@ meaningless outside this file.
   value: {{ include "akto-regional-setup.central.threatBackendUrl" . | quote }}
 - name: THREAT_DETECTION_API_URL
   value: {{ include "akto-regional-setup.central.threatDetectionApiUrl" . | quote }}
+{{- if .Values.guardrailsThreatBuffer.enabled }}
+# Buffered instead of POSTed to central inline, so a central or WAN outage
+# delays events instead of losing them. Falls back to the inline POST above if
+# the Kafka write fails. Drained by guardrails-threat-forwarder.yaml.
+- name: GUARDRAILS_THREAT_KAFKA_ENABLED
+  value: "true"
+- name: GUARDRAILS_THREAT_KAFKA_BROKER_URL
+  value: {{ include "akto-regional-setup.threatBuffer.broker" . | quote }}
+- name: GUARDRAILS_THREAT_KAFKA_TOPIC
+  value: {{ quote .Values.guardrailsThreatBuffer.kafkaTopic }}
+{{- end }}
 {{- include "akto-regional-setup.central.tokenEnv" . | nindent 0 }}
 {{- end }}
 

@@ -1,0 +1,64 @@
+{{- if .Values.threat_client.guardrailForwarder.enabled }}
+{{/*
+Drains the malicious-event buffer written by guardrails-service and forwards to
+the threat backend, retrying without committing so an outage delays events
+instead of losing them.
+
+A SEPARATE deployment on purpose: GUARDRAILS_THREAT_CLIENT_ENABLED makes Main
+skip the detector boot path, so setting it on the threat-client deployment
+would silently stop traffic threat detection.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto.fullname" . }}-guardrails-threat-forwarder
+  labels:
+    app: {{ include "akto.fullname" . }}-guardrails-threat-forwarder
+  {{- include "akto.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.threat_client.guardrailForwarder.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "akto.fullname" . }}-guardrails-threat-forwarder
+    {{- include "akto.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "akto.fullname" . }}-guardrails-threat-forwarder
+      {{- include "akto.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "akto.scheduling" . | nindent 6 }}
+      containers:
+      - name: guardrails-threat-forwarder
+        image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}{{ if .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}@{{ .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}{{ else }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag | default .Chart.AppVersion }}{{ end }}
+        imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
+        env:
+        - name: GUARDRAILS_THREAT_CLIENT_ENABLED
+          value: "true"
+        - name: RUNTIME_MODE
+          value: "hybrid"
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_BROKER_URL
+          value: {{ include "akto.guardrailForwarder.broker" . | quote }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_TOPIC
+          value: {{ quote .Values.threat_client.guardrailForwarder.kafkaTopic }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_GROUP_ID
+          value: {{ quote .Values.threat_client.guardrailForwarder.kafkaGroupId }}
+        - name: GUARDRAILS_THREAT_CLIENT_MAX_BACKOFF_SEC
+          value: {{ quote .Values.threat_client.guardrailForwarder.maxBackoffSec }}
+        - name: GUARDRAILS_THREAT_CLIENT_BATCH_SIZE
+          value: {{ quote .Values.threat_client.guardrailForwarder.batchSize }}
+        - name: AKTO_THREAT_PROTECTION_BACKEND_URL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendUrl }}
+        {{- include "akto.guardrailForwarder.backendTokenEnv" . | nindent 8 }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorUrl }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoLogLevel }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- include "akto.guardrailForwarder.kafkaAuthEnv" . | nindent 8 }}
+        resources: {{- toYaml .Values.threat_client.guardrailForwarder.resources | nindent 10 }}
+        {{- include "akto.keyVault.volumeMounts" . | nindent 8 }}
+      restartPolicy: Always
+      {{- include "akto.keyVault.volumes" . | nindent 6 }}
+{{- end }}

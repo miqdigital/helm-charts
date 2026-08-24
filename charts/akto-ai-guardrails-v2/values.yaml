@@ -98,7 +98,7 @@ guardrailsService:
     replicas: 1
     image:
       repository: aktosecurity/guardrails-service
-      tag: "2.13.9"
+      tag: "2.14.8"
       pullPolicy: IfNotPresent
     service:
       type: LoadBalancer
@@ -177,7 +177,7 @@ guardrailsService:
     replicas: 1
     image:
       repository: aktosecurity/guardrails-service
-      tag: "2.13.9"
+      tag: "2.14.8"
       pullPolicy: IfNotPresent
     env:
       # Defaults to the shared mini-runtime Kafka broker (same hostname
@@ -231,6 +231,23 @@ guardrailsService:
 # guardrails pipeline. Set enabled: false and point the URLs above at an
 # existing cluster if you'd rather bring your own broker.
 # -----------------------------------------------------------------------------
+# 3b. Malicious-event buffer (producer side). Consumer is the Java threat client:
+# charts/akto-threat-client with threat_client.guardrailForwarder.enabled=true,
+# same broker and topic. Enable the forwarder first - a producer with no consumer
+# fills a topic nothing drains. Buffer depth is the topic's retention, which
+# defaults to 5h on the bundled brokers.
+guardrailsThreatBuffer:
+  enabled: false
+  # Defaults to the bundled guardrailsKafka broker when that is enabled.
+  kafkaBrokerUrl: ""
+  # Must match the threat client. Separate from akto.threat_detection.alerts.
+  kafkaTopic: "akto.threat_detection.guardrail_events"
+  kafkaUseTls: false
+  # Leave blank for no SASL. Both keys are read from this one Secret.
+  kafkaSaslSecretName: ""
+  kafkaSaslUsernameKey: "AKTO_KAFKA_USERNAME"
+  kafkaSaslPasswordKey: "AKTO_KAFKA_PASSWORD"
+
 guardrailsKafka:
   enabled: false
   image:

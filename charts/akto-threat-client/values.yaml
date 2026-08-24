@@ -65,6 +65,35 @@ threat_client:
 
   replicas: 1
 
+  # Consumer half of the guardrails malicious-event buffer; producer is
+  # charts/akto-ai-guardrails-v2 (guardrailsThreatBuffer). Off by default -
+  # enable this side first, since a producer with no consumer fills a topic
+  # nothing drains. Runs as its own deployment: forwarder mode skips the
+  # detector boot path, so folding it into the threat client would stop
+  # traffic threat detection.
+  guardrailForwarder:
+    enabled: false
+    replicas: 1
+    # Blank resolves to externalKafka.brokerUrl, else this chart's bundled
+    # kafka1 via the threat-client Service.
+    kafkaBrokerUrl: ""
+    # Must match guardrailsThreatBuffer.kafkaTopic on the producer side.
+    # Separate from akto.threat_detection.alerts so retention - which is what
+    # buffer depth means - can be sized independently.
+    kafkaTopic: "akto.threat_detection.guardrail_events"
+    kafkaGroupId: "akto.guardrails_threat_client"
+    # Keep well under Kafka's 5-minute max.poll.interval.ms - the wait happens
+    # inside the poll loop.
+    maxBackoffSec: "60"
+    batchSize: "100"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
   aktoApiSecurityThreatClient:
     env:
       enabled: true

@@ -258,13 +258,39 @@ miniRuntime:
 # =============================================================================
 # 2. Threat Client - detects malicious traffic and reports to central.
 # =============================================================================
+# Malicious-event buffer between guardrails-service and the central threat
+# backend. ON by default here: the regional-to-central link is the failure this
+# protects against. guardrails-threat-forwarder.yaml drains it and POSTs to
+# central, retrying without committing. Falls back to an inline POST if the
+# Kafka write fails, so it is never worse than off.
+guardrailsThreatBuffer:
+  enabled: true
+  replicas: 1
+  # Blank resolves to the guardrails broker if enabled, else mini-runtime.
+  kafkaBrokerUrl: ""
+  # Separate from akto.threat_detection.alerts so retention can be sized on its
+  # own. Buffer depth IS this topic's retention; bundled brokers default to 5h.
+  kafkaTopic: "akto.threat_detection.guardrail_events"
+  kafkaGroupId: "akto.guardrails_threat_client"
+  # Keep well under Kafka's 5-minute max.poll.interval.ms - the wait happens
+  # inside the poll loop.
+  maxBackoffSec: "60"
+  batchSize: "100"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
 threatClient:
   enabled: true
   replicas: 1
 
   image:
     repository: public.ecr.aws/aktosecurity/akto-threat-detection
-    tag: "1.15.7"
+    tag: "1.16.2"
     digest: ""
     pullPolicy: Always
 
@@ -393,7 +419,7 @@ dataIngestion:
 guardrailsService:
   image:
     repository: aktosecurity/guardrails-service
-    tag: "2.14.2"
+    tag: "2.14.8"
     pullPolicy: Always
 
   env:
