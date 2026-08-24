@@ -61,13 +61,9 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Broker carrying the malicious-event buffer that the guardrail forwarder drains.
-
-Explicit override wins; then the external cluster when useExternalKafka is set;
-otherwise the bundled kafka1 sidecar, reached through the threat-client Service.
-The port mirrors the KAFKA_ADVERTISED_LISTENERS branches in deployment.yaml -
-the sidecar advertises a cluster-DNS listener alongside localhost, which is what
-makes it reachable from the forwarder's own pod at all.
+Broker carrying the malicious-event buffer. Falls back to the bundled kafka1
+sidecar via the threat-client Service; the port mirrors the
+KAFKA_ADVERTISED_LISTENERS branches in deployment.yaml.
 */}}
 {{- define "akto.guardrailForwarder.broker" -}}
 {{- $tc := .Values.threat_client -}}

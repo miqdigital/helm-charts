@@ -1,24 +1,12 @@
 {{- if .Values.threat_client.guardrailForwarder.enabled }}
 {{/*
-Guardrails threat forwarder: drains the malicious-event buffer that
-guardrails-service writes to Kafka and forwards each event to the threat
-backend, retrying a failing backend without committing. A backend outage costs
-latency and duplicate events, never events.
+Drains the malicious-event buffer written by guardrails-service and forwards to
+the threat backend, retrying without committing so an outage delays events
+instead of losing them.
 
-Runs the threat-client image in forwarder mode, as a SEPARATE deployment on
-purpose. GUARDRAILS_THREAT_CLIENT_ENABLED makes Main skip the detector boot
-path entirely, so setting it on the threat-client deployment would silently
-stop traffic threat detection. That deployment is left exactly as it is.
-
-Forwarder mode needs no Mongo, Redis, Postgres or Hyperscan, and skips the
-cyborg feature-access gate, so it keeps draining while cyborg is unreachable.
-Stateless - consumer offsets live in Kafka - so it mounts no volume beyond the
-Key Vault secrets the rest of the chart uses.
-
-Off by default: the producer half lives in the guardrails chart, so enabling
-this without also enabling it there just idles on an empty topic (harmless).
-Enable this side FIRST - a producer with no consumer fills a topic nothing
-drains, and those events expire at retention.
+A SEPARATE deployment on purpose: GUARDRAILS_THREAT_CLIENT_ENABLED makes Main
+skip the detector boot path, so setting it on the threat-client deployment
+would silently stop traffic threat detection.
 */}}
 apiVersion: apps/v1
 kind: Deployment
@@ -70,10 +58,6 @@ spec:
           value: {{ quote .Values.threat_client.guardrailForwarder.maxBackoffSec }}
         - name: GUARDRAILS_THREAT_CLIENT_BATCH_SIZE
           value: {{ quote .Values.threat_client.guardrailForwarder.batchSize }}
-        {{/*
-        Same destination and same token the threat client itself uses, so the
-        buffered path lands exactly where the inline POST would have.
-        */}}
         - name: AKTO_THREAT_PROTECTION_BACKEND_URL
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendUrl }}
         - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN

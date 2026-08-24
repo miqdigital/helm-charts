@@ -107,11 +107,7 @@ spec:
         {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        {{/*
-        Buffer malicious events onto Kafka instead of POSTing them inline, so
-        they survive a threat-backend outage. The guardrails threat client
-        drains the topic (charts/akto-threat-client, guardrailForwarder).
-        */}}
+        {{/* Buffered instead of POSTed inline; drained by the threat client. */}}
         {{- if .Values.guardrailsThreatBuffer.enabled }}
         - name: GUARDRAILS_THREAT_KAFKA_ENABLED
           value: "true"
@@ -332,11 +328,7 @@ spec:
         {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        {{/*
-        Buffer malicious events onto Kafka instead of POSTing them inline, so
-        they survive a threat-backend outage. The guardrails threat client
-        drains the topic (charts/akto-threat-client, guardrailForwarder).
-        */}}
+        {{/* Buffered instead of POSTed inline; drained by the threat client. */}}
         {{- if .Values.guardrailsThreatBuffer.enabled }}
         - name: GUARDRAILS_THREAT_KAFKA_ENABLED
           value: "true"

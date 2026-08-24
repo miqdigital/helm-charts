@@ -231,26 +231,16 @@ guardrailsService:
 # guardrails pipeline. Set enabled: false and point the URLs above at an
 # existing cluster if you'd rather bring your own broker.
 # -----------------------------------------------------------------------------
-# 3b. Malicious-event buffer (producer side).
-#
-# Off by default: guardrails-service POSTs each malicious event inline, so a
-# threat-backend outage loses them. Turn this on and events go onto Kafka
-# first. The consumer is the Java threat client - deploy charts/akto-threat-client
-# with threat_client.guardrailForwarder.enabled=true, pointed at the same broker
-# and topic.
-#
-# Enable the forwarder FIRST (it idles on an empty topic), confirm it is
-# healthy, then enable this. The reverse order fills a topic nothing drains.
-#
-# Buffer depth is the topic's retention: set retention.ms/retention.bytes on the
-# topic explicitly, because every bundled broker here defaults to 5h and will
-# silently truncate a longer target.
+# 3b. Malicious-event buffer (producer side). Consumer is the Java threat client:
+# charts/akto-threat-client with threat_client.guardrailForwarder.enabled=true,
+# same broker and topic. Enable the forwarder first - a producer with no consumer
+# fills a topic nothing drains. Buffer depth is the topic's retention, which
+# defaults to 5h on the bundled brokers.
 guardrailsThreatBuffer:
   enabled: false
   # Defaults to the bundled guardrailsKafka broker when that is enabled.
   kafkaBrokerUrl: ""
-  # Must match the threat client. Deliberately separate from the traffic
-  # detector's akto.threat_detection.alerts.
+  # Must match the threat client. Separate from akto.threat_detection.alerts.
   kafkaTopic: "akto.threat_detection.guardrail_events"
   kafkaUseTls: false
   # Leave blank for no SASL. Both keys are read from this one Secret.

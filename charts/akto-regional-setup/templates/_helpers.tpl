@@ -408,17 +408,9 @@ Where guardrails-service sends scan requests.
 {{- end }}
 
 {{/*
-Kafka carrying the malicious-event buffer: guardrails-service produces onto it,
-the guardrails threat forwarder drains it.
-
-Both ends resolve through THIS helper, so they cannot drift apart - a mismatch
-would be silent (producer healthy, forwarder idle on an empty topic, events
-expiring at retention).
-
-Explicit override wins; then the guardrails broker in this release; else the
-mini-runtime broker, which is enabled by default. Deliberately NOT the threat
-client's own broker: that one is a sidecar the detector addresses as localhost,
-so a separate forwarder pod could only reach it through a Service hop.
+Kafka carrying the malicious-event buffer. Producer and forwarder both resolve
+through this helper so they cannot drift apart - a mismatch would be silent.
+Not the threat client's own broker: that is a sidecar addressed as localhost.
 */}}
 {{- define "akto-regional-setup.threatBuffer.broker" -}}
 {{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}

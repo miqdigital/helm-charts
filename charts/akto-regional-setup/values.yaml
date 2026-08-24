@@ -259,36 +259,21 @@ miniRuntime:
 # 2. Threat Client - detects malicious traffic and reports to central.
 # =============================================================================
 # Malicious-event buffer between guardrails-service and the central threat
-# backend. ON by default in regional: the link from a regional cloud to central
-# is the failure this protects against, and without it every blocked prompt
-# raised during a central outage is lost silently.
-#
-# guardrails-service produces onto the topic; a dedicated forwarder deployment
-# (guardrails-threat-forwarder.yaml) drains it and POSTs to central, retrying a
-# failing backend without committing. If the Kafka write itself fails,
-# guardrails-service falls back to POSTing inline - so this is never worse than
-# having it off.
-#
-# The forwarder is separate from threatClient on purpose: forwarder mode skips
-# the detector boot path, so folding it into that deployment would stop traffic
-# threat detection.
+# backend. ON by default here: the regional-to-central link is the failure this
+# protects against. guardrails-threat-forwarder.yaml drains it and POSTs to
+# central, retrying without committing. Falls back to an inline POST if the
+# Kafka write fails, so it is never worse than off.
 guardrailsThreatBuffer:
   enabled: true
   replicas: 1
-  # Broker carrying the buffer. Blank resolves to the guardrails broker when
-  # guardrailsKafka is enabled, else the mini-runtime broker (enabled by
-  # default). Producer and forwarder both read this, so they cannot drift.
+  # Blank resolves to the guardrails broker if enabled, else mini-runtime.
   kafkaBrokerUrl: ""
-  # Deliberately separate from the traffic detector's
-  # akto.threat_detection.alerts, so a guardrails backlog cannot starve alerts
-  # and retention can be sized independently. Buffer depth IS this topic's
-  # retention - set retention.ms/retention.bytes explicitly on it, because the
-  # bundled brokers default to 5h and will silently truncate a longer target.
+  # Separate from akto.threat_detection.alerts so retention can be sized on its
+  # own. Buffer depth IS this topic's retention; bundled brokers default to 5h.
   kafkaTopic: "akto.threat_detection.guardrail_events"
   kafkaGroupId: "akto.guardrails_threat_client"
-  # Retry backoff ceiling while central is unreachable. Keep well under Kafka's
-  # 5-minute max.poll.interval.ms: the wait happens inside the poll loop, so a
-  # longer pause gets this consumer evicted and rebalanced instead of draining.
+  # Keep well under Kafka's 5-minute max.poll.interval.ms - the wait happens
+  # inside the poll loop.
   maxBackoffSec: "60"
   batchSize: "100"
   resources:
