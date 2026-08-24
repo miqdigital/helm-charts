@@ -121,3 +121,46 @@ agentGuard.secrets.useKeyVault is true.
 {{ include "akto-ai-guardrails-v2.fullname" . }}-agent-guard-secrets
 {{- end }}
 {{- end }}
+
+{{/*
+Broker carrying the malicious-event buffer. Blank falls back to the bundled
+guardrails Kafka.
+*/}}
+{{- define "akto-ai-guardrails-v2.threatBuffer.broker" -}}
+{{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
+{{- .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
+{{- else if .Values.guardrailsKafka.enabled -}}
+{{- include "akto-ai-guardrails-v2.guardrailsKafka.brokerUrl" . -}}
+{{- else -}}
+{{- fail "guardrailsThreatBuffer.enabled=true but no broker - set guardrailsThreatBuffer.kafkaBrokerUrl or enable guardrailsKafka" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Producer env for the malicious-event buffer. Shared by both guardrails-service
+flavours; empty when the buffer is off.
+*/}}
+{{- define "akto-ai-guardrails-v2.threatBuffer.env" -}}
+{{- if .Values.guardrailsThreatBuffer.enabled }}
+- name: GUARDRAILS_THREAT_KAFKA_ENABLED
+  value: "true"
+- name: GUARDRAILS_THREAT_KAFKA_BROKER_URL
+  value: {{ include "akto-ai-guardrails-v2.threatBuffer.broker" . | quote }}
+- name: GUARDRAILS_THREAT_KAFKA_TOPIC
+  value: {{ quote .Values.guardrailsThreatBuffer.kafkaTopic }}
+- name: GUARDRAILS_THREAT_KAFKA_USE_TLS
+  value: {{ quote .Values.guardrailsThreatBuffer.kafkaUseTls }}
+{{- with .Values.guardrailsThreatBuffer.kafkaSaslSecretName }}
+- name: GUARDRAILS_THREAT_KAFKA_USERNAME
+  valueFrom:
+    secretKeyRef:
+      name: {{ . }}
+      key: {{ $.Values.guardrailsThreatBuffer.kafkaSaslUsernameKey }}
+- name: GUARDRAILS_THREAT_KAFKA_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ . }}
+      key: {{ $.Values.guardrailsThreatBuffer.kafkaSaslPasswordKey }}
+{{- end }}
+{{- end }}
+{{- end }}

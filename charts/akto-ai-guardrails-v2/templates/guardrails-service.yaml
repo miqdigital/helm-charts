@@ -107,38 +107,7 @@ spec:
         {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        {{/* Buffered instead of POSTed inline; drained by the threat client. */}}
-        {{- if .Values.guardrailsThreatBuffer.enabled }}
-        - name: GUARDRAILS_THREAT_KAFKA_ENABLED
-          value: "true"
-        {{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl }}
-        - name: GUARDRAILS_THREAT_KAFKA_BROKER_URL
-          value: {{ quote .Values.guardrailsThreatBuffer.kafkaBrokerUrl }}
-        {{- else if .Values.guardrailsKafka.enabled }}
-        - name: GUARDRAILS_THREAT_KAFKA_BROKER_URL
-          value: {{ include "akto-ai-guardrails-v2.guardrailsKafka.brokerUrl" . | quote }}
-        {{- else }}
-        {{- fail "guardrailsThreatBuffer.kafkaBrokerUrl must be set when guardrailsKafka.enabled=false" }}
-        {{- end }}
-        - name: GUARDRAILS_THREAT_KAFKA_TOPIC
-          value: {{ quote .Values.guardrailsThreatBuffer.kafkaTopic }}
-        {{- if .Values.guardrailsThreatBuffer.kafkaUseTls }}
-        - name: GUARDRAILS_THREAT_KAFKA_USE_TLS
-          value: "true"
-        {{- end }}
-        {{- if .Values.guardrailsThreatBuffer.kafkaSaslSecretName }}
-        - name: GUARDRAILS_THREAT_KAFKA_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.guardrailsThreatBuffer.kafkaSaslSecretName }}
-              key: {{ .Values.guardrailsThreatBuffer.kafkaSaslUsernameKey }}
-        - name: GUARDRAILS_THREAT_KAFKA_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.guardrailsThreatBuffer.kafkaSaslSecretName }}
-              key: {{ .Values.guardrailsThreatBuffer.kafkaSaslPasswordKey }}
-        {{- end }}
-        {{- end }}
+        {{- include "akto-ai-guardrails-v2.threatBuffer.env" . | nindent 8 }}
         {{- if .Values.guardrailsService.http.livenessProbe.enabled }}
         livenessProbe:
           httpGet:
@@ -328,38 +297,7 @@ spec:
         {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        {{/* Buffered instead of POSTed inline; drained by the threat client. */}}
-        {{- if .Values.guardrailsThreatBuffer.enabled }}
-        - name: GUARDRAILS_THREAT_KAFKA_ENABLED
-          value: "true"
-        {{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl }}
-        - name: GUARDRAILS_THREAT_KAFKA_BROKER_URL
-          value: {{ quote .Values.guardrailsThreatBuffer.kafkaBrokerUrl }}
-        {{- else if .Values.guardrailsKafka.enabled }}
-        - name: GUARDRAILS_THREAT_KAFKA_BROKER_URL
-          value: {{ include "akto-ai-guardrails-v2.guardrailsKafka.brokerUrl" . | quote }}
-        {{- else }}
-        {{- fail "guardrailsThreatBuffer.kafkaBrokerUrl must be set when guardrailsKafka.enabled=false" }}
-        {{- end }}
-        - name: GUARDRAILS_THREAT_KAFKA_TOPIC
-          value: {{ quote .Values.guardrailsThreatBuffer.kafkaTopic }}
-        {{- if .Values.guardrailsThreatBuffer.kafkaUseTls }}
-        - name: GUARDRAILS_THREAT_KAFKA_USE_TLS
-          value: "true"
-        {{- end }}
-        {{- if .Values.guardrailsThreatBuffer.kafkaSaslSecretName }}
-        - name: GUARDRAILS_THREAT_KAFKA_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.guardrailsThreatBuffer.kafkaSaslSecretName }}
-              key: {{ .Values.guardrailsThreatBuffer.kafkaSaslUsernameKey }}
-        - name: GUARDRAILS_THREAT_KAFKA_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.guardrailsThreatBuffer.kafkaSaslSecretName }}
-              key: {{ .Values.guardrailsThreatBuffer.kafkaSaslPasswordKey }}
-        {{- end }}
-        {{- end }}
+        {{- include "akto-ai-guardrails-v2.threatBuffer.env" . | nindent 8 }}
         resources:
           {{- toYaml .Values.guardrailsService.kafka.resources | nindent 10 }}
         {{- if .Values.guardrailsService.kafka.env.useKeyVaultForDbToken }}
