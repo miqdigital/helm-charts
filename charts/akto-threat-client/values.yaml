@@ -65,6 +65,49 @@ threat_client:
 
   replicas: 1
 
+  # Guardrails malicious-event buffer: the forwarder half.
+  #
+  # guardrails-service (charts/akto-ai-guardrails-v2, guardrailsThreatBuffer)
+  # writes malicious events to Kafka instead of POSTing them inline, so a threat
+  # backend outage delays them rather than losing them. This deploys the
+  # consumer that drains that topic and forwards to the backend, retrying a
+  # failing backend without committing.
+  #
+  # OFF by default, matching the producer side. Enable THIS first - it idles
+  # harmlessly on an empty topic, whereas a producer with no consumer fills one
+  # nothing drains and those events expire at retention.
+  #
+  # Runs as its own deployment, not as a mode of the threat client above:
+  # forwarder mode skips the detector boot path, so folding it in would stop
+  # traffic threat detection.
+  guardrailForwarder:
+    enabled: false
+    replicas: 1
+    # Broker carrying the buffer. Blank resolves to externalKafka.brokerUrl when
+    # useExternalKafka is true, otherwise to this chart's bundled kafka1 through
+    # the threat-client Service. Set explicitly when the guardrails buffer lives
+    # on a different broker than this chart's.
+    kafkaBrokerUrl: ""
+    # Must match guardrailsThreatBuffer.kafkaTopic on the producer side.
+    # Deliberately separate from akto.threat_detection.alerts so a guardrails
+    # backlog cannot starve traffic-detector alerts, and so retention - which is
+    # what buffer depth actually means - can be sized independently.
+    kafkaTopic: "akto.threat_detection.guardrail_events"
+    # Own group, so this lag is measured independently of the detector's.
+    kafkaGroupId: "akto.guardrails_threat_client"
+    # Retry backoff ceiling while the backend is down. Keep well under Kafka's
+    # 5-minute max.poll.interval.ms: the wait happens inside the poll loop, so a
+    # longer pause gets this consumer evicted and rebalanced instead of draining.
+    maxBackoffSec: "60"
+    batchSize: "100"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
   aktoApiSecurityThreatClient:
     env:
       enabled: true

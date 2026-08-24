@@ -1,0 +1,140 @@
+{{- if .Values.threat_client.guardrailForwarder.enabled }}
+{{/*
+Guardrails threat forwarder: drains the malicious-event buffer that
+guardrails-service writes to Kafka and forwards each event to the threat
+backend, retrying a failing backend without committing. A backend outage costs
+latency and duplicate events, never events.
+
+Runs the threat-client image in forwarder mode, as a SEPARATE deployment on
+purpose. GUARDRAILS_THREAT_CLIENT_ENABLED makes Main skip the detector boot
+path entirely, so setting it on the threat-client deployment would silently
+stop traffic threat detection. That deployment is left exactly as it is.
+
+Forwarder mode needs no Mongo, Redis, Postgres or Hyperscan, and skips the
+cyborg feature-access gate, so it keeps draining while cyborg is unreachable.
+Stateless - consumer offsets live in Kafka - so it mounts no volume beyond the
+Key Vault secrets the rest of the chart uses.
+
+Off by default: the producer half lives in the guardrails chart, so enabling
+this without also enabling it there just idles on an empty topic (harmless).
+Enable this side FIRST - a producer with no consumer fills a topic nothing
+drains, and those events expire at retention.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto.fullname" . }}-guardrails-threat-forwarder
+  labels:
+    app: {{ include "akto.fullname" . }}-guardrails-threat-forwarder
+  {{- include "akto.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.threat_client.guardrailForwarder.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "akto.fullname" . }}-guardrails-threat-forwarder
+    {{- include "akto.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "akto.fullname" . }}-guardrails-threat-forwarder
+      {{- include "akto.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: guardrails-threat-forwarder
+        image: {{ .Values.threat_client.aktoApiSecurityThreatClient.image.repository }}{{ if .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}@{{ .Values.threat_client.aktoApiSecurityThreatClient.image.digest }}{{ else }}:{{ .Values.threat_client.aktoApiSecurityThreatClient.image.tag | default .Chart.AppVersion }}{{ end }}
+        imagePullPolicy: {{ .Values.threat_client.aktoApiSecurityThreatClient.imagePullPolicy }}
+        env:
+        - name: GUARDRAILS_THREAT_CLIENT_ENABLED
+          value: "true"
+        - name: RUNTIME_MODE
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.runtimeMode | default "hybrid" }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_BROKER_URL
+          value: {{ include "akto.guardrailForwarder.broker" . | quote }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_TOPIC
+          value: {{ quote .Values.threat_client.guardrailForwarder.kafkaTopic }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_GROUP_ID
+          value: {{ quote .Values.threat_client.guardrailForwarder.kafkaGroupId }}
+        - name: GUARDRAILS_THREAT_CLIENT_MAX_BACKOFF_SEC
+          value: {{ quote .Values.threat_client.guardrailForwarder.maxBackoffSec }}
+        - name: GUARDRAILS_THREAT_CLIENT_BATCH_SIZE
+          value: {{ quote .Values.threat_client.guardrailForwarder.batchSize }}
+        {{/*
+        Same destination and same token the threat client itself uses, so the
+        buffered path lands exactly where the inline POST would have.
+        */}}
+        - name: AKTO_THREAT_PROTECTION_BACKEND_URL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendUrl }}
+        - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
+            {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.databaseAbstractorToken }}
+            {{- else if .Values.threat_client.aktoApiSecurityThreatClient.env.useSecretsForDatabaseAbstractorToken }}
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: {{ (tpl .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-threat-client" (include "akto.fullname" .) ) }}
+            {{- else }}
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorToken }}
+            {{- end }}
+        - name: DATABASE_ABSTRACTOR_SERVICE_URL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorUrl }}
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoLogLevel }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if or .Values.threat_client.kafka1.useSasl (and .Values.threat_client.useExternalKafka .Values.threat_client.externalKafka.username) }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_USERNAME
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+          {{- else }}
+          value: {{ quote .Values.threat_client.externalKafka.username }}
+          {{- end }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_PASSWORD
+          {{- if .Values.keyVault.enabled }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.keyVault.secretName }}
+              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+          {{- else }}
+          value: {{ quote .Values.threat_client.externalKafka.password }}
+          {{- end }}
+        {{- end }}
+        {{- if and .Values.threat_client.useExternalKafka .Values.threat_client.externalKafka.useSsl }}
+        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_USE_TLS
+          value: "true"
+        {{- end }}
+        resources: {{- toYaml .Values.threat_client.guardrailForwarder.resources | nindent 10 }}
+        {{- if .Values.keyVault.enabled }}
+        volumeMounts:
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
+          readOnly: true
+        {{- end }}
+      restartPolicy: Always
+      {{- if .Values.keyVault.enabled }}
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ .Values.keyVault.secretProviderClass | default "akto-keyvault" }}
+      {{- end }}
+{{- end }}

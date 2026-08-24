@@ -98,7 +98,7 @@ guardrailsService:
     replicas: 1
     image:
       repository: aktosecurity/guardrails-service
-      tag: "2.13.9"
+      tag: "2.14.8"
       pullPolicy: IfNotPresent
     service:
       type: LoadBalancer
@@ -177,7 +177,7 @@ guardrailsService:
     replicas: 1
     image:
       repository: aktosecurity/guardrails-service
-      tag: "2.13.9"
+      tag: "2.14.8"
       pullPolicy: IfNotPresent
     env:
       # Defaults to the shared mini-runtime Kafka broker (same hostname

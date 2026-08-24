@@ -305,7 +305,7 @@ threatClient:
 
   image:
     repository: public.ecr.aws/aktosecurity/akto-threat-detection
-    tag: "1.15.7"
+    tag: "1.16.2"
     digest: ""
     pullPolicy: Always
 
@@ -434,7 +434,7 @@ dataIngestion:
 guardrailsService:
   image:
     repository: aktosecurity/guardrails-service
-    tag: "2.14.2"
+    tag: "2.14.8"
     pullPolicy: Always
 
   env:
