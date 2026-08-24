@@ -88,3 +88,74 @@ KAFKA_ADVERTISED_LISTENERS branches in deployment.yaml.
 {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Threat backend token for the guardrail forwarder: Key Vault, then an existing
+Secret, then a plain value - the same order deployment.yaml uses.
+*/}}
+{{- define "akto.guardrailForwarder.backendTokenEnv" -}}
+{{- $env := .Values.threat_client.aktoApiSecurityThreatClient.env -}}
+- name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
+{{- if .Values.keyVault.enabled }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.keyVault.secretName }}
+      key: {{ .Values.keyVault.secretKeys.databaseAbstractorToken }}
+{{- else if $env.useSecretsForDatabaseAbstractorToken }}
+  valueFrom:
+    secretKeyRef:
+      key: token
+      name: {{ (tpl $env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-threat-client" (include "akto.fullname" .)) }}
+{{- else }}
+  value: {{ quote $env.databaseAbstractorToken }}
+{{- end }}
+{{- end }}
+
+{{/*
+Kafka SASL env for the guardrail forwarder. AKTO_KAFKA_* are the names
+KafkaConfig.addAuthenticationFromEnv actually reads - the forwarder is Java, so
+GUARDRAILS_THREAT_CLIENT_* names would be ignored. Credential source mirrors
+deployment.yaml: Key Vault, then an existing Secret, then a plain value.
+*/}}
+{{- define "akto.guardrailForwarder.kafkaAuthEnv" -}}
+{{- $tc := .Values.threat_client -}}
+{{- if or $tc.kafka1.useSasl (and $tc.useExternalKafka $tc.externalKafka.username) }}
+- name: AKTO_KAFKA_SASL_ENABLED
+  value: "true"
+- name: AKTO_KAFKA_SASL_MECHANISM
+  value: {{ if $tc.useExternalKafka }}{{ quote $tc.externalKafka.saslMechanism }}{{ else }}{{ quote $tc.kafka1.env.saslMechanism }}{{ end }}
+{{- if $tc.useExternalKafka }}
+- name: AKTO_KAFKA_SECURITY_PROTOCOL
+  value: {{ quote $tc.externalKafka.securityProtocol }}
+{{- end }}
+{{- if .Values.keyVault.enabled }}
+- name: AKTO_KAFKA_USERNAME
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.keyVault.secretName }}
+      key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
+- name: AKTO_KAFKA_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.keyVault.secretName }}
+      key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
+{{- else if and $tc.kafka1.useSasl $tc.kafka1.env.useSecretsForSaslCredentials }}
+{{- $secret := $tc.kafka1.env.saslCredentialsSecrets.existingSecret | default (printf "%s-threat-client-sasl" (include "akto.fullname" .)) }}
+- name: AKTO_KAFKA_USERNAME
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secret }}
+      key: username
+- name: AKTO_KAFKA_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secret }}
+      key: password
+{{- else }}
+- name: AKTO_KAFKA_USERNAME
+  value: {{ if $tc.useExternalKafka }}{{ quote $tc.externalKafka.username }}{{ else }}{{ quote $tc.kafka1.env.saslUsername }}{{ end }}
+- name: AKTO_KAFKA_PASSWORD
+  value: {{ if $tc.useExternalKafka }}{{ quote $tc.externalKafka.password }}{{ else }}{{ quote $tc.kafka1.env.saslPassword }}{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -60,50 +60,14 @@ spec:
           value: {{ quote .Values.threat_client.guardrailForwarder.batchSize }}
         - name: AKTO_THREAT_PROTECTION_BACKEND_URL
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.backendUrl }}
-        - name: AKTO_THREAT_PROTECTION_BACKEND_TOKEN
-            {{- if .Values.keyVault.enabled }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.keyVault.secretName }}
-              key: {{ .Values.keyVault.secretKeys.databaseAbstractorToken }}
-            {{- else if .Values.threat_client.aktoApiSecurityThreatClient.env.useSecretsForDatabaseAbstractorToken }}
-          valueFrom:
-            secretKeyRef:
-              key: token
-              name: {{ (tpl .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorTokenSecrets.existingSecret .) | default (printf "%s-threat-client" (include "akto.fullname" .) ) }}
-            {{- else }}
-          value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorToken }}
-            {{- end }}
+        {{- include "akto.guardrailForwarder.backendTokenEnv" . | nindent 8 }}
         - name: DATABASE_ABSTRACTOR_SERVICE_URL
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.databaseAbstractorUrl }}
         - name: AKTO_LOG_LEVEL
           value: {{ quote .Values.threat_client.aktoApiSecurityThreatClient.env.aktoLogLevel }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        {{- if or .Values.threat_client.kafka1.useSasl (and .Values.threat_client.useExternalKafka .Values.threat_client.externalKafka.username) }}
-        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_USERNAME
-          {{- if .Values.keyVault.enabled }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.keyVault.secretName }}
-              key: {{ .Values.keyVault.secretKeys.kafkaSaslUsername }}
-          {{- else }}
-          value: {{ quote .Values.threat_client.externalKafka.username }}
-          {{- end }}
-        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_PASSWORD
-          {{- if .Values.keyVault.enabled }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.keyVault.secretName }}
-              key: {{ .Values.keyVault.secretKeys.kafkaSaslPassword }}
-          {{- else }}
-          value: {{ quote .Values.threat_client.externalKafka.password }}
-          {{- end }}
-        {{- end }}
-        {{- if and .Values.threat_client.useExternalKafka .Values.threat_client.externalKafka.useSsl }}
-        - name: GUARDRAILS_THREAT_CLIENT_KAFKA_USE_TLS
-          value: "true"
-        {{- end }}
+        {{- include "akto.guardrailForwarder.kafkaAuthEnv" . | nindent 8 }}
         resources: {{- toYaml .Values.threat_client.guardrailForwarder.resources | nindent 10 }}
         {{- if .Values.keyVault.enabled }}
         volumeMounts:
