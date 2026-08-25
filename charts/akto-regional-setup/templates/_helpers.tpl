@@ -412,15 +412,27 @@ Kafka carrying the malicious-event buffer. Producer and forwarder both resolve
 through this helper so they cannot drift apart - a mismatch would be silent.
 Not the threat client's own broker: that is a sidecar addressed as localhost.
 */}}
+{{/*
+Buffer broker as guardrails-service sees it: the forwarder's Service when the
+broker is bundled there, or the external cluster.
+*/}}
 {{- define "akto-regional-setup.threatBuffer.broker" -}}
 {{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
 {{- .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
-{{- else if .Values.guardrailsKafka.enabled -}}
-{{- include "akto-regional-setup.guardrailsKafka.url" . -}}
-{{- else if .Values.miniRuntime.enabled -}}
-{{- include "akto-regional-setup.miniRuntime.kafkaUrl" . -}}
 {{- else -}}
-{{- fail "guardrailsThreatBuffer.enabled=true but no broker available - set guardrailsThreatBuffer.kafkaBrokerUrl, or enable guardrailsKafka or miniRuntime" -}}
+{{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "guardrails-threat-forwarder")) .Values.guardrailsThreatBuffer.service.kafkaPort -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Same broker as the forwarder sees it - over loopback when it is the sidecar in
+its own pod, so it never round-trips through the Service.
+*/}}
+{{- define "akto-regional-setup.threatBuffer.brokerForForwarder" -}}
+{{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
+{{- .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
+{{- else -}}
+localhost:29092
 {{- end -}}
 {{- end }}
 

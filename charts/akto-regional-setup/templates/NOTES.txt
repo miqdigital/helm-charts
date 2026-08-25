@@ -10,6 +10,7 @@ Components deployed:
 {{ if .Values.anonymizer.enabled }}  [x]{{ else }}  [ ]{{ end }} anonymizer
 {{ if .Values.embedder.enabled }}  [x]{{ else }}  [ ]{{ end }} embedder
 {{ if .Values.guardrailsKafka.enabled }}  [x]{{ else }}  [ ]{{ end }} guardrails-kafka
+{{ if .Values.guardrailsThreatBuffer.enabled }}  [x]{{ else }}  [ ]{{ end }} guardrails-threat-forwarder
 
 Check everything is up:
   kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
