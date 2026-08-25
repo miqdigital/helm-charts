@@ -324,6 +324,10 @@ rather than expecting the operator to paste an FQDN.
 {{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "guardrails-kafka")) .Values.guardrailsKafka.service.kafkaPort -}}
 {{- end }}
 
+{{- define "akto-regional-setup.threatBufferKafka.url" -}}
+{{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "guardrails-threat-kafka")) .Values.guardrailsThreatBuffer.kafka.service.kafkaPort -}}
+{{- end }}
+
 {{- define "akto-regional-setup.agentGuard.url" -}}
 {{- printf "http://%s:%v" (include "akto-regional-setup.svcHost" (list . "agent-guard")) .Values.agentGuard.service.port -}}
 {{- end }}
@@ -415,12 +419,14 @@ Not the threat client's own broker: that is a sidecar addressed as localhost.
 {{- define "akto-regional-setup.threatBuffer.broker" -}}
 {{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
 {{- .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
+{{- else if .Values.guardrailsThreatBuffer.kafka.enabled -}}
+{{- include "akto-regional-setup.threatBufferKafka.url" . -}}
 {{- else if .Values.guardrailsKafka.enabled -}}
 {{- include "akto-regional-setup.guardrailsKafka.url" . -}}
 {{- else if .Values.miniRuntime.enabled -}}
 {{- include "akto-regional-setup.miniRuntime.kafkaUrl" . -}}
 {{- else -}}
-{{- fail "guardrailsThreatBuffer.enabled=true but no broker available - set guardrailsThreatBuffer.kafkaBrokerUrl, or enable guardrailsKafka or miniRuntime" -}}
+{{- fail "guardrailsThreatBuffer.enabled=true but no broker available - enable guardrailsThreatBuffer.kafka, or set guardrailsThreatBuffer.kafkaBrokerUrl" -}}
 {{- end -}}
 {{- end }}
 

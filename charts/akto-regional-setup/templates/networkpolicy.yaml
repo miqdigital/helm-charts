@@ -10,6 +10,8 @@
   (dict "component" "anonymizer"             "enabled" .Values.anonymizer.enabled              "overrides" .Values.networkPolicy.components.anonymizer)
   (dict "component" "embedder"               "enabled" .Values.embedder.enabled                "overrides" .Values.networkPolicy.components.embedder)
   (dict "component" "guardrails-kafka"       "enabled" .Values.guardrailsKafka.enabled         "overrides" .Values.networkPolicy.components.guardrailsKafka)
+  (dict "component" "guardrails-threat-forwarder" "enabled" .Values.guardrailsThreatBuffer.enabled "overrides" .Values.networkPolicy.components.guardrailsThreatForwarder)
+  (dict "component" "guardrails-threat-kafka" "enabled" (and .Values.guardrailsThreatBuffer.enabled .Values.guardrailsThreatBuffer.kafka.enabled) "overrides" .Values.networkPolicy.components.guardrailsThreatKafka)
   (dict "component" "guardrails-redis"       "enabled" .Values.guardrailsRedis.enabled         "overrides" .Values.networkPolicy.components.guardrailsRedis)
 -}}
 {{- range $components }}

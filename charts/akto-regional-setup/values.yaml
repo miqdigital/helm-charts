@@ -142,6 +142,14 @@ networkPolicy:
     threatClient:
       egressAllowlist: []
       egressNamespaces: []
+    # Same reach as threatClient: it runs the same image and talks to the same
+    # central endpoints, just off the buffer instead of the traffic stream.
+    guardrailsThreatForwarder:
+      egressAllowlist: []
+      egressNamespaces: []
+    guardrailsThreatKafka:
+      egressAllowlist: []
+      egressNamespaces: []
     dataIngestion:
       egressAllowlist: []
       egressNamespaces: []
@@ -266,26 +274,55 @@ miniRuntime:
 guardrailsThreatBuffer:
   enabled: true
   replicas: 1
-  # Blank resolves to the guardrails broker if enabled, else mini-runtime.
+  # Blank resolves to the dedicated broker below, else guardrails-kafka, else
+  # mini-runtime.
   kafkaBrokerUrl: ""
   # Separate from akto.threat_detection.alerts so retention can be sized on its
-  # own. Buffer depth IS this topic's retention; bundled brokers default to 5h.
+  # own. Buffer depth IS this topic's retention.
   kafkaTopic: "akto.threat_detection.guardrail_events"
   kafkaGroupId: "akto.guardrails_threat_client"
-  # Keep well under Kafka's 5-minute max.poll.interval.ms - the wait happens
-  # inside the poll loop.
-  maxBackoffSec: "60"
-  batchSize: "100"
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 1Gi
 
+  # Broker dedicated to this buffer, written by guardrails-service and drained
+  # by guardrails-threat-forwarder.
+  #
+  # Its own deployment rather than a sidecar on the forwarder: the buffer has to
+  # outlive a forwarder restart, which is exactly when it is holding events.
+  #
+  # Node-local disk only, no PVC - same as mini-runtime's broker. Buffer depth
+  # is logRetentionHours bounded by the ephemeral-storage limit, and the buffer
+  # does NOT survive the broker pod being replaced or rescheduled.
+  kafka:
+    enabled: true
+    clusterId: "b3f9d1c7-8e5a-4d16-92be-7f4c0a83d215"
+    # The topic is created from kafkaTopic above, so the two cannot drift.
+    topicPartitions: 3
+    # How long central can be unreachable before events start ageing out.
+    logRetentionHours: "24"
+    image:
+      repository: public.ecr.aws/aktosecurity/confluentinc-cp-kafka
+      tag: "8.2.2"
+      pullPolicy: Always
+    service:
+      kafkaPort: 9092
+    # ephemeral-storage limit must stay above the broker's 10Gi
+    # log.retention.bytes, or the kubelet evicts the pod before Kafka trims.
+    resources:
+      requests:
+        cpu: 500m
+        memory: "1Gi"
+        ephemeral-storage: "500Mi"
+      limits:
+        cpu: 1
+        memory: "2Gi"
+        ephemeral-storage: "11Gi"
+
+# Traffic-based threat detection. OFF by default: this chart's threat path is
+# the guardrails buffer above, and that runs as its own deployment
+# (guardrails-threat-forwarder) from the same image. Turn this on only when you
+# also want malicious-traffic detection off the mini-runtime stream - it brings
+# its own bundled broker and its own Service.
 threatClient:
-  enabled: true
+  enabled: false
   replicas: 1
 
   image:
