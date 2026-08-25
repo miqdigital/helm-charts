@@ -324,10 +324,6 @@ rather than expecting the operator to paste an FQDN.
 {{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "guardrails-kafka")) .Values.guardrailsKafka.service.kafkaPort -}}
 {{- end }}
 
-{{- define "akto-regional-setup.threatBufferKafka.url" -}}
-{{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "guardrails-threat-kafka")) .Values.guardrailsThreatBuffer.kafka.service.kafkaPort -}}
-{{- end }}
-
 {{- define "akto-regional-setup.agentGuard.url" -}}
 {{- printf "http://%s:%v" (include "akto-regional-setup.svcHost" (list . "agent-guard")) .Values.agentGuard.service.port -}}
 {{- end }}
@@ -416,17 +412,27 @@ Kafka carrying the malicious-event buffer. Producer and forwarder both resolve
 through this helper so they cannot drift apart - a mismatch would be silent.
 Not the threat client's own broker: that is a sidecar addressed as localhost.
 */}}
+{{/*
+Buffer broker as guardrails-service sees it: the forwarder's Service when the
+broker is bundled there, or the external cluster.
+*/}}
 {{- define "akto-regional-setup.threatBuffer.broker" -}}
 {{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
 {{- .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
-{{- else if .Values.guardrailsThreatBuffer.kafka.enabled -}}
-{{- include "akto-regional-setup.threatBufferKafka.url" . -}}
-{{- else if .Values.guardrailsKafka.enabled -}}
-{{- include "akto-regional-setup.guardrailsKafka.url" . -}}
-{{- else if .Values.miniRuntime.enabled -}}
-{{- include "akto-regional-setup.miniRuntime.kafkaUrl" . -}}
 {{- else -}}
-{{- fail "guardrailsThreatBuffer.enabled=true but no broker available - enable guardrailsThreatBuffer.kafka, or set guardrailsThreatBuffer.kafkaBrokerUrl" -}}
+{{- printf "%s:%v" (include "akto-regional-setup.svcHost" (list . "guardrails-threat-forwarder")) .Values.guardrailsThreatBuffer.service.kafkaPort -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Same broker as the forwarder sees it - over loopback when it is the sidecar in
+its own pod, so it never round-trips through the Service.
+*/}}
+{{- define "akto-regional-setup.threatBuffer.brokerForForwarder" -}}
+{{- if .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
+{{- .Values.guardrailsThreatBuffer.kafkaBrokerUrl -}}
+{{- else -}}
+localhost:29092
 {{- end -}}
 {{- end }}
 

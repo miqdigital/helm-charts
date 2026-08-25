@@ -3,6 +3,10 @@
 Drains the malicious-event buffer and forwards to the central threat backend,
 retrying without committing so an outage delays events instead of losing them.
 
+The buffer broker rides along as a sidecar, same shape as mini-runtime: the
+forwarder reads it over localhost:29092, guardrails-service writes to it
+through this deployment's Service. Node-local disk, no PVC.
+
 A SEPARATE deployment on purpose: GUARDRAILS_THREAT_CLIENT_ENABLED makes Main
 skip the detector boot path, so setting it on threat-client would silently stop
 traffic threat detection.
@@ -52,7 +56,7 @@ spec:
         - name: GUARDRAILS_THREAT_CLIENT_ENABLED
           value: "true"
         - name: GUARDRAILS_THREAT_CLIENT_KAFKA_BROKER_URL
-          value: {{ include "akto-regional-setup.threatBuffer.broker" . | quote }}
+          value: {{ include "akto-regional-setup.threatBuffer.brokerForForwarder" . | quote }}
         - name: GUARDRAILS_THREAT_CLIENT_KAFKA_TOPIC
           value: {{ quote .Values.guardrailsThreatBuffer.kafkaTopic }}
         - name: GUARDRAILS_THREAT_CLIENT_KAFKA_GROUP_ID
@@ -73,7 +77,28 @@ spec:
           {{- toYaml .Values.guardrailsThreatBuffer.resources | nindent 10 }}
         volumeMounts:
           {{- include "akto-regional-setup.keyVault.volumeMounts" . | nindent 8 }}
+      {{- if not .Values.guardrailsThreatBuffer.kafkaBrokerUrl }}
+      {{- include "akto-regional-setup.kafka.brokerContainer" (list . "guardrails-threat-forwarder" (dict "image" .Values.guardrailsThreatBuffer.kafka.image "clusterId" .Values.guardrailsThreatBuffer.kafka.clusterId "createTopics" (printf "%s:%v:1" .Values.guardrailsThreatBuffer.kafkaTopic .Values.guardrailsThreatBuffer.kafka.topicPartitions) "logRetentionHours" .Values.guardrailsThreatBuffer.kafka.logRetentionHours "resources" .Values.guardrailsThreatBuffer.kafka.resources) .Values.guardrailsThreatBuffer.service.kafkaPort) | nindent 6 }}
+      {{- end }}
       volumes:
         {{- include "akto-regional-setup.keyVault.volumes" . | nindent 6 }}
       {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
+{{- if not .Values.guardrailsThreatBuffer.kafkaBrokerUrl }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "guardrails-threat-forwarder") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "guardrails-threat-forwarder") | nindent 4 }}
+spec:
+  type: {{ .Values.guardrailsThreatBuffer.service.type }}
+  selector:
+    {{- include "akto-regional-setup.componentSelectorLabels" (list . "guardrails-threat-forwarder") | nindent 4 }}
+  ports:
+  - name: kafka
+    port: {{ .Values.guardrailsThreatBuffer.service.kafkaPort }}
+    targetPort: {{ .Values.guardrailsThreatBuffer.service.kafkaPort }}
+    protocol: TCP
+{{- end }}
 {{- end }}
