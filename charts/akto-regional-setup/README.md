@@ -205,12 +205,28 @@ default) along with agent-guard/anonymizer, or rendering fails fast with
 --set agentGuard.enabled=false --set anonymizer.enabled=false
 ```
 
+## Node scheduling
+
+**`nodeSelector` defaults to `{workload: cpu}` on every component** — meant to
+keep pods off a GPU nodepool if your cluster has one. This is a real
+label match, not a placeholder: if no node in your cluster is labeled
+`workload=cpu`, every pod stays `Pending` after a fresh install. Check your
+actual node labels first (`kubectl get nodes --show-labels`) and override to
+match, or clear it, before installing:
+
+```bash
+--set nodeSelector.workload=<your-actual-value>
+# or, to disable entirely:
+--set-json nodeSelector='{}'
+```
+
 ## Values reference
 
 `helm show values akto/akto-regional-setup` prints the annotated file.
 
 | Key | Default | Notes |
 |---|---|---|
+| `nodeSelector` | `{workload: cpu}` | See "Node scheduling" above - verify this label exists on your cluster before installing |
 | `central.databaseAbstractorUrl` | `""` → Akto SaaS | Your central install |
 | `central.threatBackendUrl` | `""` → Akto SaaS | Your central install |
 | `global.keyVault.secretProviderClass` | `akto-keyvault` | The only source of every secret in this chart |

@@ -272,12 +272,14 @@ Only rendered for format: pem.
         -new "$AKTO_TLS_TRUSTSTORE_PASSWORD" 2>/dev/null || true
       {{- end }}
 
+      {{- if $t.pem.caKey }}
       keytool -importcert -noprompt \
         -alias akto-db-ca \
         -file /tls-pem/{{ $t.pem.caKey }} \
         -keystore {{ $t.mountPath }}/truststore.p12 \
         -storetype PKCS12 \
         -storepass "$AKTO_TLS_TRUSTSTORE_PASSWORD"
+      {{- end }}
 
       # This container runs as root but the application containers do not
       # (the Akto images run as an unprivileged user). openssl creates the

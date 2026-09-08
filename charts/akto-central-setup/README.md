@@ -148,13 +148,21 @@ reads both exclusively from there, never from `akto-tls-pw` directly.
 ### With PEM files
 
 Set `global.tls.format=pem` and the chart runs an init container that converts
-`tls.crt` / `tls.key` / `ca.crt` into PKCS12 at pod start (`global.tls.enabled`,
+`tls.crt` / `tls.key` into PKCS12 at pod start (`global.tls.enabled`,
 `global.mongo.x509` and `global.tls.secretName=akto-db-certs` are already the
 defaults, so `format` is the only override needed):
 
 ```bash
 --set global.tls.format=pem
 ```
+
+`global.tls.pem.caKey` is empty by default - only set it if you actually have
+a custom CA to import into the truststore. Most managed Mongo/ES endpoints
+(Atlas included) use publicly-trusted server TLS, so the truststore just
+needs the JDK's own CA bundle, which the init container already builds
+regardless. `certKey` and `keyKey` can also point at the *same* file if your
+cert-provider hands you a combined cert+key PEM (the `openssl pkcs12 -export`
+step accepts one file for both `-in` and `-inkey`).
 
 ### Turning mTLS off
 
@@ -175,9 +183,13 @@ required at all - just put a plain username/password connection string in
 
 - `global.mongo.x509=true` only fails the install fast if `global.tls.enabled`
   isn't also set — it does **not** rewrite your connection string. Put
-  `authMechanism=MONGODB-X509&tls=true` directly into the `aktoMongoConn` value
-  you sync into Key Vault; the chart never sees the string in plaintext to
-  append anything to it.
+  `authMechanism=MONGODB-X509&authSource=$external&tls=true` directly into the
+  `aktoMongoConn` value you sync into Key Vault; the chart never sees the
+  string in plaintext to append anything to it. `authSource` has to be
+  exactly `$external` — the Mongo Java driver throws
+  `IllegalArgumentException: Invalid authSource for MONGODB-X509` at startup
+  otherwise (confirmed against a real Atlas cluster), it won't just fall back
+  to a default.
 - Injects the keystore/truststore passwords (from Key Vault, keys
   `tlsKeystorePassword`/`tlsTruststorePassword`) as their own env vars and
   references them from the JVM options with `$(VAR)`, so they are not literals
@@ -303,6 +315,21 @@ connectivity to it first (VPN, VPC/VNet peering, a private endpoint) — that's
 infrastructure this chart doesn't set up. See
 [charts/akto-regional-setup](../akto-regional-setup/README.md).
 
+## Node scheduling
+
+**`nodeSelector` defaults to `{workload: cpu}` on every component** — meant to
+keep pods off a GPU nodepool if your cluster has one. This is a real
+label match, not a placeholder: if no node in your cluster is labeled
+`workload=cpu`, every pod stays `Pending` after a fresh install. Check your
+actual node labels first (`kubectl get nodes --show-labels`) and override to
+match, or clear it, before installing:
+
+```bash
+--set nodeSelector.workload=<your-actual-value>
+# or, to disable entirely:
+--set-json nodeSelector='{}'
+```
+
 ## Values reference
 
 Everything shared lives under `global`; everything else is grouped per
@@ -310,6 +337,7 @@ component. `helm show values akto/akto-central-setup` prints the annotated file.
 
 | Key | Default | Notes |
 |---|---|---|
+| `nodeSelector` | `{workload: cpu}` | See "Node scheduling" above - verify this label exists on your cluster before installing |
 | `global.keyVault.secretProviderClass` | `akto-keyvault` | The only source of every secret in this chart - no plaintext/existingSecret fallback exists |
 | `global.keyVault.secretName` | `akto-secrets` | Kubernetes Secret your SecretProviderClass syncs into |
 | `global.mongo.secretKey` | `aktoMongoConn` | Key inside the above Secret; an empty synced value disables nothing - Mongo is always required |
