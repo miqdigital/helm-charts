@@ -87,7 +87,13 @@ global:
     pem:
       certKey: tls.crt
       keyKey: tls.key
-      caKey: ca.crt
+      # Only import a custom CA into the truststore if you actually have one
+      # to add - Atlas's own server TLS is already publicly-trusted, so a
+      # cert-provider (e.g. an Azure Key Vault-issued client cert synced via
+      # objectType: secret) that never hands you a separate CA file doesn't
+      # need this. Set to "" (the default) to skip the import entirely and
+      # keep the truststore as just the JDK's own CA bundle.
+      caKey: ""
       # Needs both openssl and keytool. Any JDK image works.
       image:
         repository: eclipse-temurin
@@ -132,10 +138,13 @@ global:
     secretKey: aktoMongoConn
     # Authenticate with a client certificate instead of a password. On by
     # default - matches this deployment's Atlas setup. Requires
-    # global.tls.enabled. Put "authMechanism=MONGODB-X509&tls=true" directly
-    # in the connection string you sync into Key Vault - the chart can't
-    # rewrite a value it never sees in plaintext, this flag only makes it
-    # fail fast if global.tls.enabled isn't also set.
+    # global.tls.enabled. Put "authMechanism=MONGODB-X509&authSource=$external&tls=true"
+    # directly in the connection string you sync into Key Vault - the Mongo
+    # Java driver rejects MONGODB-X509 outright if authSource isn't exactly
+    # $external (IllegalArgumentException at startup, confirmed against a
+    # real Atlas cluster) - the chart can't rewrite a value it never sees in
+    # plaintext, this flag only makes it fail fast if global.tls.enabled
+    # isn't also set.
     x509: true
 
   # Elasticsearch backs the dashboard's agentic-session/prompt search and the
