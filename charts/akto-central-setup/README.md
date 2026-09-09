@@ -98,16 +98,17 @@ change is involved** — all three components are JVM services whose Mongo drive
 material from the JVM's own keystore. The chart mounts the certificates and sets
 the standard `javax.net.ssl.*` system properties.
 
-### With ready-made Java keystores (recommended)
+### With PEM files (recommended - default)
 
-Put a PKCS12 keystore and truststore in a Secret named `akto-db-certs` (this
-one holds the certificate *files* - it stays a plain Kubernetes Secret, since
-it's mounted as files, not read as an env var), then sync the passwords that
-protect them into Key Vault as `tlsKeystorePassword` / `tlsTruststorePassword`,
-and the x509-enabled connection string as your `aktoMongoConn` value. This is
-already the chart's default (`global.tls.enabled`/`global.mongo.x509` are
-`true`, `global.tls.secretName` is already `akto-db-certs`), so the install
-itself needs nothing extra:
+Put a plain cert-manager-issued `tls.crt` / `tls.key` pair in a Secret named
+`akto-db-certs` (this one holds the certificate *files* - it stays a plain
+Kubernetes Secret, since it's mounted as files, not read as an env var), then
+sync the passwords that will protect the *generated* Java stores into Key
+Vault as `tlsKeystorePassword` / `tlsTruststorePassword`, and the
+x509-enabled connection string as your `aktoMongoConn` value. This is already
+the chart's default (`global.tls.enabled`/`global.mongo.x509`/
+`global.tls.format` are all already set correctly, `global.tls.secretName` is
+already `akto-db-certs`), so the install itself needs nothing extra:
 
 ```bash
 helm install akto-central-setup akto/akto-central-setup -n akto
@@ -121,7 +122,39 @@ helm install akto-central-setup akto/akto-central-setup -n akto \
   --set global.elasticsearch.mutualTls=true
 ```
 
-cert-manager emits both stores directly:
+A plain cert-manager `Certificate` (no `keystores` block) emits exactly this
+shape:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: akto-db-client, namespace: akto }
+spec:
+  secretName: akto-db-certs
+  commonName: akto-client
+  subject: { organizations: ["AktoClient"] }
+  usages: ["client auth"]
+  issuerRef: { name: your-ca-issuer, kind: ClusterIssuer }
+```
+
+An init container converts `tls.crt` / `tls.key` into a PKCS12
+keystore/truststore at pod start, encrypted with the
+`tlsKeystorePassword` / `tlsTruststorePassword` you sync into Key Vault -
+cert-manager never sees or handles those passwords itself.
+
+`global.tls.pem.caKey` is empty by default - only set it if you actually have
+a custom CA to import into the truststore. Most managed Mongo/ES endpoints
+(Atlas included) use publicly-trusted server TLS, so the truststore just
+needs the JDK's own CA bundle, which the init container already builds
+regardless. `certKey` and `keyKey` can also point at the *same* file if your
+cert-provider hands you a combined cert+key PEM (the `openssl pkcs12 -export`
+step accepts one file for both `-in` and `-inkey`).
+
+### With ready-made Java keystores
+
+Only relevant if your cert-manager `Certificate` sets
+`keystores.pkcs12.create: true` to emit PKCS12 files itself instead of plain
+PEM:
 
 ```yaml
 apiVersion: cert-manager.io/v1
@@ -143,26 +176,12 @@ That Secret carries `keystore.p12` and `truststore.p12`, matching the chart's
 `keystoreKey` / `truststoreKey` defaults. Whatever password you generate for
 `akto-tls-pw` above also needs to be synced into Key Vault under
 `tlsKeystorePassword` (and `tlsTruststorePassword`, if different) - the chart
-reads both exclusively from there, never from `akto-tls-pw` directly.
-
-### With PEM files
-
-Set `global.tls.format=pem` and the chart runs an init container that converts
-`tls.crt` / `tls.key` into PKCS12 at pod start (`global.tls.enabled`,
-`global.mongo.x509` and `global.tls.secretName=akto-db-certs` are already the
-defaults, so `format` is the only override needed):
+reads both exclusively from there, never from `akto-tls-pw` directly. Switch
+the chart to this format explicitly, since PEM is the default:
 
 ```bash
---set global.tls.format=pem
+--set global.tls.format=pkcs12
 ```
-
-`global.tls.pem.caKey` is empty by default - only set it if you actually have
-a custom CA to import into the truststore. Most managed Mongo/ES endpoints
-(Atlas included) use publicly-trusted server TLS, so the truststore just
-needs the JDK's own CA bundle, which the init container already builds
-regardless. `certKey` and `keyKey` can also point at the *same* file if your
-cert-provider hands you a combined cert+key PEM (the `openssl pkcs12 -export`
-step accepts one file for both `-in` and `-inkey`).
 
 ### Turning mTLS off
 
