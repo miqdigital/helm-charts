@@ -73,11 +73,15 @@ global:
     # it's mounted as files, not read as an env var.
     secretName: akto-db-certs
 
-    # pkcs12 | jks -> the Secret already holds Java keystores (recommended;
-    #                 cert-manager can emit these directly).
-    # pem          -> the Secret holds PEM files and an init container converts
-    #                 them to a PKCS12 keystore/truststore at pod start.
-    format: pkcs12
+    # pem          -> the Secret holds PEM files (tls.crt/tls.key) and an init
+    #                 container converts them to a PKCS12 keystore/truststore
+    #                 at pod start. This is what a plain cert-manager
+    #                 Certificate (no keystores block) emits - the default,
+    #                 since that's this deployment's actual setup.
+    # pkcs12 | jks -> the Secret already holds Java keystores directly. Only
+    #                 relevant if your cert-manager Certificate sets
+    #                 keystores.pkcs12.create: true to emit them itself.
+    format: pem
 
     # Keys inside the Secret for the pkcs12/jks formats.
     keystoreKey: keystore.p12
