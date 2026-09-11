@@ -7,6 +7,19 @@ tokens:
     publicKey: ""
     privateKey: ""
 
+secretDelivery:
+  files:
+    privateKey: ""
+    publicKey: ""
+    databaseAbstractorToken: ""
+  existingSecret: ""
+  secretKeys:
+    privateKey: privateKey
+    publicKey: publicKey
+    databaseAbstractorToken: databaseAbstractorToken
+
+podAnnotations: {}
+
 mini_runtime: 
   aktoApiSecurityRuntime:
     env:
