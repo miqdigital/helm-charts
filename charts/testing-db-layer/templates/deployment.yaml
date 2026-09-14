@@ -18,6 +18,10 @@ spec:
     {{- include "akto.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
         app: {{ include "akto.fullname" . }}-testing-db-layer
       {{- include "akto.selectorLabels" . | nindent 8 }}
@@ -34,12 +38,9 @@ spec:
             value: "true"
           - name: USE_HOSTNAME
             value: {{ quote .Values.testing_db_layer.aktoApiSecurityTestingDbLayer.env.useHostName}}
-          - name: POSTGRES_URL
-            value: {{ quote .Values.tokens.env.postgresUrl}}
-          - name: POSTGRES_USER
-            value: {{ quote .Values.tokens.env.postgresUser}}
-          - name: POSTGRES_PASSWORD
-            value: {{ quote .Values.tokens.env.postgresPassword}}
+          {{- include "akto.secretEnv" (dict "root" $ "env" "POSTGRES_URL" "key" "postgresUrl" "value" .Values.tokens.env.postgresUrl) | nindent 10 }}
+          {{- include "akto.secretEnv" (dict "root" $ "env" "POSTGRES_USER" "key" "postgresUser" "value" .Values.tokens.env.postgresUser) | nindent 10 }}
+          {{- include "akto.secretEnv" (dict "root" $ "env" "POSTGRES_PASSWORD" "key" "postgresPassword" "value" .Values.tokens.env.postgresPassword) | nindent 10 }}
           - name: KUBERNETES_CLUSTER_DOMAIN
             value: {{ quote .Values.kubernetesClusterDomain }}
           - name: PROXY_URI

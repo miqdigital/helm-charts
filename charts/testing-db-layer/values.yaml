@@ -6,6 +6,19 @@ tokens:
     proxyUri: ""
     noProxy: ""
 
+secretDelivery:
+  files:
+    postgresUrl: ""
+    postgresUser: ""
+    postgresPassword: ""
+  existingSecret: ""
+  secretKeys:
+    postgresUrl: postgresUrl
+    postgresUser: postgresUser
+    postgresPassword: postgresPassword
+
+podAnnotations: {}
+
 testing_db_layer:
   aktoApiSecurityTestingDbLayer:
     env:
@@ -14,7 +27,7 @@ testing_db_layer:
       aktoInstanceType: DASHBOARD
     image:
       repository: public.ecr.aws/aktosecurity/akto-api-security-testing-db-layer
-      tag: 1.59.3_local
+      tag: 1.74.4_local
     imagePullPolicy: Always
     resources:
       requests:
