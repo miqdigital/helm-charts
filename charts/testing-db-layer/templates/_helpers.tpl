@@ -59,3 +59,21 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{- define "akto.secretEnv" -}}
+{{- $sd := .root.Values.secretDelivery | default dict -}}
+{{- $file := index ($sd.files | default dict) .key | default "" -}}
+{{- if $file -}}
+- name: {{ .env }}_FILE
+  value: {{ quote $file }}
+{{- else if $sd.existingSecret -}}
+- name: {{ .env }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $sd.existingSecret }}
+      key: {{ index ($sd.secretKeys | default dict) .key | default .key }}
+{{- else -}}
+- name: {{ .env }}
+  value: {{ .value | default "" | quote }}
+{{- end -}}
+{{- end -}}
