@@ -103,27 +103,35 @@ Full URL guardrails POSTs blocked/malicious events to.
 
 {{/*
 ------------------------------------------------------------------------------
-Azure Key Vault. The only source of secrets anywhere in this chart - no
-plaintext values.yaml field and no bring-your-own-Secret escape hatch exists
-for any credential below. Every pod that reads one of these also mounts the
-CSI volume below: the Azure Key Vault provider only syncs a SecretProviderClass
-into its Kubernetes Secret when something actually mounts it, so at least one
-consumer per release has to.
+Azure Key Vault. The default source of every secret in this chart: each pod
+that reads one also mounts the CSI volume below, because the Azure Key Vault
+provider only syncs a SecretProviderClass into its Kubernetes Secret when
+something actually mounts it, so at least one consumer per release has to.
+
+Setting global.keyVault.enabled=false emits neither the volume nor its mounts,
+for clusters that have no secrets-store CSI driver at all. Nothing else
+changes: every credential is still read with a secretKeyRef against the Secret
+named by global.keyVault.secretName, which you then create yourself. The
+secretKeyRef does not care what wrote that Secret.
 ------------------------------------------------------------------------------
 */}}
 {{- define "akto-regional-setup.keyVault.volumeMounts" -}}
+{{- if .Values.global.keyVault.enabled -}}
 - name: secrets-store
   mountPath: /mnt/secrets-store
   readOnly: true
 {{- end }}
+{{- end }}
 
 {{- define "akto-regional-setup.keyVault.volumes" -}}
+{{- if .Values.global.keyVault.enabled -}}
 - name: secrets-store
   csi:
     driver: secrets-store.csi.k8s.io
     readOnly: true
     volumeAttributes:
       secretProviderClass: {{ .Values.global.keyVault.secretProviderClass }}
+{{- end }}
 {{- end }}
 
 {{/*

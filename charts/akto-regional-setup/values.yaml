@@ -60,10 +60,22 @@ global:
   imagePullSecrets: []
 
   # ---------------------------------------------------------------------------
-  # Azure Key Vault. The only source of secrets anywhere in this chart - see
-  # the note at the top of this file.
+  # Azure Key Vault. The default source of secrets in this chart - see the note
+  # at the top of this file.
   # ---------------------------------------------------------------------------
   keyVault:
+    # Mount the secrets-store CSI volume that lets the Azure Key Vault provider
+    # sync secretProviderClass into the Kubernetes Secret named below. Leave
+    # this on for the Key Vault setup: the provider only syncs a
+    # SecretProviderClass while something mounts it.
+    #
+    # Set false on a cluster with no secrets-store CSI driver. Every credential
+    # is still read with a secretKeyRef against secretName - you just create
+    # that Secret yourself (kubectl create secret generic, sealed-secrets,
+    # External Secrets Operator, ...) instead of having the CSI driver sync it.
+    # A secretKeyRef does not care what wrote the Secret. Nothing else about
+    # the chart changes, and no SecretProviderClass is needed.
+    enabled: true
     secretProviderClass: akto-keyvault
     secretName: akto-secrets
 

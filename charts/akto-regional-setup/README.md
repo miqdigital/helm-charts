@@ -23,9 +23,12 @@ hand-wiring six URLs between them and central.
 
 Every secret this chart needs - the central auth token, and optionally
 external-Kafka SASL credentials and agent-guard's model-provider API keys -
-comes from Azure Key Vault. There is
-no plaintext-token install path: create a SecretProviderClass first that
-syncs at least a `databaseAbstractorToken` key into a Secret, then:
+is read with a `secretKeyRef` against the Secret named by
+`global.keyVault.secretName`. There is no plaintext-token install path.
+
+By default that Secret is synced from Azure Key Vault: create a
+SecretProviderClass first that syncs at least a `databaseAbstractorToken` key
+into it, then:
 
 ```bash
 helm repo add akto https://akto-api-security.github.io/helm-charts
@@ -35,6 +38,16 @@ helm install akto-regional-setup akto/akto-regional-setup -n akto-regional --cre
   --set central.databaseAbstractorUrl="https://cyborg.example.com" \
   --set central.threatBackendUrl="https://tbs.example.com" \
   --set global.keyVault.secretProviderClass="akto-keyvault"
+```
+
+On a cluster with no secrets-store CSI driver, set `global.keyVault.enabled=false`
+and create that Secret yourself instead - the `secretKeyRef`s do not care what
+wrote it, and no SecretProviderClass is needed:
+
+```bash
+kubectl create secret generic akto-secrets -n akto-regional \
+  --from-literal=databaseAbstractorToken='<token>' \
+  --from-literal=guardrailsRedisPassword='<password>'
 ```
 
 Get those two URLs from the `akto-central-setup` install notes.
@@ -229,7 +242,8 @@ match, or clear it, before installing:
 | `nodeSelector` | `{workload: cpu}` | See "Node scheduling" above - verify this label exists on your cluster before installing |
 | `central.databaseAbstractorUrl` | `""` → Akto SaaS | Your central install |
 | `central.threatBackendUrl` | `""` → Akto SaaS | Your central install |
-| `global.keyVault.secretProviderClass` | `akto-keyvault` | The only source of every secret in this chart |
+| `global.keyVault.enabled` | `true` | Mounts the secrets-store CSI volume. Set `false` to skip it and supply `global.keyVault.secretName` as a Secret you create yourself |
+| `global.keyVault.secretProviderClass` | `akto-keyvault` | The SecretProviderClass the CSI volume mounts; ignored when `global.keyVault.enabled=false` |
 | `central.databaseAbstractorTokenKey` | `databaseAbstractorToken` | Key inside the synced Secret |
 | `global.accountName` / `configName` | `Helios` / `staging` | |
 | `global.aktoLogLevel` | `INFO` | Applied to every component |
