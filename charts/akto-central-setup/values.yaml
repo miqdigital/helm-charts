@@ -1,7 +1,8 @@
 # =============================================================================
 # Akto Central Cloud
 # =============================================================================
-# One chart, three components: dashboard, database-abstractor, threat-backend.
+# One chart: dashboard, database-abstractor and threat-backend, plus optional
+# self-hosted Elasticsearch, Kibana and vLLM (all three off by default).
 #
 # Everything an operator normally has to set lives in `global` below. Every
 # cross-service URL (dashboard -> threat backend, etc.) is computed by the
@@ -41,8 +42,13 @@ global:
   # the note at the top of this file. Point secretProviderClass at a
   # SecretProviderClass (created outside this chart, see README) that syncs:
   #   - aktoMongoConn                      (always required)
-  #   - esHost, esApiKey                   (if using Elasticsearch-backed search)
+  #   - esApiKey                           (if using Elasticsearch-backed search)
+  #   - esHost                             (only if Elasticsearch is external -
+  #                                         ignored when elasticsearch.enabled)
   #   - tlsKeystorePassword, tlsTruststorePassword  (if global.tls.enabled)
+  #   - esElasticPassword                  (if elasticsearch.enabled)
+  #   - kibanaSystemPassword               (if kibana.enabled)
+  #   - hfToken, vllmApiKey                (if vllm.enabled)
   # into the Kubernetes Secret named secretName below.
   # ---------------------------------------------------------------------------
   keyVault:
@@ -151,10 +157,35 @@ global:
     # isn't also set.
     x509: true
 
+    # Names of the two shared (non-account) databases. Leave empty to use the
+    # application's own defaults - "common" and "billing".
+    #
+    # These are stamped onto EVERY component from one place on purpose: the
+    # services sharing this Mongo must all use identical values, and an invalid
+    # name doesn't fail startup - the app logs it and silently falls back to the
+    # default, which would leave one service reading a different database than
+    # the rest. Mongo also rejects names over 63 chars or containing / \ . " $
+    # * < > : | ? or spaces.
+    #
+    # Account databases are named after the account id and are not configurable.
+    dbNames:
+      common: ""
+      billing: ""
+
   # Elasticsearch backs the dashboard's agentic-session/prompt search and the
-  # database-abstractor's query logging. Both esHost and esApiKey come from
-  # global.keyVault - sync an empty string for esHost there to disable
-  # ES-backed features entirely (they no-op when unset).
+  # database-abstractor's query logging.
+  #
+  # esApiKey always comes from global.keyVault. esHost does too UNLESS you let
+  # this chart host Elasticsearch itself (elasticsearch.enabled=true, further
+  # down) - then the chart computes the in-cluster address and esHost in Key
+  # Vault is ignored. Sync an empty string for esHost (external case) or leave
+  # elasticsearch.enabled=false with no esHost synced to disable ES-backed
+  # features entirely - they no-op when unset.
+  #
+  # Akto authenticates to Elasticsearch with an API key and nothing else: it
+  # sends "Authorization: ApiKey <esApiKey>" and supports no other scheme, so
+  # basic auth (elastic/password) will NOT work here no matter how ES is
+  # hosted. The header is only sent when esApiKey is non-empty.
   elasticsearch:
     # ELASTICSEARCH (default) or AZURE_ADX.
     searchBackend: "ELASTICSEARCH"
@@ -259,6 +290,23 @@ networkPolicy:
     threatBackend:
       egressAllowlist: []
       egressNamespaces: []
+    # Only consulted when elasticsearch.enabled / kibana.enabled are on. Both
+    # only ever talk to each other inside the cluster, so the RFC1918 default
+    # already covers them - these are here for parity, not because they need
+    # entries.
+    elasticsearch:
+      egressAllowlist: []
+      egressNamespaces: []
+    kibana:
+      egressAllowlist: []
+      egressNamespaces: []
+    # vLLM downloads model weights from HuggingFace on first start, which is
+    # public internet - if you enable NetworkPolicy enforcement AND vllm, it
+    # needs an egress entry for that or the download hangs. (Not needed once
+    # the weights are cached, but a cache-less restart would hang again.)
+    vllm:
+      egressAllowlist: []
+      egressNamespaces: []
 
 # =============================================================================
 # Dashboard
@@ -269,7 +317,7 @@ dashboard:
 
   image:
     repository: public.ecr.aws/aktosecurity/akto-api-security-dashboard
-    tag: "1.69.2"
+    tag: "1.69.7"
     pullPolicy: Always
 
   service:
@@ -320,7 +368,7 @@ databaseAbstractor:
 
   image:
     repository: public.ecr.aws/aktosecurity/akto-api-security-database-abstractor
-    tag: "1.66.9"
+    tag: "1.70.0"
     pullPolicy: Always
 
   # ClusterIP on purpose - database-abstractor is a backend data-access layer,
@@ -472,7 +520,7 @@ threatBackend:
 
   image:
     repository: aktosecurity/akto-threat-detection-backend
-    tag: "1.15.7"
+    tag: "1.18.0"
     pullPolicy: Always
 
   service:
@@ -533,3 +581,190 @@ threatBackend:
       limits:
         cpu: 2
         memory: "4Gi"
+
+# =============================================================================
+# Elasticsearch (self-hosted)
+# =============================================================================
+# Off by default: existing installs point global.elasticsearch at a managed
+# endpoint (Elastic Cloud/Azure) and must keep doing so untouched. Turn this on
+# to have the chart run Elasticsearch itself instead - the chart then computes
+# ES_HOST for you and the esHost value in Key Vault is ignored.
+#
+# You still have to mint an API key once after the first start and sync it to
+# Key Vault as esApiKey: Elasticsearch can only issue that key once it is
+# running, and Akto accepts no other credential. See the chart README.
+# =============================================================================
+elasticsearch:
+  enabled: false
+
+  image:
+    repository: public.ecr.aws/aktosecurity/elasticsearch
+    tag: "8.19.21"
+    pullPolicy: Always
+
+  service:
+    port: 9200
+
+  # JVM heap. Keep this at roughly half of resources.limits.memory - the rest
+  # is for Lucene's off-heap file cache, which is what actually makes searches
+  # fast.
+  heapSize: "2g"
+
+  # Key inside global.keyVault.secretName holding the `elastic` superuser
+  # password. Akto never authenticates with it - it exists so you can mint the
+  # API key and set Kibana's account up.
+  elasticPasswordKey: esElasticPassword
+
+  persistence:
+    enabled: true
+    size: 50Gi
+    # Empty uses the cluster's default StorageClass.
+    storageClass: ""
+
+  # The Elasticsearch image runs as uid 1000, so the mounted volume has to be
+  # group-writable by it or the node won't start.
+  podSecurityContext:
+    fsGroup: 1000
+
+  resources:
+    requests:
+      cpu: 1
+      memory: "4Gi"
+    limits:
+      cpu: 2
+      memory: "6Gi"
+
+  # Extra env vars appended verbatim, e.g. to tune index defaults.
+  extraEnv: []
+
+# =============================================================================
+# Kibana
+# =============================================================================
+# Purely a console for looking at the Elasticsearch index yourself - Akto never
+# talks to Kibana, so this is optional and has no effect on how Akto runs.
+# Requires elasticsearch.enabled=true.
+# =============================================================================
+kibana:
+  enabled: false
+  replicas: 1
+
+  image:
+    repository: public.ecr.aws/aktosecurity/kibana
+    tag: "8.19.21"
+    pullPolicy: Always
+
+  service:
+    # ClusterIP on purpose - reach it with `kubectl port-forward`. See the
+    # comment in templates/kibana.yaml before changing this.
+    type: ClusterIP
+    port: 5601
+    annotations: {}
+
+  # Key inside global.keyVault.secretName holding the built-in `kibana_system`
+  # user's password (a one-time setup step against Elasticsearch - see README).
+  systemPasswordKey: kibanaSystemPassword
+
+  # Only needed if you put Kibana behind an ingress/load balancer.
+  publicBaseUrl: ""
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: "1Gi"
+    limits:
+      cpu: 1
+      memory: "2Gi"
+
+  extraEnv: []
+
+# =============================================================================
+# vLLM (self-hosted model serving)
+# =============================================================================
+# An OpenAI-compatible endpoint so regional's agent-guard can call a model you
+# host instead of Azure AI Foundry. Off by default.
+#
+# Wiring it up is a two-chart job: this chart serves the model, and the
+# REGIONAL chart's agent-guard is what actually calls it -
+#   agentGuard.env.openaiCompatibleBaseUrl = http://<this service>:8000/v1
+#   agentGuard.env.openaiModel             = <vllm.servedModelName or vllm.model>
+# plus openaiApiKey in the regional Key Vault matching vllm.apiKeyKey here.
+# See the deployment doc - agent-guard is in a different cluster, so it reaches
+# this over the same private connectivity as databaseAbstractorUrl.
+#
+# GPU required: your cluster needs an NVIDIA device plugin installed already,
+# and vllm.nodeSelector has to point at a GPU node pool - this component
+# deliberately does NOT inherit the chart-wide `nodeSelector: {workload: cpu}`.
+# =============================================================================
+vllm:
+  enabled: false
+  replicas: 1
+
+  image:
+    repository: public.ecr.aws/aktosecurity/vllm-openai
+    tag: "gemma4-0505-cu129"
+    pullPolicy: Always
+
+  # REQUIRED when enabled. The image bakes in no model - its entrypoint is
+  # `vllm serve` with no default argument - so this is what gets served, e.g.
+  # a HuggingFace id like "google/gemma-3-4b-it" or a path to weights you
+  # mounted yourself.
+  model: ""
+
+  # Optional --served-model-name. Set this if you want agent-guard's
+  # openaiModel to stay stable while the underlying `model` changes.
+  servedModelName: ""
+
+  # Anything else to pass to `vllm serve`, e.g.
+  #   - "--max-model-len=8192"
+  #   - "--gpu-memory-utilization=0.90"
+  extraArgs: []
+
+  # Key in global.keyVault.secretName holding a HuggingFace token. Gated
+  # models - Gemma included - will not download without one. Read optional:
+  # true, so it can be left unsynced for ungated models.
+  hfTokenKey: hfToken
+
+  # Key in global.keyVault.secretName holding the bearer token vLLM will
+  # require from callers. This must match `openaiApiKey` in the REGIONAL Key
+  # Vault, which is what agent-guard sends. Set to "" to run the endpoint with
+  # no authentication at all (only sane if you fully trust the network path).
+  apiKeyKey: vllmApiKey
+
+  service:
+    type: ClusterIP
+    port: 8000
+    # Never let this get a public IP - see the comment in templates/vllm.yaml.
+    annotations:
+      service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+
+  # Must match your GPU node pool. Left empty the pod lands anywhere, which on
+  # a mixed cluster usually means a CPU node and a permanently Pending pod.
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Weight cache. Without persistence every restart re-downloads the model.
+  persistence:
+    enabled: true
+    size: 100Gi
+    storageClass: ""
+
+  # /dev/shm. vLLM's default 64MB is not enough and the failures it causes
+  # don't look like memory problems.
+  shmSize: 8Gi
+
+  # startupProbe budget = this x 15s. Default allows ~30 min for a cold model
+  # download plus GPU load; raise it for very large models on slow storage.
+  startupFailureThreshold: 120
+
+  resources:
+    requests:
+      cpu: 2
+      memory: "16Gi"
+      nvidia.com/gpu: 1
+    limits:
+      cpu: 8
+      memory: "32Gi"
+      nvidia.com/gpu: 1
+
+  extraEnv: []

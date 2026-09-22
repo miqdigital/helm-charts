@@ -1,0 +1,113 @@
+{{- if .Values.kibana.enabled }}
+{{- if not .Values.elasticsearch.enabled }}
+{{- fail "kibana.enabled=true requires elasticsearch.enabled=true - this Kibana is only wired to the Elasticsearch this chart deploys" }}
+{{- end }}
+# =============================================================================
+# Kibana. Purely an operator's console for looking at the Elasticsearch index -
+# Akto itself never talks to Kibana (nothing in the Akto codebase references
+# it), so this is optional and off by default. Turning it off changes nothing
+# about how Akto works.
+#
+# Kibana authenticates as the built-in `kibana_system` user, NOT with Akto's
+# API key: that account needs privileges an application key shouldn't have, and
+# Kibana can't use an API key for its own startup checks anyway. Its password is
+# a one-time setup step - see the chart README.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "kibana") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "kibana") | nindent 4 }}
+spec:
+  replicas: {{ .Values.kibana.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list . "kibana") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list . "kibana") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: kibana
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.kibana.image.repository }}:{{ .Values.kibana.image.tag }}"
+        imagePullPolicy: {{ .Values.kibana.image.pullPolicy }}
+        env:
+        - name: ELASTICSEARCH_HOSTS
+          value: {{ include "akto-central-setup.elasticsearch.url" . | quote }}
+        - name: ELASTICSEARCH_USERNAME
+          value: "kibana_system"
+        - name: ELASTICSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.keyVault.secretName }}
+              key: {{ .Values.kibana.systemPasswordKey | default "kibanaSystemPassword" }}
+        - name: SERVER_HOST
+          value: "0.0.0.0"
+        {{- with .Values.kibana.publicBaseUrl }}
+        - name: SERVER_PUBLICBASEURL
+          value: {{ . | quote }}
+        {{- end }}
+        {{- with .Values.kibana.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: 5601
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /api/status
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /api/status
+            port: http
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 4
+        resources:
+          {{- toYaml .Values.kibana.resources | nindent 10 }}
+        volumeMounts:
+          {{- include "akto-central-setup.keyVault.volumeMounts" . | nindent 8 }}
+      volumes:
+        {{- include "akto-central-setup.keyVault.volumes" . | nindent 6 }}
+      {{- include "akto-central-setup.scheduling" . | nindent 6 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "kibana") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "kibana") | nindent 4 }}
+  {{- with .Values.kibana.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  # ClusterIP by default: Kibana logs into Elasticsearch over the cluster's
+  # plain-HTTP endpoint, so reach it with `kubectl port-forward` rather than
+  # giving it a public IP. If you do change this to a LoadBalancer, put TLS
+  # termination in front of it.
+  type: {{ .Values.kibana.service.type }}
+  selector:
+    {{- include "akto-central-setup.componentSelectorLabels" (list . "kibana") | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ .Values.kibana.service.port }}
+    targetPort: http
+    protocol: TCP
+{{- end }}

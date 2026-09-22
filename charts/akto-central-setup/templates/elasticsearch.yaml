@@ -1,0 +1,153 @@
+{{- if .Values.elasticsearch.enabled }}
+# =============================================================================
+# Self-hosted Elasticsearch, backing the dashboard's agentic-session/prompt
+# search and the database-abstractor's query logging.
+#
+# Single node on purpose: this index holds agentic-session telemetry for one
+# install, not a search cluster. discovery.type=single-node also makes
+# Elasticsearch skip its bootstrap checks, which is what lets this run on a
+# stock AKS node pool - a multi-node setup would additionally need
+# vm.max_map_count=262144 set on every node (a privileged DaemonSet/sysctl,
+# i.e. infrastructure work outside this chart).
+#
+# Security is ON (Akto authenticates with an API key and nothing else), but
+# HTTP TLS is deliberately OFF - see akto-central-setup.elasticsearch.url in
+# _helpers.tpl for why.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "elasticsearch") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "elasticsearch") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list . "elasticsearch") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list . "elasticsearch") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.elasticsearch.podSecurityContext | nindent 8 }}
+      containers:
+      - name: elasticsearch
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.elasticsearch.image.repository }}:{{ .Values.elasticsearch.image.tag }}"
+        imagePullPolicy: {{ .Values.elasticsearch.image.pullPolicy }}
+        env:
+        - name: discovery.type
+          value: "single-node"
+        - name: xpack.security.enabled
+          value: "true"
+        # Off deliberately - see the note at the top of this file.
+        - name: xpack.security.http.ssl.enabled
+          value: "false"
+        - name: ES_JAVA_OPTS
+          value: "-Xms{{ .Values.elasticsearch.heapSize }} -Xmx{{ .Values.elasticsearch.heapSize }}"
+        # Password for the built-in `elastic` superuser. Akto never uses this -
+        # it exists so an operator can mint the API key once (chart README), and
+        # so Kibana's own account can be set up. Synced from Key Vault like
+        # every other secret in this chart.
+        - name: ELASTIC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.keyVault.secretName }}
+              key: {{ .Values.elasticsearch.elasticPasswordKey | default "esElasticPassword" }}
+        {{- with .Values.elasticsearch.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: 9200
+          protocol: TCP
+        # A single-node cluster never reaches "green" (replica shards stay
+        # unassigned with nowhere to go), so yellow has to count as healthy or
+        # the pod would never pass its probes.
+        startupProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - 'curl -sf -u "elastic:$ELASTIC_PASSWORD" localhost:9200/_cluster/health | grep -qE ''"status":"(green|yellow)"'''
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - 'curl -sf -u "elastic:$ELASTIC_PASSWORD" localhost:9200/_cluster/health | grep -qE ''"status":"(green|yellow)"'''
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 4
+        livenessProbe:
+          tcpSocket:
+            port: http
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 6
+        resources:
+          {{- toYaml .Values.elasticsearch.resources | nindent 10 }}
+        volumeMounts:
+          {{- include "akto-central-setup.keyVault.volumeMounts" . | nindent 8 }}
+        {{- if .Values.elasticsearch.persistence.enabled }}
+        - name: es-data
+          mountPath: /usr/share/elasticsearch/data
+        {{- end }}
+      volumes:
+        {{- include "akto-central-setup.keyVault.volumes" . | nindent 6 }}
+      {{- if .Values.elasticsearch.persistence.enabled }}
+      - name: es-data
+        persistentVolumeClaim:
+          claimName: {{ include "akto-central-setup.componentName" (list . "elasticsearch") }}-data
+      {{- end }}
+      {{- include "akto-central-setup.scheduling" . | nindent 6 }}
+---
+{{- if .Values.elasticsearch.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "elasticsearch") }}-data
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "elasticsearch") | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- with .Values.elasticsearch.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.elasticsearch.persistence.size | quote }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "elasticsearch") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "elasticsearch") | nindent 4 }}
+spec:
+  # ClusterIP on purpose - this endpoint has no transport encryption, so it
+  # must never be reachable from outside the cluster.
+  type: ClusterIP
+  selector:
+    {{- include "akto-central-setup.componentSelectorLabels" (list . "elasticsearch") | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ .Values.elasticsearch.service.port }}
+    targetPort: http
+    protocol: TCP
+{{- end }}

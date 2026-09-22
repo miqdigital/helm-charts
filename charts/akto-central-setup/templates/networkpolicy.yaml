@@ -4,6 +4,9 @@
   (dict "component" "dashboard"            "enabled" .Values.dashboard.enabled          "overrides" .Values.networkPolicy.components.dashboard)
   (dict "component" "database-abstractor"  "enabled" .Values.databaseAbstractor.enabled "overrides" .Values.networkPolicy.components.databaseAbstractor)
   (dict "component" "threat-backend"       "enabled" .Values.threatBackend.enabled      "overrides" .Values.networkPolicy.components.threatBackend)
+  (dict "component" "elasticsearch"        "enabled" .Values.elasticsearch.enabled      "overrides" .Values.networkPolicy.components.elasticsearch)
+  (dict "component" "kibana"               "enabled" .Values.kibana.enabled             "overrides" .Values.networkPolicy.components.kibana)
+  (dict "component" "vllm"                 "enabled" .Values.vllm.enabled               "overrides" .Values.networkPolicy.components.vllm)
 -}}
 {{- $wp := .Values.databaseAbstractor.writePipeline -}}
 {{- if and .Values.databaseAbstractor.enabled $wp.enabled }}
