@@ -124,12 +124,21 @@ Vault - sync an empty string for esHost to disable ES-backed features.
   value: {{ quote .Values.global.elasticsearch.searchBackend }}
 - name: ES_INDEX_AGENT_QUERY
   value: {{ .Values.global.elasticsearch.indexAgentQuery | default "agent_query_logs" | quote }}
+{{- if .Values.elasticsearch.enabled }}
+# Elasticsearch is deployed by this chart, so its address is known here - no
+# reason to make an operator sync a value the chart can compute (same as every
+# other cross-service URL in this chart). Only the API key still comes from Key
+# Vault, since only a human can mint it (see the chart README).
+- name: ES_HOST
+  value: {{ include "akto-central-setup.elasticsearch.url" . | quote }}
+{{- else }}
 - name: ES_HOST
   valueFrom:
     secretKeyRef:
       name: {{ .Values.global.keyVault.secretName }}
       key: {{ .Values.global.elasticsearch.esHostSecretKey | default "esHost" }}
       optional: true
+{{- end }}
 - name: ES_API_KEY
   valueFrom:
     secretKeyRef:
@@ -150,6 +159,31 @@ Env shared by every Akto JVM component.
   value: {{ quote .Values.global.configName }}
 - name: KUBERNETES_CLUSTER_DOMAIN
   value: {{ quote .Values.global.kubernetesClusterDomain }}
+{{- include "akto-central-setup.dbNamesEnv" . }}
+{{- end }}
+
+{{/*
+Custom names for the shared (non-account) Mongo databases.
+
+Deliberately part of commonEnv rather than something each component sets: every
+service sharing a Mongo MUST get identical values, or one of them reads a
+different database than the others. The app falls back to the built-in default
+on an invalid value instead of failing startup, so a typo doesn't crash
+anything - it quietly splits your data across two databases. Emitting these
+from one place is what stops that.
+
+Account databases are named after the account id and are not configurable.
+*/}}
+{{- define "akto-central-setup.dbNamesEnv" -}}
+{{- $db := .Values.global.mongo.dbNames | default dict }}
+{{- with $db.common }}
+- name: AKTO_DB_NAME_COMMON
+  value: {{ quote . }}
+{{- end }}
+{{- with $db.billing }}
+- name: AKTO_DB_NAME_BILLING
+  value: {{ quote . }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -402,4 +436,59 @@ finally falls back to Akto SaaS.
 {{- else -}}
 https://tbs.akto.io
 {{- end -}}
+{{- end }}
+
+{{/*
+------------------------------------------------------------------------------
+Self-hosted Elasticsearch / Kibana (optional, see values.yaml).
+------------------------------------------------------------------------------
+*/}}
+
+{{/*
+In-cluster Elasticsearch address. Plain http on purpose: this endpoint never
+leaves the cluster, and turning on Elasticsearch's HTTP TLS would put a
+self-signed CA in the path of the JVM's ONE truststore - the same truststore
+this chart already builds for Mongo mTLS. Authentication is still enforced
+(API key, see global.elasticsearch.esApiKeySecretKey); it is transport
+encryption that is deliberately left off here.
+*/}}
+{{- define "akto-central-setup.elasticsearch.url" -}}
+{{- printf "http://%s.%s.svc.%s:%v" (include "akto-central-setup.componentName" (list . "elasticsearch")) .Release.Namespace .Values.global.kubernetesClusterDomain .Values.elasticsearch.service.port -}}
+{{- end }}
+
+{{/*
+Key Vault CSI volume only - for pods that need a synced secret but none of the
+Mongo/ES TLS stores (Elasticsearch and Kibana are not JVM Akto services).
+*/}}
+{{- define "akto-central-setup.keyVault.volumeMounts" -}}
+- name: secrets-store
+  mountPath: /mnt/secrets-store
+  readOnly: true
+{{- end }}
+
+{{- define "akto-central-setup.keyVault.volumes" -}}
+- name: secrets-store
+  csi:
+    driver: secrets-store.csi.k8s.io
+    readOnly: true
+    volumeAttributes:
+      secretProviderClass: {{ .Values.global.keyVault.secretProviderClass }}
+{{- end }}
+
+{{/*
+Scheduling block shared by the components that don't spell it out themselves.
+*/}}
+{{- define "akto-central-setup.scheduling" -}}
+{{- with .Values.nodeSelector }}
+nodeSelector:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.affinity }}
+affinity:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.tolerations }}
+tolerations:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- end }}

@@ -1,0 +1,185 @@
+{{- if .Values.vllm.enabled }}
+{{- if not .Values.vllm.model }}
+{{- fail "vllm.enabled=true requires vllm.model - the image's entrypoint is `vllm serve` with no default model baked in, so there is nothing to serve without it" }}
+{{- end }}
+# =============================================================================
+# vLLM - an OpenAI-compatible model server, so regional's agent-guard can use a
+# model you host instead of Azure AI Foundry.
+#
+# This is the only GPU workload in this chart. Two things follow from that:
+#   * it does NOT use the shared scheduling helper - the chart-wide
+#     nodeSelector default is {workload: cpu}, which would pin this to a CPU
+#     pool where it can never get a GPU. Set vllm.nodeSelector/tolerations to
+#     match your GPU node pool instead.
+#   * your cluster needs an NVIDIA device plugin already installed, or the
+#     nvidia.com/gpu resource below is never satisfied and the pod stays
+#     Pending. That's cluster setup, not something this chart does.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "vllm") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "vllm") | nindent 4 }}
+spec:
+  replicas: {{ .Values.vllm.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "akto-central-setup.componentSelectorLabels" (list . "vllm") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-central-setup.componentSelectorLabels" (list . "vllm") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-central-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: vllm
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.vllm.image.repository }}:{{ .Values.vllm.image.tag }}"
+        imagePullPolicy: {{ .Values.vllm.image.pullPolicy }}
+        args:
+          - {{ .Values.vllm.model | quote }}
+          - "--host=0.0.0.0"
+          - "--port=8000"
+          {{- with .Values.vllm.servedModelName }}
+          - "--served-model-name={{ . }}"
+          {{- end }}
+          {{- if .Values.vllm.apiKeyKey }}
+          # vLLM reads VLLM_API_KEY from the environment when --api-key is not
+          # passed a literal; keeping it in env means it never lands in the
+          # rendered manifest or a `ps` listing inside the pod.
+          - "--api-key=$(VLLM_API_KEY)"
+          {{- end }}
+          {{- range .Values.vllm.extraArgs }}
+          - {{ . | quote }}
+          {{- end }}
+        env:
+        {{- if .Values.vllm.hfTokenKey }}
+        # Gated models (Gemma among them) will not download without this.
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.keyVault.secretName }}
+              key: {{ .Values.vllm.hfTokenKey }}
+              optional: true
+        {{- end }}
+        {{- if .Values.vllm.apiKeyKey }}
+        - name: VLLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.keyVault.secretName }}
+              key: {{ .Values.vllm.apiKeyKey }}
+        {{- end }}
+        - name: HF_HOME
+          value: /cache/huggingface
+        {{- with .Values.vllm.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        # First start downloads the weights and loads them onto the GPU, which
+        # can take many minutes - hence a startup probe with a long budget
+        # rather than a liveness probe that would kill it mid-download.
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: {{ .Values.vllm.startupFailureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 4
+        resources:
+          {{- toYaml .Values.vllm.resources | nindent 10 }}
+        volumeMounts:
+          {{- include "akto-central-setup.keyVault.volumeMounts" . | nindent 8 }}
+        # vLLM's default 64MB /dev/shm is not enough once it starts moving
+        # tensors around; it fails in ways that look unrelated.
+        - name: dshm
+          mountPath: /dev/shm
+        - name: model-cache
+          mountPath: /cache/huggingface
+      volumes:
+        {{- include "akto-central-setup.keyVault.volumes" . | nindent 6 }}
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: {{ .Values.vllm.shmSize }}
+      - name: model-cache
+        {{- if .Values.vllm.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "akto-central-setup.componentName" (list . "vllm") }}-cache
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- with .Values.vllm.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.vllm.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.vllm.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- if .Values.vllm.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "vllm") }}-cache
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "vllm") | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- with .Values.vllm.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.vllm.persistence.size | quote }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-central-setup.componentName" (list . "vllm") }}
+  labels:
+    {{- include "akto-central-setup.componentLabels" (list . "vllm") | nindent 4 }}
+  {{- with .Values.vllm.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  # Same rule as database-abstractor/threat-backend: regional's agent-guard
+  # reaches this across clusters over YOUR private connectivity, never a public
+  # IP - the internal-LoadBalancer annotation is baked into the defaults so
+  # changing `type` alone can't expose a model endpoint to the internet.
+  type: {{ .Values.vllm.service.type }}
+  selector:
+    {{- include "akto-central-setup.componentSelectorLabels" (list . "vllm") | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ .Values.vllm.service.port }}
+    targetPort: http
+    protocol: TCP
+{{- end }}
