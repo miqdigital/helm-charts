@@ -867,7 +867,7 @@ lambdaEgressProxy:
   replicas: 1
 
   image:
-    repository: public.ecr.aws/aktosecurity/lambda-egress-proxy:latest
+    repository: public.ecr.aws/aktosecurity/lambda-egress-proxy
     tag: "latest"
     digest: ""
     pullPolicy: Always
@@ -881,11 +881,14 @@ lambdaEgressProxy:
   env:
     # Blank auto-targets the data-ingestion service in this release.
     dataIngestionServiceUrl: ""
-    # Key inside global.keyVault.secretName holding the shared AKTO_AUTHORIZATION
-    # token the Lambda sends on each call - forwarded through to
-    # data-ingestion/guardrails downstream, same as every other credential in
-    # this chart, exclusively via Key Vault.
-    authorizationTokenKey: lambdaEgressProxyAuthToken
+    # Key inside global.keyVault.secretName holding the AKTO_AUTHORIZATION
+    # token the Lambda sends on each call. Blank reuses
+    # central.databaseAbstractorTokenKey, so a stock install needs only that
+    # one token synced. Set this to a separate key to give the Lambda its own
+    # credential - worth doing in production, since a token sitting in a
+    # Lambda's env config is more exposed than one only used in-cluster, and
+    # separate keys can be rotated independently.
+    authorizationTokenKey: ""
     # AKTO_ACCOUNT_ID sent on each call - not a credential, so a plain value
     # here (same treatment as global.accountName), not Key Vault.
     accountId: ""

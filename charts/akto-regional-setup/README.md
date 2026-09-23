@@ -86,6 +86,7 @@ and `kubectl set env` commands this chart exists to eliminate:
 | data-ingestion | `AKTO_KAFKA_BROKER_URL` | the mini-runtime broker in this release |
 | data-ingestion | `GUARDRAILS_SERVICE_URL` | the guardrails service in this release |
 | lambda-egress-proxy | `DATA_INGESTION_SERVICE_URL` | the data-ingestion service in this release |
+| lambda-egress-proxy | `AKTO_AUTHORIZATION` | the Key Vault-synced Secret, via `secretKeyRef` - reuses `central.databaseAbstractorTokenKey` unless `lambdaEgressProxy.env.authorizationTokenKey` names its own key |
 | guardrails | `SCANNER_API_URL` | agent-guard in this release |
 | guardrails | `EMBEDDER_URL` | embedder in this release, when enabled |
 | agent-guard | `ANONYMIZER_URL` | anonymizer in this release |
@@ -231,8 +232,9 @@ match, or clear it, before installing:
 
 ```bash
 --set nodeSelector.workload=<your-actual-value>
-# or, to disable entirely:
---set-json nodeSelector='{}'
+# or, to disable entirely (note: --set-json nodeSelector='{}' does NOT work -
+# Helm merges the empty map into the default, leaving workload: cpu in place):
+--set nodeSelector=null
 ```
 
 ## Values reference
