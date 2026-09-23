@@ -4,6 +4,7 @@
   (dict "component" "mini-runtime"           "enabled" .Values.miniRuntime.enabled             "overrides" .Values.networkPolicy.components.miniRuntime)
   (dict "component" "threat-client"          "enabled" .Values.threatClient.enabled            "overrides" .Values.networkPolicy.components.threatClient)
   (dict "component" "data-ingestion"         "enabled" .Values.dataIngestion.enabled           "overrides" .Values.networkPolicy.components.dataIngestion)
+  (dict "component" "lambda-egress-proxy"    "enabled" .Values.lambdaEgressProxy.enabled       "overrides" .Values.networkPolicy.components.lambdaEgressProxy)
   (dict "component" "guardrails-service-http" "enabled" .Values.guardrailsService.http.enabled  "overrides" .Values.networkPolicy.components.guardrailsService)
   (dict "component" "guardrails-service-kafka" "enabled" .Values.guardrailsService.kafka.enabled "overrides" .Values.networkPolicy.components.guardrailsService)
   (dict "component" "agent-guard"            "enabled" .Values.agentGuard.enabled              "overrides" .Values.networkPolicy.components.agentGuard)

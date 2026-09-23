@@ -181,3 +181,26 @@ spec:
         type: Utilization
         averageUtilization: {{ .Values.embedder.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}
+{{- if and .Values.lambdaEgressProxy.enabled .Values.lambdaEgressProxy.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "lambda-egress-proxy") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "lambda-egress-proxy") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "akto-regional-setup.componentName" (list . "lambda-egress-proxy") }}
+  minReplicas: {{ .Values.lambdaEgressProxy.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.lambdaEgressProxy.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.lambdaEgressProxy.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

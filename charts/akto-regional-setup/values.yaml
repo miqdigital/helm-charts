@@ -162,6 +162,9 @@ networkPolicy:
     dataIngestion:
       egressAllowlist: []
       egressNamespaces: []
+    lambdaEgressProxy:
+      egressAllowlist: []
+      egressNamespaces: []
     guardrailsService:
       egressAllowlist: []
       egressNamespaces: []
@@ -851,3 +854,67 @@ guardrailsRedis:
     limits:
       cpu: 1
       memory: 8Gi
+
+# =============================================================================
+# 10. Lambda Egress Proxy - HTTP front door called directly by an AWS Lambda.
+# =============================================================================
+# Forwards to the data-ingestion service (which itself calls guardrails), so
+# an external Lambda has a single stable endpoint into this pipeline instead
+# of talking to data-ingestion directly.
+# =============================================================================
+lambdaEgressProxy:
+  enabled: false
+  replicas: 1
+
+  image:
+    repository: kuralakto22/lambda-egress-proxy
+    tag: "latest"
+    digest: ""
+    pullPolicy: Always
+
+  service:
+    type: LoadBalancer
+    port: 8081
+    targetPort: 8081
+    annotations: {}
+
+  env:
+    # Blank auto-targets the data-ingestion service in this release.
+    dataIngestionServiceUrl: ""
+    # Key inside global.keyVault.secretName holding the shared AKTO_AUTHORIZATION
+    # token the Lambda sends on each call - forwarded through to
+    # data-ingestion/guardrails downstream, same as every other credential in
+    # this chart, exclusively via Key Vault.
+    authorizationTokenKey: lambdaEgressProxyAuthToken
+    # AKTO_ACCOUNT_ID sent on each call - not a credential, so a plain value
+    # here (same treatment as global.accountName), not Key Vault.
+    accountId: ""
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+
+  livenessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 5
+  readinessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 5
