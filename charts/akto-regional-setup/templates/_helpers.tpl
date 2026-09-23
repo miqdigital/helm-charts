@@ -428,7 +428,7 @@ call, forwarded through to data-ingestion/guardrails downstream.
   valueFrom:
     secretKeyRef:
       name: {{ .Values.global.keyVault.secretName }}
-      key: {{ .Values.lambdaEgressProxy.env.authorizationTokenKey | default "lambdaEgressProxyAuthToken" }}
+      key: {{ .Values.lambdaEgressProxy.env.authorizationTokenKey | default .Values.central.databaseAbstractorTokenKey | default "databaseAbstractorToken" }}
 {{- end }}
 
 {{/*
