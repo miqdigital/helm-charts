@@ -867,7 +867,7 @@ lambdaEgressProxy:
   replicas: 1
 
   image:
-    repository: kuralakto22/lambda-egress-proxy
+    repository: public.ecr.aws/aktosecurity/lambda-egress-proxy:latest
     tag: "latest"
     digest: ""
     pullPolicy: Always
