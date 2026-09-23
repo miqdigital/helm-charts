@@ -893,6 +893,25 @@ lambdaEgressProxy:
     validatePath: /api/http-proxy
     # AKTO_VXLAN_ID sent with each ingested record. Not a credential.
     vxlanId: ""
+
+  # mitmproxy generates a fresh CA whenever its confdir has none, so by
+  # default every pod restart invalidates the certificate clients were told
+  # to trust - and with more than one replica each pod would have a DIFFERENT
+  # CA, so failures become intermittent.
+  #
+  # Set caKey to a key inside global.keyVault.secretName holding a
+  # mitmproxy-ca.pem (CA certificate AND its private key, PEM concatenated).
+  # It is mounted into the confdir, so mitmproxy reuses it instead of
+  # generating one: stable across restarts, identical across replicas.
+  #
+  # Blank keeps the old behaviour - self-generated and ephemeral.
+  #
+  # NOTE: that key is a CA private key. Anyone who can read the Secret can
+  # mint a trusted certificate for ANY domain for every client trusting this
+  # CA, so restrict access to it and rotate by replacing the key.
+  mitmproxy:
+    caKey: ""
+    confdir: /root/.mitmproxy
     # Key inside global.keyVault.secretName holding the AKTO_AUTHORIZATION
     # token the Lambda sends on each call. Blank reuses
     # central.databaseAbstractorTokenKey, so a stock install needs only that

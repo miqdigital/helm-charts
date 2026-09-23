@@ -74,8 +74,25 @@ spec:
           {{- toYaml .Values.lambdaEgressProxy.resources | nindent 10 }}
         volumeMounts:
           {{- include "akto-regional-setup.keyVault.volumeMounts" . | nindent 8 }}
+        {{- if .Values.lambdaEgressProxy.mitmproxy.caKey }}
+        # subPath so only this file lands in the confdir - mounting the whole
+        # directory would make it read-only, and mitmproxy writes its derived
+        # cert exports there at startup.
+        - name: mitmproxy-ca
+          mountPath: {{ printf "%s/mitmproxy-ca.pem" (trimSuffix "/" .Values.lambdaEgressProxy.mitmproxy.confdir) | quote }}
+          subPath: mitmproxy-ca.pem
+          readOnly: true
+        {{- end }}
       volumes:
         {{- include "akto-regional-setup.keyVault.volumes" . | nindent 6 }}
+      {{- if .Values.lambdaEgressProxy.mitmproxy.caKey }}
+      - name: mitmproxy-ca
+        secret:
+          secretName: {{ .Values.global.keyVault.secretName }}
+          items:
+          - key: {{ .Values.lambdaEgressProxy.mitmproxy.caKey }}
+            path: mitmproxy-ca.pem
+      {{- end }}
       {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
 ---
 apiVersion: v1
