@@ -37,12 +37,19 @@ spec:
           value: {{ quote .Values.global.aktoLogLevel }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.global.kubernetesClusterDomain }}
-        # Auto-wired to the data-ingestion service in this release.
-        - name: DATA_INGESTION_SERVICE_URL
-          value: {{ include "akto-regional-setup.lambdaEgressProxy.dataIngestionUrl" . | quote }}
+        # Auto-wired to data-ingestion's /api/http-proxy in this release.
+        # The proxy script reads AKTO_VALIDATE_URL (not DATA_INGESTION_*) and
+        # only appends query params to it, so this must be a full URL
+        # including the path.
+        - name: AKTO_VALIDATE_URL
+          value: {{ include "akto-regional-setup.lambdaEgressProxy.validateUrl" . | quote }}
         {{- include "akto-regional-setup.lambdaEgressProxy.authorizationEnv" . | nindent 8 }}
         {{- with .Values.lambdaEgressProxy.env.accountId }}
         - name: AKTO_ACCOUNT_ID
+          value: {{ quote . }}
+        {{- end }}
+        {{- with .Values.lambdaEgressProxy.env.vxlanId }}
+        - name: AKTO_VXLAN_ID
           value: {{ quote . }}
         {{- end }}
         {{- if .Values.lambdaEgressProxy.livenessProbe.enabled }}

@@ -883,8 +883,16 @@ lambdaEgressProxy:
     annotations: {}
 
   env:
-    # Blank auto-targets the data-ingestion service in this release.
+    # Full AKTO_VALIDATE_URL the proxy POSTs intercepted traffic to. Blank
+    # auto-targets data-ingestion in this release (its /api/http-proxy route -
+    # guardrails-service does NOT serve this path). The proxy script only
+    # appends query params, so an explicit value must include the path.
     dataIngestionServiceUrl: ""
+    # Path appended to the auto-targeted data-ingestion URL above. Ignored
+    # when dataIngestionServiceUrl is set explicitly.
+    validatePath: /api/http-proxy
+    # AKTO_VXLAN_ID sent with each ingested record. Not a credential.
+    vxlanId: ""
     # Key inside global.keyVault.secretName holding the AKTO_AUTHORIZATION
     # token the Lambda sends on each call. Blank reuses
     # central.databaseAbstractorTokenKey, so a stock install needs only that

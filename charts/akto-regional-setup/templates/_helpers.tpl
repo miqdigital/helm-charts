@@ -409,11 +409,11 @@ Guardrails service URL the ingestion service calls when guardrails is on.
 {{/*
 Data-ingestion URL the lambda egress proxy forwards to.
 */}}
-{{- define "akto-regional-setup.lambdaEgressProxy.dataIngestionUrl" -}}
+{{- define "akto-regional-setup.lambdaEgressProxy.validateUrl" -}}
 {{- if .Values.lambdaEgressProxy.env.dataIngestionServiceUrl -}}
 {{- .Values.lambdaEgressProxy.env.dataIngestionServiceUrl -}}
 {{- else if .Values.dataIngestion.enabled -}}
-{{- include "akto-regional-setup.dataIngestion.url" . -}}
+{{- printf "%s%s" (include "akto-regional-setup.dataIngestion.url" .) (.Values.lambdaEgressProxy.env.validatePath | default "/api/http-proxy") -}}
 {{- else -}}
 {{- fail "lambdaEgressProxy.env.dataIngestionServiceUrl must be set when dataIngestion.enabled=false" -}}
 {{- end -}}
