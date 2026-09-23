@@ -50,7 +50,7 @@ Traffic bus (in-cluster Kafka others produce into):
 
 Send traffic to the ingestion service:
 {{- if eq .Values.dataIngestion.service.type "LoadBalancer" }}
-  kubectl get svc -n {{ .Release.Namespace }} {{ include "akto-regional-setup.componentName" (list . "data-ingestion") }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}{.status.loadBalancer.ingress[0].hostname}'
+  kubectl get svc -n {{ .Release.Namespace }} {{ include "akto-regional-setup.componentName" (list . "data-ingestion") }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 {{- else }}
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "akto-regional-setup.componentName" (list . "data-ingestion") }} {{ .Values.dataIngestion.service.port }}:{{ .Values.dataIngestion.service.port }}
 {{- end }}
@@ -59,7 +59,7 @@ Send traffic to the ingestion service:
 
 Send traffic to the lambda egress proxy (point your Lambda's env/config here):
 {{- if eq .Values.lambdaEgressProxy.service.type "LoadBalancer" }}
-  kubectl get svc -n {{ .Release.Namespace }} {{ include "akto-regional-setup.componentName" (list . "lambda-egress-proxy") }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}{.status.loadBalancer.ingress[0].hostname}'
+  kubectl get svc -n {{ .Release.Namespace }} {{ include "akto-regional-setup.componentName" (list . "lambda-egress-proxy") }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 {{- else }}
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "akto-regional-setup.componentName" (list . "lambda-egress-proxy") }} {{ .Values.lambdaEgressProxy.service.port }}:{{ .Values.lambdaEgressProxy.service.port }}
 {{- end }}
