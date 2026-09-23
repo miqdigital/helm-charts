@@ -45,7 +45,24 @@ spec:
         - name: AKTO_ACCOUNT_ID
           value: {{ quote . }}
         {{- end }}
-        {{- include "akto-regional-setup.probes" (list .Values.lambdaEgressProxy .Values.lambdaEgressProxy.service.targetPort) | nindent 8 }}
+        {{- if .Values.lambdaEgressProxy.livenessProbe.enabled }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.lambdaEgressProxy.service.targetPort }}
+          initialDelaySeconds: {{ .Values.lambdaEgressProxy.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.lambdaEgressProxy.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.lambdaEgressProxy.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.lambdaEgressProxy.livenessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.lambdaEgressProxy.readinessProbe.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.lambdaEgressProxy.service.targetPort }}
+          initialDelaySeconds: {{ .Values.lambdaEgressProxy.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.lambdaEgressProxy.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.lambdaEgressProxy.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.lambdaEgressProxy.readinessProbe.failureThreshold }}
+        {{- end }}
         resources:
           {{- toYaml .Values.lambdaEgressProxy.resources | nindent 10 }}
         volumeMounts:

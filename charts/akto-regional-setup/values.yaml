@@ -874,8 +874,12 @@ lambdaEgressProxy:
 
   service:
     type: LoadBalancer
+    # port is what callers (the Lambda's HTTP_PROXY/HTTPS_PROXY) connect to;
+    # targetPort MUST match the port mitmproxy binds inside the container,
+    # which is 3128 - not 8081. A mismatch here fails as connection-refused
+    # with the proxy itself perfectly healthy.
     port: 8081
-    targetPort: 8081
+    targetPort: 3128
     annotations: {}
 
   env:
@@ -907,16 +911,17 @@ lambdaEgressProxy:
     maxReplicas: 3
     targetCPUUtilizationPercentage: 70
 
+  # TCP probes, not HTTP. mitmproxy speaks the proxy protocol on this port
+  # (CONNECT, or absolute-form URLs) and rejects an origin-form "GET /health",
+  # so an httpGet probe reports the proxy as dead while it is serving fine.
   livenessProbe:
-    enabled: true
-    path: /health
+    enabled: false
     initialDelaySeconds: 30
     periodSeconds: 15
     timeoutSeconds: 10
     failureThreshold: 5
   readinessProbe:
-    enabled: true
-    path: /health
+    enabled: false
     initialDelaySeconds: 15
     periodSeconds: 10
     timeoutSeconds: 5
