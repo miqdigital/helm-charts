@@ -402,6 +402,35 @@ Guardrails service URL the ingestion service calls when guardrails is on.
 {{- end -}}
 {{- end }}
 
+{{- define "akto-regional-setup.dataIngestion.url" -}}
+{{- printf "http://%s:%v" (include "akto-regional-setup.svcHost" (list . "data-ingestion")) .Values.dataIngestion.service.port -}}
+{{- end }}
+
+{{/*
+Data-ingestion URL the lambda egress proxy forwards to.
+*/}}
+{{- define "akto-regional-setup.lambdaEgressProxy.validateUrl" -}}
+{{- if .Values.lambdaEgressProxy.env.dataIngestionServiceUrl -}}
+{{- .Values.lambdaEgressProxy.env.dataIngestionServiceUrl -}}
+{{- else if .Values.dataIngestion.enabled -}}
+{{- printf "%s%s" (include "akto-regional-setup.dataIngestion.url" .) (.Values.lambdaEgressProxy.env.validatePath | default "/api/http-proxy") -}}
+{{- else -}}
+{{- fail "lambdaEgressProxy.env.dataIngestionServiceUrl must be set when dataIngestion.enabled=false" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+AKTO_AUTHORIZATION - the shared token the Lambda sends to the proxy on each
+call, forwarded through to data-ingestion/guardrails downstream.
+*/}}
+{{- define "akto-regional-setup.lambdaEgressProxy.authorizationEnv" -}}
+- name: AKTO_AUTHORIZATION
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.global.keyVault.secretName }}
+      key: {{ .Values.lambdaEgressProxy.env.authorizationTokenKey | default .Values.central.databaseAbstractorTokenKey | default "databaseAbstractorToken" }}
+{{- end }}
+
 {{/*
 Where guardrails-service sends scan requests.
 */}}

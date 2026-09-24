@@ -1,0 +1,120 @@
+{{- if .Values.lambdaEgressProxy.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "lambda-egress-proxy") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "lambda-egress-proxy") | nindent 4 }}
+spec:
+  replicas: {{ .Values.lambdaEgressProxy.replicas }}
+  selector:
+    matchLabels:
+      {{- include "akto-regional-setup.componentSelectorLabels" (list . "lambda-egress-proxy") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "akto-regional-setup.componentSelectorLabels" (list . "lambda-egress-proxy") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "akto-regional-setup.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: lambda-egress-proxy
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: {{ include "akto-regional-setup.image" .Values.lambdaEgressProxy.image | quote }}
+        imagePullPolicy: {{ .Values.lambdaEgressProxy.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.lambdaEgressProxy.service.targetPort }}
+          protocol: TCP
+        env:
+        - name: AKTO_LOG_LEVEL
+          value: {{ quote .Values.global.aktoLogLevel }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.global.kubernetesClusterDomain }}
+        # Auto-wired to data-ingestion's /api/http-proxy in this release.
+        # The proxy script reads AKTO_VALIDATE_URL (not DATA_INGESTION_*) and
+        # only appends query params to it, so this must be a full URL
+        # including the path.
+        - name: AKTO_VALIDATE_URL
+          value: {{ include "akto-regional-setup.lambdaEgressProxy.validateUrl" . | quote }}
+        {{- include "akto-regional-setup.lambdaEgressProxy.authorizationEnv" . | nindent 8 }}
+        {{- if .Values.lambdaEgressProxy.livenessProbe.enabled }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.lambdaEgressProxy.service.targetPort }}
+          initialDelaySeconds: {{ .Values.lambdaEgressProxy.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.lambdaEgressProxy.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.lambdaEgressProxy.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.lambdaEgressProxy.livenessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.lambdaEgressProxy.readinessProbe.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.lambdaEgressProxy.service.targetPort }}
+          initialDelaySeconds: {{ .Values.lambdaEgressProxy.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.lambdaEgressProxy.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.lambdaEgressProxy.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.lambdaEgressProxy.readinessProbe.failureThreshold }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.lambdaEgressProxy.resources | nindent 10 }}
+        volumeMounts:
+          {{- include "akto-regional-setup.keyVault.volumeMounts" . | nindent 8 }}
+        {{- if .Values.lambdaEgressProxy.mitmproxy.caKey }}
+        # subPath so only this file lands in the confdir - mounting the whole
+        # directory would make it read-only, and mitmproxy writes its derived
+        # cert exports there at startup.
+        - name: mitmproxy-ca
+          mountPath: {{ printf "%s/mitmproxy-ca.pem" (trimSuffix "/" .Values.lambdaEgressProxy.mitmproxy.confdir) | quote }}
+          subPath: mitmproxy-ca.pem
+          readOnly: true
+        {{- end }}
+      volumes:
+        {{- include "akto-regional-setup.keyVault.volumes" . | nindent 6 }}
+      {{- if .Values.lambdaEgressProxy.mitmproxy.caKey }}
+      - name: mitmproxy-ca
+        secret:
+          secretName: {{ .Values.global.keyVault.secretName }}
+          items:
+          - key: {{ .Values.lambdaEgressProxy.mitmproxy.caKey }}
+            path: mitmproxy-ca.pem
+      {{- end }}
+      {{- include "akto-regional-setup.scheduling" . | nindent 6 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "akto-regional-setup.componentName" (list . "lambda-egress-proxy") }}
+  labels:
+    {{- include "akto-regional-setup.componentLabels" (list . "lambda-egress-proxy") | nindent 4 }}
+{{- $svc := .Values.lambdaEgressProxy.service }}
+{{- $internal := and (eq $svc.type "LoadBalancer") $svc.internal }}
+  {{- if or $svc.annotations $internal }}
+  annotations:
+    {{- if $internal }}
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+    {{- end }}
+    {{- with $svc.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ $svc.type }}
+  {{- with $svc.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    {{- include "akto-regional-setup.componentSelectorLabels" (list . "lambda-egress-proxy") | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ $svc.port }}
+    targetPort: {{ $svc.targetPort }}
+    protocol: TCP
+{{- end }}

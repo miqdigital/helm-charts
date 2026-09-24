@@ -7,6 +7,7 @@ One chart for everything that runs at the edge:
 | `mini-runtime` | Parses mirrored traffic; hosts the traffic Kafka bus | on |
 | `threat-client` | Detects malicious traffic, reports to central | on |
 | `data-ingestion` | HTTP front door traffic is posted to | on |
+| `lambda-egress-proxy` | mitmproxy forward proxy an external AWS Lambda routes egress through; forwards to data-ingestion. See [docs/lambda-egress-proxy.md](docs/lambda-egress-proxy.md) | off |
 | `guardrails-service` (http) | AI guardrails entrypoint | on |
 | `agent-guard` | Runs the guardrail scanners | on |
 | `anonymizer` | PII masking used by agent-guard | on |
@@ -84,6 +85,8 @@ and `kubectl set env` commands this chart exists to eliminate:
 | guardrails | `THREAT_DETECTION_API_URL` | `central.threatBackendUrl` + `/api/threat_detection/record_malicious_event` |
 | data-ingestion | `AKTO_KAFKA_BROKER_URL` | the mini-runtime broker in this release |
 | data-ingestion | `GUARDRAILS_SERVICE_URL` | the guardrails service in this release |
+| lambda-egress-proxy | `AKTO_VALIDATE_URL` | the data-ingestion service in this release + `lambdaEgressProxy.env.validatePath` (`/api/http-proxy`); override wholesale with `lambdaEgressProxy.env.dataIngestionServiceUrl` |
+| lambda-egress-proxy | `AKTO_AUTHORIZATION` | the Key Vault-synced Secret, via `secretKeyRef` - reuses `central.databaseAbstractorTokenKey` unless `lambdaEgressProxy.env.authorizationTokenKey` names its own key |
 | guardrails | `SCANNER_API_URL` | agent-guard in this release |
 | guardrails | `EMBEDDER_URL` | embedder in this release, when enabled |
 | agent-guard | `ANONYMIZER_URL` | anonymizer in this release |
@@ -229,8 +232,9 @@ match, or clear it, before installing:
 
 ```bash
 --set nodeSelector.workload=<your-actual-value>
-# or, to disable entirely:
---set-json nodeSelector='{}'
+# or, to disable entirely (note: --set-json nodeSelector='{}' does NOT work -
+# Helm merges the empty map into the default, leaving workload: cpu in place):
+--set nodeSelector=null
 ```
 
 ## Values reference
@@ -250,6 +254,10 @@ match, or clear it, before installing:
 | `miniRuntime.enabled` | `true` | Hosts the traffic Kafka bus |
 | `threatClient.enabled` | `true` | Own Kafka sidecar by default |
 | `dataIngestion.enabled` | `true` | |
+| `lambdaEgressProxy.enabled` | `false` | Opt-in. Also set `lambdaEgressProxy.mitmproxy.caKey` or the CA is regenerated on every restart |
+| `lambdaEgressProxy.mitmproxy.caKey` | `""` | Secret key holding `mitmproxy-ca.pem` (key + cert). Blank = ephemeral CA |
+| `lambdaEgressProxy.service.internal` | `false` | `true` = private load balancer, callers must be inside the VPC. `false` = internet-facing. Scheme cannot be changed in place - see below |
+| `lambdaEgressProxy.service.loadBalancerSourceRanges` | `[]` | CIDR strings allowed to connect. Empty = anywhere. Set this whenever `internal` is `false` |
 | `guardrailsService.http.enabled` | `true` | |
 | `guardrailsService.kafka.enabled` | `true` | Auto-targets mini-runtime's broker unless `guardrailsKafka.enabled` |
 | `agentGuard.enabled` | `true` | |
