@@ -874,6 +874,11 @@ lambdaEgressProxy:
 
   service:
     type: LoadBalancer
+    # true = private LB, callers must be inside the VPC. Scheme is fixed at
+    # creation - changing this needs the Service deleted and recreated.
+    internal: false
+    # CIDR strings allowed to connect; empty means anywhere.
+    loadBalancerSourceRanges: []
     # port is what callers (the Lambda's HTTP_PROXY/HTTPS_PROXY) connect to;
     # targetPort MUST match the port mitmproxy binds inside the container,
     # which is 3128 - not 8081. A mismatch here fails as connection-refused

@@ -93,17 +93,28 @@ metadata:
   name: {{ include "akto-regional-setup.componentName" (list . "lambda-egress-proxy") }}
   labels:
     {{- include "akto-regional-setup.componentLabels" (list . "lambda-egress-proxy") | nindent 4 }}
-  {{- with .Values.lambdaEgressProxy.service.annotations }}
+{{- $svc := .Values.lambdaEgressProxy.service }}
+{{- $internal := and (eq $svc.type "LoadBalancer") $svc.internal }}
+  {{- if or $svc.annotations $internal }}
   annotations:
+    {{- if $internal }}
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+    {{- end }}
+    {{- with $svc.annotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
-  type: {{ .Values.lambdaEgressProxy.service.type }}
+  type: {{ $svc.type }}
+  {{- with $svc.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     {{- include "akto-regional-setup.componentSelectorLabels" (list . "lambda-egress-proxy") | nindent 4 }}
   ports:
   - name: http
-    port: {{ .Values.lambdaEgressProxy.service.port }}
-    targetPort: {{ .Values.lambdaEgressProxy.service.targetPort }}
+    port: {{ $svc.port }}
+    targetPort: {{ $svc.targetPort }}
     protocol: TCP
 {{- end }}
