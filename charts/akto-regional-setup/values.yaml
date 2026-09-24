@@ -875,54 +875,27 @@ lambdaEgressProxy:
   service:
     type: LoadBalancer
     # true = private LB, callers must be inside the VPC. Scheme is fixed at
-    # creation - changing this needs the Service deleted and recreated.
+    # creation - changing it needs the Service deleted and recreated.
     internal: false
-    # CIDR strings allowed to connect; empty means anywhere.
     loadBalancerSourceRanges: []
-    # port is what callers (the Lambda's HTTP_PROXY/HTTPS_PROXY) connect to;
-    # targetPort MUST match the port mitmproxy binds inside the container,
-    # which is 3128 - not 8081. A mismatch here fails as connection-refused
-    # with the proxy itself perfectly healthy.
     port: 8081
+    # Must match the port mitmproxy binds inside the container.
     targetPort: 3128
     annotations: {}
 
   env:
-    # Full AKTO_VALIDATE_URL the proxy POSTs intercepted traffic to. Blank
-    # auto-targets data-ingestion in this release (its /api/http-proxy route -
-    # guardrails-service does NOT serve this path). The proxy script only
-    # appends query params, so an explicit value must include the path.
+    # Blank auto-targets data-ingestion in this release.
     dataIngestionServiceUrl: ""
-    # Path appended to the auto-targeted data-ingestion URL above. Ignored
-    # when dataIngestionServiceUrl is set explicitly.
     validatePath: /api/http-proxy
+    # Blank reuses central.databaseAbstractorTokenKey.
+    authorizationTokenKey: ""
 
-  # mitmproxy generates a fresh CA whenever its confdir has none, so by
-  # default every pod restart invalidates the certificate clients were told
-  # to trust - and with more than one replica each pod would have a DIFFERENT
-  # CA, so failures become intermittent.
-  #
-  # Set caKey to a key inside global.keyVault.secretName holding a
-  # mitmproxy-ca.pem (CA certificate AND its private key, PEM concatenated).
-  # It is mounted into the confdir, so mitmproxy reuses it instead of
-  # generating one: stable across restarts, identical across replicas.
-  #
-  # Blank keeps the old behaviour - self-generated and ephemeral.
-  #
-  # NOTE: that key is a CA private key. Anyone who can read the Secret can
-  # mint a trusted certificate for ANY domain for every client trusting this
-  # CA, so restrict access to it and rotate by replacing the key.
   mitmproxy:
+    # Secret key holding mitmproxy-ca.pem (cert + private key). Blank means a
+    # fresh CA on every restart, which invalidates what clients were told to
+    # trust.
     caKey: ""
     confdir: /root/.mitmproxy
-    # Key inside global.keyVault.secretName holding the AKTO_AUTHORIZATION
-    # token the Lambda sends on each call. Blank reuses
-    # central.databaseAbstractorTokenKey, so a stock install needs only that
-    # one token synced. Set this to a separate key to give the Lambda its own
-    # credential - worth doing in production, since a token sitting in a
-    # Lambda's env config is more exposed than one only used in-cluster, and
-    # separate keys can be rotated independently.
-    authorizationTokenKey: ""
 
   resources:
     requests:
@@ -938,9 +911,6 @@ lambdaEgressProxy:
     maxReplicas: 3
     targetCPUUtilizationPercentage: 70
 
-  # TCP probes, not HTTP. mitmproxy speaks the proxy protocol on this port
-  # (CONNECT, or absolute-form URLs) and rejects an origin-form "GET /health",
-  # so an httpGet probe reports the proxy as dead while it is serving fine.
   livenessProbe:
     enabled: false
     initialDelaySeconds: 30
