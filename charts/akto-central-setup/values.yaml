@@ -701,7 +701,11 @@ vllm:
 
   image:
     repository: public.ecr.aws/aktosecurity/vllm-openai
-    tag: "gemma4-0505-cu129"
+    # Our own version tag for the upstream build vllm/vllm-openai:gemma4-0505-cu129
+    # (commit 9b4e8393, 2026-05-05) - the build carrying the Gemma support this
+    # deployment needs. It is NOT upstream's v0.30.1 release; don't "upgrade" it
+    # to a stock vLLM version or you lose that support.
+    tag: "0.30.1"
     pullPolicy: Always
 
   # REQUIRED when enabled. The image bakes in no model - its entrypoint is
