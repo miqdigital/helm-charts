@@ -44,14 +44,6 @@ spec:
         - name: AKTO_VALIDATE_URL
           value: {{ include "akto-regional-setup.lambdaEgressProxy.validateUrl" . | quote }}
         {{- include "akto-regional-setup.lambdaEgressProxy.authorizationEnv" . | nindent 8 }}
-        {{- with .Values.lambdaEgressProxy.env.accountId }}
-        - name: AKTO_ACCOUNT_ID
-          value: {{ quote . }}
-        {{- end }}
-        {{- with .Values.lambdaEgressProxy.env.vxlanId }}
-        - name: AKTO_VXLAN_ID
-          value: {{ quote . }}
-        {{- end }}
         {{- if .Values.lambdaEgressProxy.livenessProbe.enabled }}
         livenessProbe:
           tcpSocket:

@@ -891,8 +891,6 @@ lambdaEgressProxy:
     # Path appended to the auto-targeted data-ingestion URL above. Ignored
     # when dataIngestionServiceUrl is set explicitly.
     validatePath: /api/http-proxy
-    # AKTO_VXLAN_ID sent with each ingested record. Not a credential.
-    vxlanId: ""
 
   # mitmproxy generates a fresh CA whenever its confdir has none, so by
   # default every pod restart invalidates the certificate clients were told
@@ -920,9 +918,6 @@ lambdaEgressProxy:
     # Lambda's env config is more exposed than one only used in-cluster, and
     # separate keys can be rotated independently.
     authorizationTokenKey: ""
-    # AKTO_ACCOUNT_ID sent on each call - not a credential, so a plain value
-    # here (same treatment as global.accountName), not Key Vault.
-    accountId: ""
 
   resources:
     requests:
