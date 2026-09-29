@@ -100,6 +100,10 @@ into Key Vault, since the chart never sees the plaintext string to rewrite it.
 {{- end }}
 - name: AKTO_MONGO_CONN
   {{- include "akto-central-setup.mongoSecretKeyRef" . | nindent 2 }}
+{{- with .Values.global.mongo.dbNamePrefix }}
+- name: AKTO_DB_NAME_PREFIX
+  value: {{ quote . }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -159,31 +163,6 @@ Env shared by every Akto JVM component.
   value: {{ quote .Values.global.configName }}
 - name: KUBERNETES_CLUSTER_DOMAIN
   value: {{ quote .Values.global.kubernetesClusterDomain }}
-{{- include "akto-central-setup.dbNamesEnv" . }}
-{{- end }}
-
-{{/*
-Custom names for the shared (non-account) Mongo databases.
-
-Deliberately part of commonEnv rather than something each component sets: every
-service sharing a Mongo MUST get identical values, or one of them reads a
-different database than the others. The app falls back to the built-in default
-on an invalid value instead of failing startup, so a typo doesn't crash
-anything - it quietly splits your data across two databases. Emitting these
-from one place is what stops that.
-
-Account databases are named after the account id and are not configurable.
-*/}}
-{{- define "akto-central-setup.dbNamesEnv" -}}
-{{- $db := .Values.global.mongo.dbNames | default dict }}
-{{- with $db.common }}
-- name: AKTO_DB_NAME_COMMON
-  value: {{ quote . }}
-{{- end }}
-{{- with $db.billing }}
-- name: AKTO_DB_NAME_BILLING
-  value: {{ quote . }}
-{{- end }}
 {{- end }}
 
 {{/*

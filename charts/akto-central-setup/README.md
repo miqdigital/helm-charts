@@ -249,58 +249,29 @@ On the MongoDB side, a successful connection logs:
 > Secret volumes). A `0600` root-owned keystore surfaces as the JVM's unhelpful
 > `Unable to create default SSLContext` rather than a permission error.
 
-## Renaming the shared Mongo databases
+## Prefixed Mongo database names
 
-Akto keeps two shared, non-account databases — `common` and `billing`. Both
-names are configurable:
+For managed Mongo platforms that create databases themselves and name them
+`<prefix><name>` (for example `st_` in staging, `prod_` in production), set the
+prefix once:
 
 ```bash
---set global.mongo.dbNames.common=akto_common \
---set global.mongo.dbNames.billing=akto_billing
+--set global.mongo.dbNamePrefix=st_
 ```
 
-Leave them empty (the default) and the applications use `common`/`billing`.
-Account databases are named after the account id and are **not** configurable.
+Akto then uses `st_common`, `st_billing` and `st_<accountId>` (e.g.
+`st_1000000`) for everything. Leave it empty (the default) for the plain names.
 
-The chart stamps these onto **every** component from a single place, and that
-is deliberate — see the warning below.
-
-### Two things to get right
-
-**Every component sharing a Mongo must get identical values.** That's why this
-lives in `global` and is emitted from `commonEnv`, rather than being set
-per-component. Setting it in one place is what makes the values consistent by
-construction.
-
-**An invalid name does not fail the install — it silently splits your data.**
-Mongo rejects names over 63 characters or containing `/ \ . " $ * < > : | ?` or
-spaces. Given one, the application logs an error and falls back to the built-in
-default, then keeps running:
-
-```
-ERROR com.akto.util.DbNames - Ignoring env var AKTO_DB_NAME_COMMON:
-database name contains illegal character '.'. Falling back to 'common'
-```
-
-Verified behaviour: a pod given `bad.name` carried on writing to `common` while
-the previously-configured database still held the original collections — the
-data ends up in two places, and only a log line says so. On a valid value you
-get the matching confirmation instead:
-
-```
-INFO com.akto.util.DbNames - Using database name 'akto_common' from
-AKTO_DB_NAME_COMMON (default 'common')
-```
-
-Check for that line on **every** component after enabling this.
-
-### Minimum image versions
-
-This is only honoured by builds from 2026-09-22 onward. Older images ignore the
-variables entirely and keep using `common`/`billing` — which, if only some of
-your components are new enough, produces exactly the split described above.
-Bump all three together, and confirm each one logs the `Using database name`
-line.
+- It is emitted with `AKTO_MONGO_CONN`, so every component that talks to Mongo
+  gets the same value - dashboard, database-abstractor (including the write
+  pipeline) and threat-backend.
+- An invalid prefix (illegal characters such as `. / $` or spaces, or longer than
+  40 characters) fails startup instead of silently using unprefixed databases.
+- The databases must exist before Akto starts. On-prem uses a single account,
+  so that is `<prefix>common`, `<prefix>billing` and `<prefix>1000000`.
+- Needs dashboard `1.70.2`, database-abstractor `1.70.3` and threat-backend
+  `1.18.4` or newer. Older images ignore the prefix, so run all three at these
+  versions together or they will read and write different databases.
 
 ## Self-hosted Elasticsearch and Kibana
 
@@ -570,11 +541,11 @@ component. `helm show values akto/akto-central-setup` prints the annotated file.
 | `vllm.nodeSelector` | `{}` | Must point at a GPU pool; deliberately does NOT inherit the chart-wide `workload: cpu` |
 | `vllm.hfTokenKey` | `hfToken` | Key Vault key for a HuggingFace token - gated models (Gemma) need it |
 | `vllm.apiKeyKey` | `vllmApiKey` | Bearer token vLLM requires; must match `openaiApiKey` in the *regional* Key Vault |
-| `global.mongo.dbNames.common` | `""` (app default `common`) | Renames the shared `common` database; an invalid value silently falls back - see above |
-| `global.mongo.dbNames.billing` | `""` (app default `billing`) | Renames the shared `billing` database |
+| `global.mongo.dbNamePrefix` | `""` | Prefix for every Akto database, e.g. `st_` - see above |
 | `global.accountName` / `configName` | `Helios` / `staging` | Stamped on every component |
 | `dashboard.enabled` | `true` | |
 | `dashboard.service.type` | `LoadBalancer` | |
+| `dashboard.env.testRunStatusPollIntervalSeconds` | `""` (app default `2`) | Seconds between the UI's active test run status polls |
 | `databaseAbstractor.enabled` | `true` | |
 | `databaseAbstractor.autoscaling.enabled` | `true` | HPA on CPU |
 | `threatBackend.enabled` | `true` | |

@@ -157,20 +157,14 @@ global:
     # isn't also set.
     x509: true
 
-    # Names of the two shared (non-account) databases. Leave empty to use the
-    # application's own defaults - "common" and "billing".
+    # Prefix for every Akto database, for managed Mongo platforms that create
+    # databases themselves as "<prefix><name>" - e.g. "st_" makes Akto use
+    # st_common, st_billing and st_<accountId>. Leave empty for the plain names.
     #
-    # These are stamped onto EVERY component from one place on purpose: the
-    # services sharing this Mongo must all use identical values, and an invalid
-    # name doesn't fail startup - the app logs it and silently falls back to the
-    # default, which would leave one service reading a different database than
-    # the rest. Mongo also rejects names over 63 chars or containing / \ . " $
-    # * < > : | ? or spaces.
-    #
-    # Account databases are named after the account id and are not configurable.
-    dbNames:
-      common: ""
-      billing: ""
+    # Set once here and applied to every component that talks to Mongo, since
+    # they must all agree. An invalid prefix fails startup. The databases must
+    # exist before Akto starts.
+    dbNamePrefix: ""
 
   # Elasticsearch backs the dashboard's agentic-session/prompt search and the
   # database-abstractor's query logging.
@@ -317,7 +311,7 @@ dashboard:
 
   image:
     repository: public.ecr.aws/aktosecurity/akto-api-security-dashboard
-    tag: "1.69.7"
+    tag: "1.70.2"
     pullPolicy: Always
 
   service:
@@ -344,6 +338,9 @@ dashboard:
     # Leave blank to auto-target the threat backend deployed by this chart.
     # Set it only to point at an external/SaaS threat backend.
     threatDetectionBackendUrl: ""
+    # Seconds between the UI's active test run status polls. Empty keeps the
+    # default of 2.
+    testRunStatusPollIntervalSeconds: ""
 
   resources:
     requests:
@@ -368,7 +365,7 @@ databaseAbstractor:
 
   image:
     repository: public.ecr.aws/aktosecurity/akto-api-security-database-abstractor
-    tag: "1.70.0"
+    tag: "1.70.3"
     pullPolicy: Always
 
   # ClusterIP on purpose - database-abstractor is a backend data-access layer,
@@ -520,7 +517,7 @@ threatBackend:
 
   image:
     repository: aktosecurity/akto-threat-detection-backend
-    tag: "1.18.0"
+    tag: "1.18.4"
     pullPolicy: Always
 
   service:

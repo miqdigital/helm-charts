@@ -70,6 +70,10 @@ spec:
         # Auto-wired to the threat backend in this release unless overridden.
         - name: THREAT_DETECTION_BACKEND_URL
           value: {{ include "akto-central-setup.dashboard.threatBackendUrl" . | quote }}
+        {{- with .Values.dashboard.env.testRunStatusPollIntervalSeconds }}
+        - name: AKTO_TEST_RUN_STATUS_POLL_INTERVAL_SECONDS
+          value: {{ quote . }}
+        {{- end }}
         {{- include "akto-central-setup.mongoEnv" . | nindent 8 }}
         {{- include "akto-central-setup.elasticsearchEnv" . | nindent 8 }}
         {{- include "akto-central-setup.tls.env" . | nindent 8 }}
